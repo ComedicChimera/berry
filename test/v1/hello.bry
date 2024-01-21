@@ -1,0 +1,34 @@
+// Useful API Functions
+@[extern, callconv("win64")]
+func ExitProcess(exit_code: u32);
+
+@[extern, callconv("win64")]
+func GetStdHandle(n_handle: u32) *u8;
+
+@[extern, callconv("win64")]
+func WriteConsoleA(h: *u8, buff: *u8, n_to_write: i32, n_written: *i32, reserved: *u8) bool;
+
+// Berry Runtime
+@abientry
+func __LibBerry_Start() {
+    main();
+
+    ExitProcess(0);
+}
+
+// User Code
+let stdout: *u8 = GetStdHandle(-11 as u32);
+
+func putc(c: i32) {
+    let b = c as u8;
+    WriteConsoleA(stdout, &b, 1, null, null);
+}
+
+func main() {
+    putc('H');
+    putc('e');
+    putc('l');
+    putc('l');
+    putc('o');
+    putc('\n');
+}

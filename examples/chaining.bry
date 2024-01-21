@@ -1,0 +1,55 @@
+import math
+
+interf Chain[T] {
+    func Test() Option[T];
+
+    func Fail<R>() Chain[R];
+}
+
+enum Option[T] {
+    Some(T);
+    None;
+}
+
+interf[T] for Option[T] is Chain[T] {
+    func Test() Option[T] = self;
+
+    func Fail[R]() Chain[R] = .None;
+}
+
+enum Result[T] {
+    Ok(T);
+    Err(Error);
+}
+
+interf[T] for Result[T] is Chain[T] {
+    func Test() Option[T] =
+        match self {
+            Ok(x) => Some(x),
+            Err(_) => None
+        };
+
+    func Fail[R]() Chain[R] = 
+        match self {
+            Ok(_) => unreachable(),
+            Err(e) => Err(e)
+        };
+}
+
+func SafeSqrt(n: f64) Option[f64] {
+    if n < 0 {
+        return None
+    }
+
+    return Some(math.Sqrt(n))
+}
+
+func QuadraticFormula(a, b, c: f64) Option[(f64, f64)] {
+    let delta = b ** 2 - 4 * a * c;
+    let sd <- SafeSqrt(delta);
+
+    return (
+        (-b + sd) / (2 * a),
+        (-b - sd) / (2 * a)
+    );
+}
