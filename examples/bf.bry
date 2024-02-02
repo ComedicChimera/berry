@@ -1,0 +1,25 @@
+import io.fs;
+import io.std;
+import io;
+import os;
+
+func run(file_name: string) Result[()] {
+    let file <- fs.Open(file_name);
+    defer file.Close();
+
+    // -- snip --
+}
+
+func main() {
+    if os.args.Len() != 2 {
+        std.Errorln("error: usage: bf <filename>");
+        os.Exit(1);
+    }
+
+    let file_name = os.args[1];
+
+    if run(file_name) match .Err(e) {
+        std.Errorf("error: %v\n", e);
+        os.Exit(1)
+    }
+}

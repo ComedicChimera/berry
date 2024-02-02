@@ -11,7 +11,7 @@ enum Option[T] {
     None;
 }
 
-interf[T] for Option[T] is Chain[T] {
+interf for Option[T] is Chain[T] {
     func Test() Option[T] = self;
 
     func Fail[R]() Chain[R] = .None;
@@ -22,7 +22,7 @@ enum Result[T] {
     Err(Error);
 }
 
-interf[T] for Result[T] is Chain[T] {
+interf for Result[T] is Chain[T] {
     func Test() Option[T] =
         match self {
             Ok(x) => Some(x),

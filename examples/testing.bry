@@ -1,0 +1,14 @@
+func IsEven(n: int) bool = n % 2 == 0;
+
+#test_suite "is_even" {
+    #test_object t
+
+    #test "even" {
+        t.AssertEqual(IsEven(4), true);
+    }
+
+    #test "odd" {
+        t.AssertEqual(IsEven(3), false);
+
+    }
+}

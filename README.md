@@ -1,3 +1,1 @@
-# Berry
-
-The Berry Programming Language.
+# The Berry Programming Language

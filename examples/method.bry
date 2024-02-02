@@ -1,0 +1,35 @@
+// Syntax Proposals
+struct List[T] {
+    // ...
+}
+
+// TODO: pick which style to go with...
+
+// Option A: "Group Style"
+func List[T].Foo() {
+    // Regular method
+
+    // Members are accessible w/o need for explicit self-reference.
+}
+
+static func List[T].StaticFoo() {
+    // Static method
+}
+
+func List[T = int].Foo() {
+    // Generic Specialization
+}
+
+// Option B: "Interface Style"
+interf for List[T] {
+    // Regular Method
+    func Foo();
+
+    // Static method
+    static func Foo();
+}
+
+interf for List[T = int] {
+    // Specialization
+    func Foo();
+}
