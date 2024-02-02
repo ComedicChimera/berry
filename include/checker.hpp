@@ -45,7 +45,7 @@ public:
     /* ---------------------------------------------------------------------- */
 
     template<typename ...Args>
-    inline void ReportError(const TextSpan& span, const std::string& fmt, Args&&... args) {
+    inline void Error(const TextSpan& span, const std::string& fmt, Args&&... args) {
         ReportCompileError(
             src_file.parent->name,
             src_file.display_path,
@@ -57,7 +57,7 @@ public:
 
     template<typename ...Args>
     inline void Fatal(const TextSpan& span, const std::string& fmt, Args&&... args) {
-        ReportError(span, fmt, args...);
+        Error(span, fmt, args...);
 
         throw CompileError{};
     }
