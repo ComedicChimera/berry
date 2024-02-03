@@ -43,7 +43,7 @@ void Parser::defineGlobal(Symbol* symbol) {
     if (it == src_file.parent->symbol_table.end()) {
         src_file.parent->symbol_table[symbol->name] = symbol;
     } else {
-        reportError(
+        error(
             symbol->span, 
             "symbol named {} defined multiple times in same scope", 
             symbol->name

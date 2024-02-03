@@ -241,7 +241,7 @@ std::unique_ptr<AstExpr> Parser::parseAtom() {
         try {
             value = convertUint(prev.value);
         } catch (std::out_of_range&) {
-            reportError(prev.span, "integer literal is too big to be represented by any integer type");
+            error(prev.span, "integer literal is too big to be represented by any integer type");
         }
 
         return std::make_unique<AstIntLit>(prev.span, value);
@@ -253,7 +253,7 @@ std::unique_ptr<AstExpr> Parser::parseAtom() {
         try {
             value = std::stod(prev.value);
         } catch (std::out_of_range&) {
-            reportError(prev.span, "float literal cannot be accurately represented by any float type");
+            error(prev.span, "float literal cannot be accurately represented by any float type");
         }
 
         return std::make_unique<AstFloatLit>(prev.span, value);

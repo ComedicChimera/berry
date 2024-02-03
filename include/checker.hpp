@@ -51,40 +51,40 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    // MustEqual asserts that a and b are equal.
-    void MustEqual(const TextSpan& span, Type* a, Type* b);
+    // mustEqual asserts that a and b are equal.
+    void mustEqual(const TextSpan& span, Type* a, Type* b);
 
-    // MustSubType asserts that sub is a subtype of super.
-    void MustSubType(const TextSpan& span, Type* sub, Type* super);
+    // mustSubType asserts that sub is a subtype of super.
+    void mustSubType(const TextSpan& span, Type* sub, Type* super);
 
-    // MustCast asserts that src can be cast to dest.
-    void MustCast(const TextSpan& span, Type* src, Type* dest);
+    // mustCast asserts that src can be cast to dest.
+    void mustCast(const TextSpan& span, Type* src, Type* dest);
 
-    // MustNumberType asserts that type is a number type.
-    void MustNumberType(const TextSpan& span, Type* type);
+    // mustNumberType asserts that type is a number type.
+    void mustNumberType(const TextSpan& span, Type* type);
 
-    // MustIntType asserts that type is an integer type.
-    void MustIntType(const TextSpan& span, Type* type);
+    // mustIntType asserts that type is an integer type.
+    void mustIntType(const TextSpan& span, Type* type);
     
-    // NewUntyped creates a new untyped of kind kind.
-    Untyped* NewUntyped(UntypedKind kind);
+    // newUntyped creates a new untyped of kind kind.
+    Untyped* newUntyped(UntypedKind kind);
 
-    inline void FinishExpr() { 
+    inline void finishExpr() { 
         tctx.InferAll(); 
         tctx.Clear();
     }
 
     /* ---------------------------------------------------------------------- */
 
-    Symbol* Lookup(const std::string& name, const TextSpan& span);
-    void DeclareLocal(Symbol* sym);
-    void PushScope();
-    void PopScope();
+    Symbol* lookup(const std::string& name, const TextSpan& span);
+    void declareLocal(Symbol* sym);
+    void pushScope();
+    void popScope();
     
     /* ---------------------------------------------------------------------- */
 
     template<typename ...Args>
-    inline void Error(const TextSpan& span, const std::string& fmt, Args&&... args) {
+    inline void error(const TextSpan& span, const std::string& fmt, Args&&... args) {
         ReportCompileError(
             src_file.parent->name,
             src_file.display_path,
@@ -95,8 +95,8 @@ private:
     }
 
     template<typename ...Args>
-    inline void Fatal(const TextSpan& span, const std::string& fmt, Args&&... args) {
-        Error(span, fmt, args...);
+    inline void fatal(const TextSpan& span, const std::string& fmt, Args&&... args) {
+        error(span, fmt, args...);
 
         throw CompileError{};
     }

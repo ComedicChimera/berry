@@ -6,7 +6,7 @@ void Checker::Visit(AstBlock& node) {
         visitNode(stmt);
 
         if (stmt->Flags() & ASTF_EXPR) {
-            FinishExpr();    
+            finishExpr();    
         }
     }
 }

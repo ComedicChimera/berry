@@ -7,11 +7,11 @@ void Checker::Visit(AstLocalVarDef& node) {
         if (node.symbol->type == nullptr) {
             node.symbol->type = node.init->type;
         } else {
-            MustSubType(node.init->span, node.init->type, node.symbol->type);
+            mustSubType(node.init->span, node.init->type, node.symbol->type);
         }
 
-        FinishExpr();
+        finishExpr();
 
-        DeclareLocal(node.symbol);
+        declareLocal(node.symbol);
     }
 }

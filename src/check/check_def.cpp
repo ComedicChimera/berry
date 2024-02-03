@@ -22,17 +22,17 @@ void Checker::checkFuncMetadata(AstFuncDef& fd) {
         if (it != special_func_metadata.end()) {
             if (it->second) {
                 if (tag.value.size() == 0 && it->second) {
-                    Error(tag.name_span, "metadata tag {} expects a value", tag.name);
+                    error(tag.name_span, "metadata tag {} expects a value", tag.name);
                     continue;
                 }
 
                 if (tag.name == "callconv") {
                     if (!supported_callconvs.contains(tag.value)) {
-                        Error(tag.value_span, "unsupported calling convention: {}", tag.value);
+                        error(tag.value_span, "unsupported calling convention: {}", tag.value);
                     }
                 }
             } else if (tag.value.size() > 0 && !it->second) {
-                Error(tag.value_span, "metadata tag {} does not expect a value", tag.name);
+                error(tag.value_span, "metadata tag {} does not expect a value", tag.name);
             }
 
             if (tag.name == "extern") {
@@ -42,31 +42,31 @@ void Checker::checkFuncMetadata(AstFuncDef& fd) {
     }
 
     if (expect_body && fd.body == nullptr) {
-        Error(fd.span, "function {} must have a body", fd.symbol->name);
+        error(fd.span, "function {} must have a body", fd.symbol->name);
     } else if (!expect_body && fd.body != nullptr) {
-        Error(fd.span, "function {} is externally defined and can't have a body", fd.symbol->name);
+        error(fd.span, "function {} is externally defined and can't have a body", fd.symbol->name);
     }
 }
 
 void Checker::Visit(AstFuncDef& node) {
     checkFuncMetadata(node);
     
-    PushScope();
+    pushScope();
 
     for (auto* param : node.params) {
-        DeclareLocal(param);
+        declareLocal(param);
     }
 
     if (node.body != nullptr) {
-        PushScope();
+        pushScope();
 
         visitNode(node.body);
 
-        PopScope();
+        popScope();
     }
 
 
-    PopScope();
+    popScope();
 }   
 
 /* -------------------------------------------------------------------------- */
@@ -77,8 +77,8 @@ void Checker::Visit(AstGlobalVarDef& node) {
     if (node.var_def->init) {
         visitNode(node.var_def->init);
 
-        MustSubType(node.var_def->init->span, node.var_def->init->type, node.var_def->symbol->type);
+        mustSubType(node.var_def->init->span, node.var_def->init->type, node.var_def->symbol->type);
 
-        FinishExpr();
+        finishExpr();
     }
 }
