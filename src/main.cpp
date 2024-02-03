@@ -41,9 +41,6 @@ int main(int argc, char* argv[]) {
         std::cout.flush();
     }
 
-    
-
-
     file.close();
 }
 

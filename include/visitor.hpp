@@ -20,6 +20,11 @@ struct Visitor {
     virtual void Visit(AstFloatLit& node) = 0;
     virtual void Visit(AstBoolLit& node) = 0;
     virtual void Visit(AstNullLit& node) = 0;
+
+protected:
+    // NOTE: Is there a better way to do this?  (C++ is scuffed af).
+    inline void visitNode(std::unique_ptr<AstNode>& node) { node->Accept(this); }
+    inline void visitNode(std::unique_ptr<AstExpr>& node) { node->Accept(this); }
 };
 
 #endif

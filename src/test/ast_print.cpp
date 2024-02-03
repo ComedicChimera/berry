@@ -70,7 +70,7 @@ void AstPrinter::Visit(AstFuncDef& node) {
 
     std::cout << "], body=";
     if (node.body) {
-        node.body->Accept(this);
+        visitNode(node.body);
     } else {
         std::cout << "<empty>";
     }
@@ -98,7 +98,7 @@ void AstPrinter::Visit(AstBlock& node) {
             std::cout << ", ";
         }
 
-        node.stmts[i]->Accept(this);
+        visitNode(node.stmts[i]);
     }
 
     std::cout << "])";
@@ -108,7 +108,7 @@ void AstPrinter::Visit(AstLocalVarDef& node) {
     std::cout << std::format("LocalVarDef(span={}, type={}, name={}, init=", spanToStr(node.span), typeToStr(node.symbol->type), node.symbol->name);
 
     if (node.init) {
-        node.init->Accept(this);
+        visitNode(node.init);
     } else {
         std::cout << "<empty>";
     }
@@ -120,7 +120,7 @@ void AstPrinter::Visit(AstLocalVarDef& node) {
 
 void AstPrinter::Visit(AstCast& node) {
     std::cout << std::format("Cast(span={}, type={}, src=", spanToStr(node.span), typeToStr(node.type));
-    node.src->Accept(this);
+    visitNode(node.src);
     std::cout << ')';
 }
 
@@ -155,10 +155,10 @@ void AstPrinter::Visit(AstBinaryOp& node) {
     }
 
     std::cout << ", lhs=";
-    node.lhs->Accept(this);
+    visitNode(node.lhs);
 
     std::cout << ", rhs=";
-    node.rhs->Accept(this);
+    visitNode(node.rhs);
 
     std::cout << ')';
 }
@@ -173,26 +173,26 @@ void AstPrinter::Visit(AstUnaryOp& node) {
     }
 
     std::cout << ", operand=";
-    node.operand->Accept(this);
+    visitNode(node.operand);
     std::cout << ')';
 }
 
 void AstPrinter::Visit(AstAddrOf& node) {
     std::cout << std::format("AddrOf(span={}, type={}, elem=", spanToStr(node.span), typeToStr(node.type));
-    node.elem->Accept(this);
+    visitNode(node.elem);
     std::cout << ", const=" << boolStr(node.is_const) << ')';
 }
 
 void AstPrinter::Visit(AstDeref& node) {
     std::cout << std::format("Deref(span={}, type={}, ptr=", spanToStr(node.span), typeToStr(node.type));
-    node.ptr->Accept(this);
+    visitNode(node.ptr);
     std::cout << ')';
 }
 
 void AstPrinter::Visit(AstCall& node) {
     std::cout << std::format("Call(span={}, type={}, func=", spanToStr(node.span), typeToStr(node.type));
 
-    node.func->Accept(this);
+    visitNode(node.func);
 
     std::cout << ", args = [";
 
@@ -201,7 +201,7 @@ void AstPrinter::Visit(AstCall& node) {
             std::cout << ", ";
         }
 
-        node.args[i]->Accept(this);
+        visitNode(node.args[i]);
     }
 
     std::cout << "])";
