@@ -176,7 +176,7 @@ private:
 /* -------------------------------------------------------------------------- */
 
 // TypeCtxFlags stores all possible type context flags.
-typedef byte TypeCtxFlags;
+typedef int TypeCtxFlags;
 enum {
     TC_DEFAULT = 0,
     TC_INFER = 1

@@ -5,6 +5,17 @@
 
 class Checker;
 
+// AstFlags enumerates the different values that can be returned from
+// ast->Flags().  These are used to indicate AST nodes that have some special
+// significance to visitors.
+typedef int AstFlags;
+enum {
+    ASTF_NONE = 0,
+    ASTF_EXPR = 1,
+    ASTF_NULL = 2,
+    ASTF_IDENT = 4
+};
+
 // AstNode is a node in the AST.
 struct AstNode {
     // span is the source span containing the node.
@@ -20,11 +31,8 @@ struct AstNode {
     // Check visits the AST using the checker.
     virtual void Check(Checker& c) = 0;
 
-    // IsExpr returns whether node is an expression.
-    inline virtual bool IsExpr() const { return false; }
-
-    // IsNull returns whether node is an AST null.
-    inline virtual bool IsNull() const { return false; }
+    // Flags returns the AST nodes flags.
+    inline virtual AstFlags Flags() const { return ASTF_NONE; }
 };
 
 // AstExpr is an expression AST node.
@@ -44,7 +52,7 @@ struct AstExpr : public AstNode {
     , type(type)
     {}
 
-    inline bool IsExpr() const override { return true; }
+    inline AstFlags Flags() const override { return ASTF_EXPR; }
 };
 
 // MetadataTag represents a Berry metadata tag.
@@ -313,6 +321,8 @@ struct AstIdent : public AstExpr {
 
     void Print() const override;
     void Check(Checker& c) override;
+
+    inline AstFlags Flags() const override { return ASTF_EXPR | ASTF_IDENT; }
 };
 
 // AstIntLit represents an integer literal (ex: 12, 0xff).
@@ -370,7 +380,7 @@ struct AstNullLit : public AstExpr {
     void Print() const override;
     void Check(Checker& c) override;
 
-    inline bool IsNull() const override { return true; }
+    inline AstFlags Flags() const override { return ASTF_EXPR | ASTF_NULL; }
 };
 
 #endif

@@ -76,7 +76,7 @@ void AstCall::Check(Checker& c) {
     }
 
     for (int i = 0; i < args.size(); i++) {
-        if (args[i]->IsNull()) {
+        if (args[i]->Flags() & ASTF_NULL) {
             args[i]->type = func_type->param_types[i];
         } else {
             args[i]->Check(c);

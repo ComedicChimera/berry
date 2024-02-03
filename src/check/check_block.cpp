@@ -5,7 +5,7 @@ void AstBlock::Check(Checker& c) {
     for (auto& stmt : stmts) {
         stmt->Check(c);
 
-        if (stmt->IsExpr()) {
+        if (stmt->Flags() & ASTF_EXPR) {
             c.FinishExpr();    
         }
     }
