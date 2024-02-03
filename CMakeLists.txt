@@ -43,3 +43,31 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${SRC_DIR})
 
 set(INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 target_include_directories(${PROJECT_NAME} PRIVATE ${INC_DIR})
+
+# LLVM Configuration
+if (NOT DEFINED LLVM_CONFIG_PATH)
+    set(LLVM_CONFIG_PATH "D:/DevTools/llvm-17.0.6/llvm/out/Debug/bin/llvm-config.exe")
+endif()
+
+message(LLVM_CONFIG_PATH="${LLVM_CONFIG_PATH}")
+
+execute_process(COMMAND ${LLVM_CONFIG_PATH} "--includedir" OUTPUT_VARIABLE LLVM_INC_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CONFIG_PATH} "--libdir" OUTPUT_VARIABLE LLVM_LIB_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+execute_process(COMMAND ${LLVM_CONFIG_PATH} "--libs" "codegen" "--system-libs" OUTPUT_VARIABLE LLVM_LIBS_RAW OUTPUT_STRIP_TRAILING_WHITESPACE)
+separate_arguments(LLVM_LIBS NATIVE_COMMAND ${LLVM_LIBS_RAW})
+
+execute_process(COMMAND ${LLVM_CONFIG_PATH} "--obj-root" OUTPUT_VARIABLE LLVM_INC_PATH2 OUTPUT_STRIP_TRAILING_WHITESPACE)
+cmake_path(APPEND LLVM_INC_PATH2 "include")
+
+if (NOT DEFINED LIBXML2_PATH)
+    set(LIBXML2_PATH "D:/DevTools/libxml2/out/Release")
+endif()
+
+if (NOT DEFINED ZLIB_PATH)
+    set(ZLIB_PATH "D:/DevTools/zlib/out/Release")
+endif()
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${LLVM_INC_PATH} ${LLVM_INC_PATH2})
+target_link_directories(${PROJECT_NAME} PRIVATE ${LLVM_LIB_PATH} ${LIBXML2_PATH} ${ZLIB_PATH})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${LLVM_LIBS})
