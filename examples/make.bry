@@ -1,0 +1,23 @@
+import make;
+import proc;
+import io;
+
+func main() {
+    let build = make.NewBuild();
+
+    build.AddMod("main.bry");
+    build.SetFlag(make.WARN_ALL);
+
+    let p_stdout = proc.NewOutPipe();
+    defer p_stdout.Close();
+
+    let status = proc.Run("llvm-config", "--includedir", stdout_pipe=p_stdout);
+    if status < 0 {
+        exit(1);
+    }
+
+    let include_path = io.ReadAllText(p_stdout).Strip();
+    build.AddIncludeDir(include_path);
+
+    build.Run();
+}
