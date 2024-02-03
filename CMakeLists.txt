@@ -33,6 +33,12 @@ set(SRCS
     "check/check_stmt.cpp"
     "check/check_expr.cpp"
 
+    "codegen/codegen.cpp"
+    "codegen/gen_def.cpp"
+    "codegen/gen_block.cpp"
+    "codegen/gen_expr.cpp"
+    "codegen/gen_stmt.cpp"
+
     "test/arena_test.cpp"
     "test/ast_print.cpp"
 )

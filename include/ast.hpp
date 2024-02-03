@@ -37,6 +37,9 @@ struct AstExpr : public AstNode {
     // type is the data type the expression evaluates to.
     Type* type;
 
+    // llvm_value is the LLVM value returned by this expr.
+    llvm::Value* llvm_value;
+
     // IsImmut indicates whether the expression can be assigned to.
     inline virtual bool IsImmut() const { return false; }
 
@@ -67,7 +70,7 @@ struct MetadataTag {
     TextSpan value_span;
 };
 
-typedef std::unordered_map<std::string_view, MetadataTag> Metadata;
+typedef std::unordered_map<std::string, MetadataTag> Metadata;
 
 // AstDef is a definition AST node.
 struct AstDef : public AstNode {
@@ -252,16 +255,16 @@ struct AstDeref : public AstExpr {
     // ptr is the pointer being dereferenced.
     std::unique_ptr<AstExpr> ptr;
 
+    AstDeref(const TextSpan& span, std::unique_ptr<AstExpr>&& ptr) 
+    : AstExpr(span, nullptr)
+    , ptr(std::move(ptr))
+    {}
+
     // *a is mutable if and only if a is.
     inline bool IsImmut() const override { return dynamic_cast<PointerType*>(ptr->type)->immut; }
 
     // *a is always an l-value (even if it is immutable).
     inline bool IsLValue() const override { return true; }
-
-    AstDeref(const TextSpan& span, std::unique_ptr<AstExpr>&& ptr) 
-    : AstExpr(span, nullptr)
-    , ptr(std::move(ptr))
-    {}
 
     void Accept(Visitor* v) override;
 };
@@ -309,6 +312,9 @@ struct AstIdent : public AstExpr {
     void Accept(Visitor* v) override;
 
     inline AstFlags Flags() const override { return ASTF_EXPR | ASTF_IDENT; }
+    
+    inline bool IsImmut() const override { return symbol->immut; }
+    inline bool IsLValue() const override { return true; }
 };
 
 // AstIntLit represents an integer literal (ex: 12, 0xff).

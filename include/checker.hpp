@@ -7,7 +7,7 @@
 // Scope represents a local lexical scope.
 typedef std::unordered_map<std::string_view, Symbol*> Scope;
 
-// Checker is Berry's semantic analyzer.
+// Checker performs semantic analysis on a source file.
 class Checker : public Visitor {
     // arena is the arena used for allocation of symbols and types.
     Arena& arena;

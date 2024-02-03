@@ -36,7 +36,7 @@ std::unique_ptr<AstLocalVarDef> Parser::parseLocalVarDef() {
         arena.MoveStr(std::move(name_tok.value)),
         src_file.id,
         name_tok.span,
-        SYM_FUNC,
+        SYM_VALUE,
         type,
         false
     );

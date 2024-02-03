@@ -6,6 +6,11 @@
 #include "base.hpp"
 #include "types.hpp"
 
+// Forward Declaration of LLVM value.
+namespace llvm {
+    class Value;
+}
+
 // SymbolKind enumerates the different kinds of symbols.
 enum SymbolKind {
     SYM_VALUE,  // Value (variables)
@@ -31,6 +36,9 @@ struct Symbol {
 
     // immut indicates whether the symbol is immutable.
     bool immut;
+
+    // llvm_value contains the LLVM value bound to the symbol.
+    llvm::Value* llvm_value;
 };
 
 /* -------------------------------------------------------------------------- */

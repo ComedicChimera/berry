@@ -3,7 +3,35 @@
 
 #include "parser.hpp"
 #include "checker.hpp"
-#include "test/ast_print.hpp"
+#include "codegen.hpp"
+
+bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {  
+    Arena arena;
+    Parser p(arena, file, src_file);
+    p.ParseFile();
+
+    if (ErrorCount() > 0) {
+        return false;
+    }
+
+    Checker c(arena, src_file); 
+    for (auto& def : src_file.defs) {
+        def->Accept(&c);
+    }
+
+    if (ErrorCount() > 0) {
+        return false;
+    }
+
+    llvm::LLVMContext ll_ctx;
+    llvm::Module ll_mod(mod.name, ll_ctx);
+    CodeGenerator cg(ll_ctx, ll_mod, mod);
+    cg.GenerateModule();
+
+    ll_mod.print(llvm::outs(), nullptr);
+
+    return true;
+}
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -21,27 +49,14 @@ int main(int argc, char* argv[]) {
     }
 
     Module mod { 0, "main" };
-    SourceFile src_file { 0, &mod, file_name, file_name };
-    
-    Arena arena;
-    Parser p(arena, file, src_file);
-    p.ParseFile();
+    mod.files.emplace_back(0, &mod, file_name, file_name);
+    auto& src_file = mod.files[0];
 
-    AstPrinter printer;
-    if (ErrorCount() == 0) {
-        Checker c(arena, src_file);
-        
-        for (auto& def : src_file.defs) {
-            def->Accept(&c);
-
-            def->Accept(&printer);
-            std::cout << "\n\n";
-        }
-
-        std::cout.flush();
-    }
+    bool ok = compileFile(mod, src_file, file);
 
     file.close();
+
+    return ok ? 0 : 1;
 }
 
 // //===- examples/ModuleMaker/ModuleMaker.cpp - Example project ---*- C++ -*-===//
