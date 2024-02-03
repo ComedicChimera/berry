@@ -1,4 +1,4 @@
-#include "ast.hpp"
+#include "ast_print.hpp"
 
 #include <iostream>
 
@@ -49,28 +49,28 @@ static void printMetadata(const Metadata& meta) {
 
 /* -------------------------------------------------------------------------- */
 
-void AstFuncDef::Print() const {
-    std::cout << std::format("FuncDef(span={}, meta=", spanToStr(span));
-    printMetadata(metadata);
+void AstPrinter::Visit(AstFuncDef& node) {
+    std::cout << std::format("FuncDef(span={}, meta=", spanToStr(node.span));
+    printMetadata(node.metadata);
 
-    std::cout << ", name=" << symbol->name << ", type=" << typeToStr(symbol->type) << ", params=[";
+    std::cout << ", name=" << node.symbol->name << ", type=" << typeToStr(node.symbol->type) << ", params=[";
 
-    for (int i = 0; i < params.size(); i++) {
+    for (int i = 0; i < node.params.size(); i++) {
         if (i > 0) {
             std::cout << ", ";
         }
 
         std::cout << std::format(
             "Param(span={}, type={}, name={})", 
-            spanToStr(params[i]->span), 
-            typeToStr(params[i]->type),
-            params[i]->name
+            spanToStr(node.params[i]->span), 
+            typeToStr(node.params[i]->type),
+            node.params[i]->name
         );
     }
 
     std::cout << "], body=";
-    if (body) {
-        body->Print();
+    if (node.body) {
+        node.body->Accept(this);
     } else {
         std::cout << "<empty>";
     }
@@ -78,37 +78,37 @@ void AstFuncDef::Print() const {
     std::cout << ')';
 }
 
-void AstGlobalVarDef::Print() const {
-    std::cout << std::format("GlobalVarDef(span={}, meta=", spanToStr(span));
-    printMetadata(metadata);
+void AstPrinter::Visit(AstGlobalVarDef& node) {
+    std::cout << std::format("GlobalVarDef(span={}, meta=", spanToStr(node.span));
+    printMetadata(node.metadata);
 
     std::cout << ", var=";
-    var_def->Print();
+    node.var_def->Accept(this);
 
     std::cout << ')';
 }
 
 /* -------------------------------------------------------------------------- */
 
-void AstBlock::Print() const {
-    std::cout << std::format("Block(span={}, stmts=[", spanToStr(span));
+void AstPrinter::Visit(AstBlock& node) {
+    std::cout << std::format("Block(span={}, stmts=[", spanToStr(node.span));
 
-    for (int i = 0; i < stmts.size(); i++) {
+    for (int i = 0; i < node.stmts.size(); i++) {
         if (i > 0) {
             std::cout << ", ";
         }
 
-        stmts[i]->Print();
+        node.stmts[i]->Accept(this);
     }
 
     std::cout << "])";
 }
 
-void AstLocalVarDef::Print() const {
-    std::cout << std::format("LocalVarDef(span={}, type={}, name={}, init=", spanToStr(span), typeToStr(symbol->type), symbol->name);
+void AstPrinter::Visit(AstLocalVarDef& node) {
+    std::cout << std::format("LocalVarDef(span={}, type={}, name={}, init=", spanToStr(node.span), typeToStr(node.symbol->type), node.symbol->name);
 
-    if (init) {
-        init->Print();
+    if (node.init) {
+        node.init->Accept(this);
     } else {
         std::cout << "<empty>";
     }
@@ -118,16 +118,16 @@ void AstLocalVarDef::Print() const {
 
 /* -------------------------------------------------------------------------- */
 
-void AstCast::Print() const {
-    std::cout << std::format("Cast(span={}, type={}, src=", spanToStr(span), typeToStr(type));
-    src->Print();
+void AstPrinter::Visit(AstCast& node) {
+    std::cout << std::format("Cast(span={}, type={}, src=", spanToStr(node.span), typeToStr(node.type));
+    node.src->Accept(this);
     std::cout << ')';
 }
 
-void AstBinaryOp::Print() const {
-    std::cout << std::format("BinaryOp(span={}, type={}, aop=", spanToStr(span), typeToStr(type));
+void AstPrinter::Visit(AstBinaryOp& node) {
+    std::cout << std::format("BinaryOp(span={}, type={}, aop=", spanToStr(node.span), typeToStr(node.type));
 
-    switch (op_kind) {
+    switch (node.op_kind) {
     case AOP_ADD: 
         std::cout << "ADD";
         break;
@@ -155,53 +155,53 @@ void AstBinaryOp::Print() const {
     }
 
     std::cout << ", lhs=";
-    lhs->Print();
+    node.lhs->Accept(this);
 
     std::cout << ", rhs=";
-    rhs->Print();
+    node.rhs->Accept(this);
 
     std::cout << ')';
 }
 
-void AstUnaryOp::Print() const {
-    std::cout << std::format("UnaryOp(span={}, type={}, aop=", spanToStr(span), typeToStr(type));
+void AstPrinter::Visit(AstUnaryOp& node) {
+    std::cout << std::format("UnaryOp(span={}, type={}, aop=", spanToStr(node.span), typeToStr(node.type));
     
-    switch (op_kind) {
+    switch (node.op_kind) {
     case AOP_NEG:
         std::cout << "NEG";
         break;
     }
 
     std::cout << ", operand=";
-    operand->Print();
+    node.operand->Accept(this);
     std::cout << ')';
 }
 
-void AstAddrOf::Print() const {
-    std::cout << std::format("AddrOf(span={}, type={}, elem=", spanToStr(span), typeToStr(type));
-    elem->Print();
-    std::cout << ", const=" << boolStr(is_const) << ')';
+void AstPrinter::Visit(AstAddrOf& node) {
+    std::cout << std::format("AddrOf(span={}, type={}, elem=", spanToStr(node.span), typeToStr(node.type));
+    node.elem->Accept(this);
+    std::cout << ", const=" << boolStr(node.is_const) << ')';
 }
 
-void AstDeref::Print() const {
-    std::cout << std::format("Deref(span={}, type={}, ptr=", spanToStr(span), typeToStr(type));
-    ptr->Print();
+void AstPrinter::Visit(AstDeref& node) {
+    std::cout << std::format("Deref(span={}, type={}, ptr=", spanToStr(node.span), typeToStr(node.type));
+    node.ptr->Accept(this);
     std::cout << ')';
 }
 
-void AstCall::Print() const {
-    std::cout << std::format("Call(span={}, type={}, func=", spanToStr(span), typeToStr(type));
+void AstPrinter::Visit(AstCall& node) {
+    std::cout << std::format("Call(span={}, type={}, func=", spanToStr(node.span), typeToStr(node.type));
 
-    func->Print();
+    node.func->Accept(this);
 
     std::cout << ", args = [";
 
-    for (int i = 0; i < args.size(); i++) {
+    for (int i = 0; i < node.args.size(); i++) {
         if (i > 0) {
             std::cout << ", ";
         }
 
-        args[i]->Print();
+        node.args[i]->Accept(this);
     }
 
     std::cout << "])";
@@ -209,43 +209,43 @@ void AstCall::Print() const {
 
 /* -------------------------------------------------------------------------- */
 
-void AstIdent::Print() const {
+void AstPrinter::Visit(AstIdent& node) {
     std::cout << std::format(
         "Identifier(span={}, type={}, name={})",
-        spanToStr(span),
-        typeToStr(type),
-        Name()
+        spanToStr(node.span),
+        typeToStr(node.type),
+        node.Name()
     );
 }
 
-void AstBoolLit::Print() const {
+void AstPrinter::Visit(AstBoolLit& node) {
     std::cout << std::format(
         "BoolLit(span={}, type={}, value={})",
-        spanToStr(span),
-        typeToStr(type),
-        value
+        spanToStr(node.span),
+        typeToStr(node.type),
+        node.value
     );
 }
 
-void AstFloatLit::Print() const {
+void AstPrinter::Visit(AstFloatLit& node) {
     std::cout << std::format(
         "FloatLit(span={}, type={}, value={})",
-        spanToStr(span),
-        typeToStr(type),
-        value
+        spanToStr(node.span),
+        typeToStr(node.type),
+        node.value
     );
 }
 
-void AstIntLit::Print() const {
+void AstPrinter::Visit(AstIntLit& node) {
     std::cout << std::format(
         "IntLit(span={}, type={}, value={})",
-        spanToStr(span),
-        typeToStr(type),
-        value
+        spanToStr(node.span),
+        typeToStr(node.type),
+        node.value
     );
 }
 
-void AstNullLit::Print() const {
-    std::cout << std::format("Null(span={}, type={})", spanToStr(span), typeToStr(type));
+void AstPrinter::Visit(AstNullLit& node) {
+    std::cout << std::format("Null(span={}, type={})", spanToStr(node.span), typeToStr(node.type));
 }
 

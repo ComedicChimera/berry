@@ -3,6 +3,7 @@
 
 #include "parser.hpp"
 #include "checker.hpp"
+#include "test/ast_print.hpp"
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -26,13 +27,14 @@ int main(int argc, char* argv[]) {
     Parser p(arena, file, src_file);
     p.ParseFile();
 
+    AstPrinter printer;
     if (ErrorCount() == 0) {
         Checker c(arena, src_file);
         
         for (auto& def : src_file.defs) {
             def->Check(c);
 
-            def->Print();
+            def->Accept(&printer);
             std::cout << "\n\n";
         }
 

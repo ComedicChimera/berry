@@ -5,6 +5,8 @@
 
 class Checker;
 
+struct Visitor;
+
 // AstFlags enumerates the different values that can be returned from
 // ast->Flags().  These are used to indicate AST nodes that have some special
 // significance to visitors.
@@ -25,11 +27,11 @@ struct AstNode {
     : span(span)
     {}
 
-    // Print formats the tree starting at node to stdout.
-    virtual void Print() const = 0;
-
     // Check visits the AST using the checker.
     virtual void Check(Checker& c) = 0;
+
+    // Accept passes this node to a visitor.
+    virtual void Accept(Visitor* v) = 0;
 
     // Flags returns the AST nodes flags.
     inline virtual AstFlags Flags() const { return ASTF_NONE; }
@@ -114,8 +116,8 @@ struct AstFuncDef : public AstDef {
     , body(std::move(body))
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstLocalVarDef represents a local variable definition.
@@ -133,8 +135,8 @@ struct AstLocalVarDef : public AstNode {
     , init(std::move(init))
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstGlobalVarDef represents a global variable definition.
@@ -147,8 +149,8 @@ struct AstGlobalVarDef : public AstDef {
     , var_def(std::move(var_def))
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -162,9 +164,9 @@ struct AstBlock : public AstNode {
     : AstNode(span)
     , stmts(std::move(stmts))
     {}
-
-    void Print() const override;
+ 
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -180,8 +182,8 @@ struct AstCast : public AstExpr {
     , src(std::move(src))
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstOpKind enumerates the different possible opcodes for AST operators.
@@ -218,8 +220,8 @@ struct AstBinaryOp : public AstExpr {
     , rhs(std::move(rhs))
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstUnaryOp represents a (non-pointer) unary operation (ex: !a, -a).
@@ -236,8 +238,8 @@ struct AstUnaryOp : public AstExpr {
     , operand(std::move(operand))
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstAddrOf represents an address-of/indirect operation (ex: &a, &const a).
@@ -254,8 +256,8 @@ struct AstAddrOf : public AstExpr {
     , is_const(is_const)
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstDeref represents a derference operation (ex: *a).
@@ -274,8 +276,8 @@ struct AstDeref : public AstExpr {
     , ptr(std::move(ptr))
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstCall represents a function call (ex: fn(a, b)).
@@ -292,8 +294,8 @@ struct AstCall : public AstExpr {
     , args(std::move(args))
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -319,8 +321,8 @@ struct AstIdent : public AstExpr {
     , symbol(nullptr)
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 
     inline AstFlags Flags() const override { return ASTF_EXPR | ASTF_IDENT; }
 };
@@ -339,9 +341,9 @@ struct AstIntLit : public AstExpr {
     : AstExpr(span, type)
     , value(value)
     {}
-
-    void Print() const override;
+ 
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstFloatLit represents a floating-point literal (ex: 12.25, 1e-9, 'a'). Note
@@ -355,8 +357,8 @@ struct AstFloatLit : public AstExpr {
     , value(value)
     {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstBoolLit represents a boolean literal (ex: true, false).
@@ -368,17 +370,17 @@ struct AstBoolLit : public AstExpr {
     : AstExpr(span, &prim_bool_type)
     , value(value)
     {}
-
-    void Print() const override;
+    
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 };
 
 // AstNullLit represents a null literal (ex: null).
 struct AstNullLit : public AstExpr {
     AstNullLit(const TextSpan& span) : AstExpr(span, nullptr) {}
 
-    void Print() const override;
     void Check(Checker& c) override;
+    void Accept(Visitor* v) override;
 
     inline AstFlags Flags() const override { return ASTF_EXPR | ASTF_NULL; }
 };

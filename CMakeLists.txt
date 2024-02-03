@@ -11,6 +11,7 @@ set(SRCS
     "main.cpp" 
     "report.cpp" 
     "arena.cpp" 
+    "visitor.cpp"
        
     "syntax/token.cpp"
     "syntax/lexer.cpp" 
