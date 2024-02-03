@@ -1,6 +1,5 @@
 #include <unordered_set>
 
-#include "ast.hpp"
 #include "checker.hpp"
 
 static std::unordered_map<std::string, bool> special_func_metadata {
@@ -13,27 +12,27 @@ static std::unordered_set<std::string> supported_callconvs {
     "c", "win64", "stdcall"
 };
 
-static void checkFuncMetadata(Checker& c, AstFuncDef* fd) {
+void Checker::checkFuncMetadata(AstFuncDef& fd) {
     bool expect_body = true;
 
-    for (auto& pair : fd->metadata) {
+    for (auto& pair : fd.metadata) {
         auto& tag = pair.second;
 
         auto it = special_func_metadata.find(tag.name);
         if (it != special_func_metadata.end()) {
             if (it->second) {
                 if (tag.value.size() == 0 && it->second) {
-                    c.Error(tag.name_span, "metadata tag {} expects a value", tag.name);
+                    Error(tag.name_span, "metadata tag {} expects a value", tag.name);
                     continue;
                 }
 
                 if (tag.name == "callconv") {
                     if (!supported_callconvs.contains(tag.value)) {
-                        c.Error(tag.value_span, "unsupported calling convention: {}", tag.value);
+                        Error(tag.value_span, "unsupported calling convention: {}", tag.value);
                     }
                 }
             } else if (tag.value.size() > 0 && !it->second) {
-                c.Error(tag.value_span, "metadata tag {} does not expect a value", tag.name);
+                Error(tag.value_span, "metadata tag {} does not expect a value", tag.name);
             }
 
             if (tag.name == "extern") {
@@ -42,44 +41,44 @@ static void checkFuncMetadata(Checker& c, AstFuncDef* fd) {
         }
     }
 
-    if (expect_body && fd->body == nullptr) {
-        c.Error(fd->span, "function {} must have a body", fd->symbol->name);
-    } else if (!expect_body && fd->body != nullptr) {
-        c.Error(fd->span, "function {} is externally defined and can't have a body", fd->symbol->name);
+    if (expect_body && fd.body == nullptr) {
+        Error(fd.span, "function {} must have a body", fd.symbol->name);
+    } else if (!expect_body && fd.body != nullptr) {
+        Error(fd.span, "function {} is externally defined and can't have a body", fd.symbol->name);
     }
 }
 
-void AstFuncDef::Check(Checker& c) {
-    checkFuncMetadata(c, this);
+void Checker::Visit(AstFuncDef& node) {
+    checkFuncMetadata(node);
     
-    c.PushScope();
+    PushScope();
 
-    for (auto* param : params) {
-        c.DeclareLocal(param);
+    for (auto* param : node.params) {
+        DeclareLocal(param);
     }
 
-    if (body != nullptr) {
-        c.PushScope();
+    if (node.body != nullptr) {
+        PushScope();
 
-        body->Check(c);
+        visitNode(node.body);
 
-        c.PopScope();
+        PopScope();
     }
 
 
-    c.PopScope();
+    PopScope();
 }   
 
 /* -------------------------------------------------------------------------- */
 
-void AstGlobalVarDef::Check(Checker& c) {
+void Checker::Visit(AstGlobalVarDef& node) {
     // TODO: check metadata attrs (not right now boys)
 
-    if (var_def->init) {
-        var_def->init->Check(c);
+    if (node.var_def->init) {
+        visitNode(node.var_def->init);
 
-        c.MustSubType(var_def->init->span, var_def->init->type, var_def->symbol->type);
+        MustSubType(node.var_def->init->span, node.var_def->init->type, node.var_def->symbol->type);
 
-        c.FinishExpr();
+        FinishExpr();
     }
 }

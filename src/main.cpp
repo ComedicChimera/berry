@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
         Checker c(arena, src_file);
         
         for (auto& def : src_file.defs) {
-            def->Check(c);
+            def->Accept(&c);
 
             def->Accept(&printer);
             std::cout << "\n\n";

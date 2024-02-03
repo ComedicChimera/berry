@@ -1,18 +1,17 @@
-#include "ast.hpp"
 #include "checker.hpp"
 
-void AstLocalVarDef::Check(Checker& c) {
-    if (init != nullptr) {
-        init->Check(c);
+void Checker::Visit(AstLocalVarDef& node) {
+    if (node.init != nullptr) {
+        visitNode(node.init); 
 
-        if (symbol->type == nullptr) {
-            symbol->type = init->type;
+        if (node.symbol->type == nullptr) {
+            node.symbol->type = node.init->type;
         } else {
-            c.MustSubType(init->span, init->type, symbol->type);
+            MustSubType(node.init->span, node.init->type, node.symbol->type);
         }
 
-        c.FinishExpr();
+        FinishExpr();
 
-        c.DeclareLocal(symbol);
+        DeclareLocal(node.symbol);
     }
 }

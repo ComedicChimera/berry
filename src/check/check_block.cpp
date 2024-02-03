@@ -1,12 +1,12 @@
 #include "ast.hpp"
 #include "checker.hpp"
 
-void AstBlock::Check(Checker& c) {
-    for (auto& stmt : stmts) {
-        stmt->Check(c);
+void Checker::Visit(AstBlock& node) {
+    for (auto& stmt : node.stmts) {
+        visitNode(stmt);
 
         if (stmt->Flags() & ASTF_EXPR) {
-            c.FinishExpr();    
+            FinishExpr();    
         }
     }
 }

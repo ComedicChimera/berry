@@ -3,8 +3,6 @@
 
 #include "symbol.hpp"
 
-class Checker;
-
 struct Visitor;
 
 // AstFlags enumerates the different values that can be returned from
@@ -26,9 +24,6 @@ struct AstNode {
     AstNode(const TextSpan& span)
     : span(span)
     {}
-
-    // Check visits the AST using the checker.
-    virtual void Check(Checker& c) = 0;
 
     // Accept passes this node to a visitor.
     virtual void Accept(Visitor* v) = 0;
@@ -116,7 +111,6 @@ struct AstFuncDef : public AstDef {
     , body(std::move(body))
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -135,7 +129,6 @@ struct AstLocalVarDef : public AstNode {
     , init(std::move(init))
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -149,7 +142,6 @@ struct AstGlobalVarDef : public AstDef {
     , var_def(std::move(var_def))
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -165,7 +157,6 @@ struct AstBlock : public AstNode {
     , stmts(std::move(stmts))
     {}
  
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -182,7 +173,6 @@ struct AstCast : public AstExpr {
     , src(std::move(src))
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -220,7 +210,6 @@ struct AstBinaryOp : public AstExpr {
     , rhs(std::move(rhs))
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -238,7 +227,6 @@ struct AstUnaryOp : public AstExpr {
     , operand(std::move(operand))
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -256,7 +244,6 @@ struct AstAddrOf : public AstExpr {
     , is_const(is_const)
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -276,7 +263,6 @@ struct AstDeref : public AstExpr {
     , ptr(std::move(ptr))
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -294,7 +280,6 @@ struct AstCall : public AstExpr {
     , args(std::move(args))
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -321,7 +306,6 @@ struct AstIdent : public AstExpr {
     , symbol(nullptr)
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 
     inline AstFlags Flags() const override { return ASTF_EXPR | ASTF_IDENT; }
@@ -342,7 +326,6 @@ struct AstIntLit : public AstExpr {
     , value(value)
     {}
  
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -357,7 +340,6 @@ struct AstFloatLit : public AstExpr {
     , value(value)
     {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -371,7 +353,6 @@ struct AstBoolLit : public AstExpr {
     , value(value)
     {}
     
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 };
 
@@ -379,7 +360,6 @@ struct AstBoolLit : public AstExpr {
 struct AstNullLit : public AstExpr {
     AstNullLit(const TextSpan& span) : AstExpr(span, nullptr) {}
 
-    void Check(Checker& c) override;
     void Accept(Visitor* v) override;
 
     inline AstFlags Flags() const override { return ASTF_EXPR | ASTF_NULL; }
