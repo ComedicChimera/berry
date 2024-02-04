@@ -9,6 +9,8 @@ void CodeGenerator::Visit(AstLocalVarDef& node) {
     builder.SetInsertPoint(prev_pos);
 
     if (node.init != nullptr) {
-        // TODO: initializer
+        visitNode(node.init);
+
+        builder.CreateStore(node.init->llvm_value, ll_var);
     }
 }

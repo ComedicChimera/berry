@@ -1,6 +1,16 @@
 #include <iostream>
 #include <fstream>
 
+#include "llvm/IR/Verifier.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/TargetParser/Host.h"
+#include "llvm/IR/LegacyPassManager.h"
+
 #include "parser.hpp"
 #include "checker.hpp"
 #include "codegen.hpp"
@@ -28,7 +38,45 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
     CodeGenerator cg(ll_ctx, ll_mod, mod);
     cg.GenerateModule();
 
-    ll_mod.print(llvm::outs(), nullptr);
+    if (llvm::verifyModule(ll_mod, &llvm::outs())) {
+        std::cout << "\n\nprinting module:\n";
+        ll_mod.print(llvm::outs(), nullptr);
+        return false;
+    }
+
+    auto native_target_triple = llvm::sys::getDefaultTargetTriple();
+
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmParser();
+    llvm::InitializeNativeTargetAsmPrinter();
+
+    std::string err_msg;
+    auto* target = llvm::TargetRegistry::lookupTarget(native_target_triple, err_msg);
+    if (!target) {
+        std::cout << "error: finding native target: " << err_msg << '\n';
+        return false;
+    }
+
+    llvm::TargetOptions target_opt;
+    auto* target_machine = target->createTargetMachine(native_target_triple, "generic", "", target_opt, llvm::Reloc::PIC_);
+
+    ll_mod.setDataLayout(target_machine->createDataLayout());
+    ll_mod.setTargetTriple(native_target_triple);
+
+    std::error_code err_code;
+    llvm::raw_fd_ostream out_file("out.o", err_code, llvm::sys::fs::OF_None);
+    if (err_code) {
+        std::cout << "error: opening output file: " << err_code.message() << '\n';
+        return false;
+    }
+
+    llvm::legacy::PassManager pass;
+    if (target_machine->addPassesToEmitFile(pass, out_file, nullptr, llvm::CodeGenFileType::CGFT_ObjectFile)) {
+        std::cout << "error: target machine was unable to generate output file\n";
+        return false;
+    }
+    pass.run(ll_mod);
+    out_file.flush();
 
     return true;
 }

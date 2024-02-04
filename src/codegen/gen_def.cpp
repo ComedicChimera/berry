@@ -19,7 +19,7 @@ void CodeGenerator::Visit(AstFuncDef& node) {
     }
 
     auto* ll_type = genType(node.symbol->type);
-    Assert(ll_type->isFunctionTy(), "function signature is not a function type");
+    Assert(ll_type->isFunctionTy(), "function signature is not a function type in codegen");
 
     auto* ll_func_type = llvm::dyn_cast<llvm::FunctionType>(ll_type);
 
@@ -56,7 +56,7 @@ void CodeGenerator::Visit(AstFuncDef& node) {
 }
 
 void CodeGenerator::genFuncBody(AstFuncDef& node) {
-    Assert(llvm::Function::classof(node.symbol->llvm_value), "function def does not a function value");
+    Assert(llvm::Function::classof(node.symbol->llvm_value), "function def is not a function value in codegen");
     auto* ll_func = llvm::dyn_cast<llvm::Function>(node.symbol->llvm_value);
 
     var_block = llvm::BasicBlock::Create(ctx, "entry", ll_func);
@@ -69,12 +69,14 @@ void CodeGenerator::genFuncBody(AstFuncDef& node) {
     }
 
     auto* body_block = llvm::BasicBlock::Create(ctx, "", ll_func);
-    builder.CreateBr(body_block);
-
     builder.SetInsertPoint(body_block);
     visitNode(node.body);
 
+    builder.SetInsertPoint(var_block);
+    builder.CreateBr(body_block);
+
     // TODO: check for user returns.
+    builder.SetInsertPoint(&ll_func->back());
     builder.CreateRetVoid();
 }
 
@@ -86,7 +88,14 @@ std::string CodeGenerator::mangleName(std::string_view name) {
 
 void CodeGenerator::Visit(AstGlobalVarDef &node) {
     if (pred_mode) {
-        // TODO: initializers
+        if (node.var_def->init) {
+            auto& last_init_block = ll_init_func->back();
+            builder.SetInsertPoint(&last_init_block);
+
+            visitNode(node.var_def->init);
+            builder.CreateStore(node.var_def->init->llvm_value, node.var_def->symbol->llvm_value);
+        }
+
         return;
     }
 
@@ -103,10 +112,3 @@ void CodeGenerator::Visit(AstGlobalVarDef &node) {
 
     node.var_def->symbol->llvm_value = gv;
 }
-
-/* -------------------------------------------------------------------------- */
-
-void CodeGenerator::Visit(AstCast& node) {}
-void CodeGenerator::Visit(AstBinaryOp& node) {}
-void CodeGenerator::Visit(AstUnaryOp& node) {}
-void CodeGenerator::Visit(AstDeref& node) {}

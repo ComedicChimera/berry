@@ -1,19 +1,38 @@
 #include "codegen.hpp"
 
 void CodeGenerator::GenerateModule() {
+    visitAll();
+
+    pred_mode = true;
+    genInitFunc();
+
+    visitAll();
+
+    finishInitFunc();
+}
+
+void CodeGenerator::visitAll() {
     for (auto& src_file : bry_mod.files) {
         for (auto& def : src_file.defs) {
             visitNode(def);
         }
-
-        pred_mode = true;
-
-        for (auto& def : src_file.defs) {
-            visitNode(def);
-        }
     }
+}
 
-    // TODO: build initializers
+/* -------------------------------------------------------------------------- */
+
+void CodeGenerator::genInitFunc() {
+    // TODO: support proper init() functions for each module.
+    ll_init_func = mod.getFunction("__LibBerry_Init");
+    Assert(ll_init_func != nullptr, "missing __LibBerry_Init");
+
+    llvm::BasicBlock::Create(ctx, "entry", ll_init_func);
+}
+
+void CodeGenerator::finishInitFunc() {
+    auto& last_block = ll_init_func->back();   
+    builder.SetInsertPoint(&last_block);
+    builder.CreateRetVoid();
 }
 
 /* -------------------------------------------------------------------------- */

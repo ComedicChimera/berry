@@ -37,6 +37,14 @@ class CodeGenerator : public Visitor {
     // definitions).
     bool pred_mode;
 
+    // tctx is a utility type context for the code generator (used for comparisons).
+    TypeContext tctx;
+
+    // ll_init_func is the global initialization function (where non-constant global
+    // initializers are placed).  This is called explicitly by the runtime at the
+    // start of execution.
+    llvm::Function* ll_init_func;
+
 public:
     // Creates a new code generator using ctx and outputting to mod.
     CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& bry_mod)
@@ -44,6 +52,7 @@ public:
     , bry_mod(bry_mod)
     , var_block(nullptr)
     , pred_mode(false)
+    , ll_init_func(nullptr)
     {}
 
     // GenerateModule compiles the module.
@@ -67,6 +76,15 @@ public:
     void Visit(AstNullLit& node) override;
 
 private:
+    void visitAll();
+
+    /* ---------------------------------------------------------------------- */
+
+    void genInitFunc();
+    void finishInitFunc();
+
+    /* ---------------------------------------------------------------------- */
+
     // genFuncBody generates the function body for node.
     void genFuncBody(AstFuncDef &node);
 

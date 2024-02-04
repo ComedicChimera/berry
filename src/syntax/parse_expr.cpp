@@ -261,7 +261,7 @@ std::unique_ptr<AstExpr> Parser::parseAtom() {
     case TOK_RUNELIT: {
         next();
 
-        return std::make_unique<AstIntLit>(prev.span, &prim_i32_type, decodeRune(prev.value));
+        return std::make_unique<AstIntLit>(prev.span, &prim_i32_type, convertRuneLit(prev.value));
     } break;
     case TOK_BOOLLIT: {
         next();
