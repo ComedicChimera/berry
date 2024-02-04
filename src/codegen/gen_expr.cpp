@@ -145,7 +145,7 @@ void CodeGenerator::Visit(AstNullLit& node) {
 }
 
 void CodeGenerator::Visit(AstIdent& node) {
-    if (node.symbol->kind == SYM_VALUE && isValueMode()) {
+    if (node.symbol->kind == SYM_VARIABLE && isValueMode()) {
         auto* ll_value = builder.CreateLoad(genType(node.type), node.symbol->llvm_value);
         node.llvm_value = ll_value;
         return;

@@ -13,8 +13,8 @@ namespace llvm {
 
 // SymbolKind enumerates the different kinds of symbols.
 enum SymbolKind {
-    SYM_VALUE,  // Value (variables)
-    SYM_FUNC    // Function (globally defined function)
+    SYM_VARIABLE,   // Variable
+    SYM_FUNC,       // Function
 };
 
 // Symbol represents a named symbol in a Berry module.

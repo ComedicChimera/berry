@@ -143,7 +143,7 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
                 arena.MoveStr(std::move(name_tok.value)),
                 src_file.id,
                 name_tok.span,
-                SYM_VALUE,
+                SYM_VARIABLE,
                 type,
                 false
             );
