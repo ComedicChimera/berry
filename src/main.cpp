@@ -14,6 +14,7 @@
 #include "parser.hpp"
 #include "checker.hpp"
 #include "codegen.hpp"
+#include "linker.hpp"
 
 bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {  
     Arena arena;
@@ -77,6 +78,11 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
     }
     pass.run(ll_mod);
     out_file.flush();
+
+    LinkConfig config { "hello.exe" };
+    config.obj_files.emplace_back("out.o");
+    RunLinker(config);
+    RemoveObjFile("out.o");
 
     return true;
 }

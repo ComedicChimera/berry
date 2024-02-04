@@ -39,6 +39,8 @@ set(SRCS
     "codegen/gen_expr.cpp"
     "codegen/gen_stmt.cpp"
 
+    "link/linker.cpp"
+
     "test/arena_test.cpp"
     "test/ast_print.cpp"
 )
