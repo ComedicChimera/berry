@@ -1,0 +1,128 @@
+// Useful API Functions
+@[extern, callconv("win64")]
+func ExitProcess(exit_code: u32);
+
+@[extern, callconv("win64")]
+func GetStdHandle(n_handle: u32) *u8;
+
+@[extern, callconv("win64")]
+func WriteConsoleA(h: *u8, buff: *u8, n_to_write: i32, n_written: *i32, reserved: *u8) bool;
+
+// Berry Runtime
+@extern
+func __LibBerry_Init();
+
+@abientry
+func __LibBerry_Start() {
+    __LibBerry_Init();
+
+    main();
+
+    ExitProcess(0);
+}
+
+let stdout: *u8 = GetStdHandle(-11 as u32);
+
+// User Code
+func putc(c: i32) {
+    let b = c as u8;
+    WriteConsoleA(stdout, &b, 1, null, null);
+}
+
+// ------------------------------------------------------------------------- //
+
+func puti(n: i64) {
+    if n < 0 {
+        putc('-');
+        n = -n;
+    }
+
+    do {
+        putc('0' + (n % 10 as i32));
+        n /= 10;
+    } while n > 0;
+}
+
+func fizzBuzz(n: i64) {
+    for let i = 0; i < n; i++ {
+        if i % 3 == 0 {
+            putc('F');
+            putc('i');
+            putc('z');
+            putc('z');
+        }
+
+        if i % 5 == 0 {
+            putc('B');
+            putc('u');
+            putc('z');
+            putc('z');
+        }
+
+        if i % 3 != 0 && i % 5 != 0 {
+            puti(i);
+        }
+
+        putc('\n');
+    }
+}
+
+func fibonacci(n: i64) {
+    let a = 1;
+    let b = 1;
+
+    let tmp = 0;
+    while a < n {
+        puti(a);
+
+        tmp = a;
+        a = b;
+        b = tmp + b;
+    }
+}
+
+func sqrt(x: f64) f64 {
+    if x < 0 {
+        return -1;
+    }
+
+    let z = x;
+    for let i = 0; i < 10; i++ {
+        z -= (z * z - x) / (2 * z);
+    }
+
+    return z;
+}
+
+func ack(m, n: i64) i64 {
+    if m == 0 {
+        return n + 1;
+    } elif n = 0 {
+        return ack(m - 1, 1);
+    } else {
+        return ack(m - 1, ack(m, n - 1));
+    }
+}
+
+func main() {
+    fizzBuzz(20);
+    putc('\n');
+
+    fibonacci(100);
+    putc('\n');
+
+    puti(sqrt(4) as i64);
+    putc('\n');
+
+    puti(sqrt(9) as i64);
+    putc('\n');
+
+    puti(ack(1, 1));
+    putc('\n');
+
+    puti(ack(3, 2));
+    putc('\n');
+
+    puti(ack(3, 4));
+    putc('\n');
+}
