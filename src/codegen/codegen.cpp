@@ -1,5 +1,9 @@
 #include "codegen.hpp"
 
+#include <iostream>
+
+#include "llvm/IR/Verifier.h"
+
 void CodeGenerator::GenerateModule() {
     visitAll();
 
@@ -9,10 +13,28 @@ void CodeGenerator::GenerateModule() {
     visitAll();
 
     finishInitFunc();
+
+    debug.FinishModule();
+
+    std::string err_msg;
+    llvm::raw_string_ostream oss(err_msg);
+    if (llvm::verifyModule(mod, &oss)) {
+        std::cerr << "error: verifying module:\n\n";
+        std::cerr << err_msg << "\n\n";
+        std::cerr << "printing module:\n\n";
+        mod.print(llvm::errs(), nullptr);
+        exit(1);
+    }
 }
 
 void CodeGenerator::visitAll() {
     for (auto& src_file : bry_mod.files) {
+        if (pred_mode) {
+            debug.SetCurrentFile(src_file);
+        } else {
+            debug.EmitFileInfo(src_file);
+        }
+
         for (auto& def : src_file.defs) {
             visitNode(def);
         }

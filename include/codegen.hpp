@@ -4,8 +4,41 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/DIBuilder.h"
 
 #include "visitor.hpp"
+
+// DebugGenerator generates debug information for a Berry module.  It is called
+// by the CodeGenerator and acts as its "companion".
+class DebugGenerator {
+    bool no_emit;
+    
+    llvm::Module& mod;
+    llvm::IRBuilder<>& irb;
+
+    llvm::DIBuilder db;
+    std::vector<llvm::DIScope*> lexical_blocks;
+    std::unordered_map<uint64_t, llvm::DIFile*> file_scopes;
+
+    llvm::DIFile* curr_file;
+
+public:
+    DebugGenerator(bool should_emit, llvm::Module& mod, llvm::IRBuilder<>& irb)
+    : no_emit(!should_emit)
+    , mod(mod)
+    , irb(irb)
+    , db(mod)
+    , curr_file(nullptr)
+    {}
+
+    void EmitFileInfo(SourceFile& src_file);
+    void SetCurrentFile(SourceFile &src_file);
+    void FinishModule();
+
+    /* ---------------------------------------------------------------------- */
+
+    void EmitFuncProto(AstFuncDef& fd, llvm::Function* ll_func);
+};
 
 // CodeGenerator compiles a Berry module to an LLVM module.
 class CodeGenerator : public Visitor {
@@ -18,6 +51,9 @@ class CodeGenerator : public Visitor {
     // builder is the IR builder being used.
     llvm::IRBuilder<> builder;
     
+    // debug is the debug generator instance.
+    DebugGenerator debug;
+
     // bry_mod is the Berry module being compiled.
     Module& bry_mod;
 
@@ -49,6 +85,7 @@ public:
     // Creates a new code generator using ctx and outputting to mod.
     CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& bry_mod)
     : ctx(ctx), mod(mod), builder(ctx)
+    , debug(true, mod, builder)
     , bry_mod(bry_mod)
     , var_block(nullptr)
     , pred_mode(false)

@@ -39,11 +39,8 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
     CodeGenerator cg(ll_ctx, ll_mod, mod);
     cg.GenerateModule();
 
-    if (llvm::verifyModule(ll_mod, &llvm::outs())) {
-        std::cout << "\n\nprinting module:\n";
-        ll_mod.print(llvm::outs(), nullptr);
-        return false;
-    }
+    // DEBUG: Print module.
+    ll_mod.print(llvm::outs(), nullptr);
 
     auto native_target_triple = llvm::sys::getDefaultTargetTriple();
 

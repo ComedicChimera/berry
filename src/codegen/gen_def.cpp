@@ -1,7 +1,10 @@
 #include "codegen.hpp"
 
+#include <iostream>
+
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
 
 std::unordered_map<std::string, llvm::CallingConv::ID> cconv_name_to_id {
     { "c", llvm::CallingConv::C },
@@ -78,6 +81,16 @@ void CodeGenerator::genFuncBody(AstFuncDef& node) {
     // TODO: check for user returns.
     builder.SetInsertPoint(&ll_func->back());
     builder.CreateRetVoid();
+
+    std::string err_msg;
+    llvm::raw_string_ostream oss(err_msg);
+    if (llvm::verifyFunction(*ll_func, &oss)) {
+        std::cerr << "error: verifying LLVM module:\n\n";
+        std::cerr << err_msg << "\n\n";
+        std::cerr << "printing module:\n\n";
+        mod.print(llvm::errs(), nullptr);
+        exit(1);
+    }
 }
 
 std::string CodeGenerator::mangleName(std::string_view name) {

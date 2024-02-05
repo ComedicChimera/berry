@@ -38,6 +38,7 @@ set(SRCS
     "codegen/gen_block.cpp"
     "codegen/gen_expr.cpp"
     "codegen/gen_stmt.cpp"
+    "codegen/gen_debug.cpp"
 
     "link/linker.cpp"
 
