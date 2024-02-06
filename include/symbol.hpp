@@ -6,9 +6,13 @@
 #include "base.hpp"
 #include "types.hpp"
 
-// Forward Declaration of LLVM value.
+// Forward Declaration of LLVM fields. 
 namespace llvm {
     class Value;
+
+    class DIScope;
+
+    class DIFile;
 }
 
 // SymbolKind enumerates the different kinds of symbols.
@@ -60,7 +64,7 @@ struct Module {
     std::unordered_map<std::string_view, Symbol*> symbol_table;
 };
 
-struct AstNode;
+struct AstDef;
 
 // SourceFile represents a single source file in a Berry module.
 struct SourceFile {
@@ -77,7 +81,10 @@ struct SourceFile {
     std::string display_path;
 
     // defs is the definition ASTs comprising the file.
-    std::vector<std::unique_ptr<AstNode>> defs;
+    std::vector<std::unique_ptr<AstDef>> defs;
+
+    // llvm_di_file is the debug info scope associated with this file.
+    llvm::DIFile* llvm_di_file { nullptr };
 };
 
 #endif

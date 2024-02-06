@@ -40,7 +40,7 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
     cg.GenerateModule();
 
     // DEBUG: Print module.
-    ll_mod.print(llvm::outs(), nullptr);
+    // ll_mod.print(llvm::outs(), nullptr);
 
     auto native_target_triple = llvm::sys::getDefaultTargetTriple();
 
@@ -80,7 +80,7 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
     LinkConfig config { "hello.exe" };
     config.obj_files.emplace_back("out.o");
     bool link_result = RunLinker(config);
-    RemoveObjFile("out.o");
+    // RemoveObjFile("out.o");
 
     return link_result;
 }

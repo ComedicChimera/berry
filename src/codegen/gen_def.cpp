@@ -15,7 +15,11 @@ std::unordered_map<std::string, llvm::CallingConv::ID> cconv_name_to_id {
 void CodeGenerator::Visit(AstFuncDef& node) {
     if (pred_mode) {
         if (node.body) {
+            debug.BeginFuncBody(node, llvm::dyn_cast<llvm::Function>(node.symbol->llvm_value));
+
             genFuncBody(node);
+
+            debug.EndFuncBody();
         }
 
         return;
@@ -59,6 +63,8 @@ void CodeGenerator::Visit(AstFuncDef& node) {
 }
 
 void CodeGenerator::genFuncBody(AstFuncDef& node) {
+    debug.ClearDebugLocation();
+
     Assert(llvm::Function::classof(node.symbol->llvm_value), "function def is not a function value in codegen");
     auto* ll_func = llvm::dyn_cast<llvm::Function>(node.symbol->llvm_value);
 
@@ -75,6 +81,7 @@ void CodeGenerator::genFuncBody(AstFuncDef& node) {
     builder.SetInsertPoint(body_block);
     visitNode(node.body);
 
+    debug.ClearDebugLocation();
     builder.SetInsertPoint(var_block);
     builder.CreateBr(body_block);
 
@@ -102,11 +109,16 @@ std::string CodeGenerator::mangleName(std::string_view name) {
 void CodeGenerator::Visit(AstGlobalVarDef &node) {
     if (pred_mode) {
         if (node.var_def->init) {
+            // No debug info for global variable expressions.
+            debug.PushDisable();
+
             auto& last_init_block = ll_init_func->back();
             builder.SetInsertPoint(&last_init_block);
 
             visitNode(node.var_def->init);
             builder.CreateStore(node.var_def->init->llvm_value, node.var_def->symbol->llvm_value);
+
+            debug.PopDisable();
         }
 
         return;
@@ -122,6 +134,7 @@ void CodeGenerator::Visit(AstGlobalVarDef &node) {
         llvm::Constant::getNullValue(ll_type), 
         mangleName(node.var_def->symbol->name)
     );
+    debug.EmitGlobalVariableInfo(node, gv);
 
     node.var_def->symbol->llvm_value = gv;
 }

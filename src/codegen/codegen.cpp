@@ -29,11 +29,11 @@ void CodeGenerator::GenerateModule() {
 
 void CodeGenerator::visitAll() {
     for (auto& src_file : bry_mod.files) {
-        if (pred_mode) {
-            debug.SetCurrentFile(src_file);
-        } else {
+        if (!pred_mode) {
             debug.EmitFileInfo(src_file);
         }
+
+        debug.SetCurrentFile(src_file);
 
         for (auto& def : src_file.defs) {
             visitNode(def);
@@ -131,4 +131,20 @@ void CodeGenerator::popValueMode() {
     Assert(value_mode_stack.size() > 0, "pop on empty value mode stack");
 
     value_mode_stack.pop_back();
+}
+
+/* -------------------------------------------------------------------------- */
+
+void CodeGenerator::visitNode(std::unique_ptr<AstNode>& node) { 
+    debug.SetDebugLocation(node->span);
+    node->Accept(this); 
+}
+
+void CodeGenerator::visitNode(std::unique_ptr<AstExpr>& node) {
+    debug.SetDebugLocation(node->span);
+    node->Accept(this); 
+}
+
+void CodeGenerator::visitNode(std::unique_ptr<AstDef>& node) {
+    node->Accept(this);
 }

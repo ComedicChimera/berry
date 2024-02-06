@@ -8,6 +8,8 @@ void CodeGenerator::Visit(AstLocalVarDef& node) {
     node.symbol->llvm_value = ll_var;
     builder.SetInsertPoint(prev_pos);
 
+    debug.EmitLocalVariableInfo(node, ll_var);
+
     if (node.init != nullptr) {
         visitNode(node.init);
 

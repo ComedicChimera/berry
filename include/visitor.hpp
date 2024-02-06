@@ -23,9 +23,9 @@ struct Visitor {
 
 protected:
     // NOTE: Is there a better way to do this?  (C++ is scuffed af).
-    inline void visitNode(std::unique_ptr<AstNode>& node) { node->Accept(this); }
-    inline void visitNode(std::unique_ptr<AstExpr>& node) { node->Accept(this); }
-    inline void visitNode(std::unique_ptr<AstDef>& node) { node->Accept(this); }
+    virtual void visitNode(std::unique_ptr<AstNode>& node);
+    virtual void visitNode(std::unique_ptr<AstExpr>& node);
+    virtual void visitNode(std::unique_ptr<AstDef>& node);
 };
 
 #endif

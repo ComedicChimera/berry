@@ -47,6 +47,9 @@ static bool runWindowsLinker(LinkConfig& cfg, Find_Result& win_data) {
     std::string command { "link.exe /entry:__LibBerry_Start /subsystem:console /nologo /out:" };
     command.append(cfg.out_path);
 
+    // Generate debug info.
+    command.append(" /debug:full");
+
     // Add Windows library paths
     command.append(" /libpath:");
     command.append(quoted(win_data.vs_library_path));

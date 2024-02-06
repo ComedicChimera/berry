@@ -18,9 +18,12 @@ class DebugGenerator {
 
     llvm::DIBuilder db;
     std::vector<llvm::DIScope*> lexical_blocks;
-    std::unordered_map<uint64_t, llvm::DIFile*> file_scopes;
 
     llvm::DIFile* curr_file;
+
+    llvm::DIType* prim_type_table[16];
+
+    int disable_count;
 
 public:
     DebugGenerator(bool should_emit, llvm::Module& mod, llvm::IRBuilder<>& irb)
@@ -29,7 +32,18 @@ public:
     , irb(irb)
     , db(mod)
     , curr_file(nullptr)
-    {}
+    {
+        buildTypeTable();
+
+        disable_count = should_emit ? 0 : -1;
+    }
+
+    /* ---------------------------------------------------------------------- */
+
+    void PushDisable();
+    void PopDisable();
+
+    /* ---------------------------------------------------------------------- */
 
     void EmitFileInfo(SourceFile& src_file);
     void SetCurrentFile(SourceFile &src_file);
@@ -37,7 +51,23 @@ public:
 
     /* ---------------------------------------------------------------------- */
 
-    void EmitFuncProto(AstFuncDef& fd, llvm::Function* ll_func);
+    void BeginFuncBody(AstFuncDef& fd, llvm::Function* ll_func);
+    void EndFuncBody();
+    void EmitGlobalVariableInfo(AstGlobalVarDef& node, llvm::GlobalVariable* ll_gv);
+    void EmitLocalVariableInfo(AstLocalVarDef& node, llvm::Value* ll_var);
+
+    /* ---------------------------------------------------------------------- */
+
+    void SetDebugLocation(const TextSpan &span);
+    void ClearDebugLocation();
+    llvm::DILocation* GetDebugLoc(llvm::DIScope* scope, const TextSpan& span);
+
+    /* ---------------------------------------------------------------------- */
+
+    llvm::DIType *GetDIType(Type *type, uint call_conv = llvm::dwarf::DW_CC_normal);
+
+private:
+    void buildTypeTable();
 };
 
 // CodeGenerator compiles a Berry module to an LLVM module.
@@ -111,6 +141,11 @@ public:
     void Visit(AstFloatLit& node) override;
     void Visit(AstBoolLit& node) override;
     void Visit(AstNullLit& node) override;
+
+protected:
+    void visitNode(std::unique_ptr<AstNode>& node) override;
+    void visitNode(std::unique_ptr<AstExpr>& node) override;
+    void visitNode(std::unique_ptr<AstDef>& node) override;
 
 private:
     void visitAll();
