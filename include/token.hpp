@@ -13,6 +13,7 @@ enum TokenKind {
     TOK_ELSE,
     TOK_WHILE,
     TOK_FOR,
+    TOK_DO,
 
     TOK_BREAK,
     TOK_CONTINUE,

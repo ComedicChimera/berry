@@ -141,6 +141,7 @@ static std::unordered_map<std::string, TokenKind> keyword_patterns {
     { "else", TOK_ELSE },
     { "while", TOK_WHILE },
     { "for", TOK_FOR },
+    { "do", TOK_DO },
     { "break", TOK_BREAK },
     { "continue", TOK_CONTINUE },
     { "return", TOK_RETURN },
