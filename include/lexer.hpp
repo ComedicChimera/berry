@@ -62,6 +62,34 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
+    // lexSingleOrDoubleWithAssign lexes one of:
+    //  1) a token of kind single made up of a single character.
+    //  2) a token of kind doub made up of two of the same character.
+    //  3) a token of kind singleAssign made up of a single character and an `=`.
+    //  4) a token of kind doubAssign made up of two of the same character and
+    //     an `=`.
+    // Ex: `&`, `&&`, `&=`, or `&=`
+    void lexSingleOrDoubleWithAssign(Token &tok, TokenKind single, TokenKind doub, TokenKind singleAssign, TokenKind doubAssign);
+
+    // lexSingleWithAssignOrDouble lexes one of:
+    //  1) a token of kind single made up of a single character.
+    //  2) a token of kind doub made up of two of the same character.
+    //  3) a token of kind assign made up of a single character and an `=`.
+    // Ex: `+`, `++`, or `+=`
+    void lexSingleWithAssignOrDouble(Token &tok, TokenKind single, TokenKind doub, TokenKind assign);
+
+    // lexSingleOrAssign lexes:
+    //  1) a token of kind single made up of a single character.
+    //  2) a token of kind assign made up of that character followed by an `=`.
+    // Ex: `*` or `*=`
+    void lexSingleOrAssign(Token &tok, TokenKind single, TokenKind assign);
+
+    // lexSingleOrDouble lexes:
+    //  1) a token of kind single made up of a single character 
+    //  2) a token of kind doub made up of two of the same character
+    // Ex: `=` or `==`
+    void lexSingleOrDouble(Token &tok, TokenKind single, TokenKind doub);
+
     // lexSingle lexes a token of kind kind made up of a single character.
     void lexSingle(Token &tok, TokenKind kind);
 

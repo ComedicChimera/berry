@@ -8,6 +8,16 @@ enum TokenKind {
     TOK_LET,
     TOK_FUNC,
 
+    TOK_IF,
+    TOK_ELIF,
+    TOK_ELSE,
+    TOK_WHILE,
+    TOK_FOR,
+
+    TOK_BREAK,
+    TOK_CONTINUE,
+    TOK_RETURN,
+
     TOK_AS,
     TOK_NULL,
 
@@ -30,11 +40,40 @@ enum TokenKind {
     TOK_FSLASH,
     TOK_MOD,
 
+    TOK_SHL,
+    TOK_SHR,
+
+    TOK_EQ,
+    TOK_NE,
+    TOK_LT,
+    TOK_GT,
+    TOK_LE,
+    TOK_GE,
+
     TOK_AMP,
     TOK_PIPE,
     TOK_CARRET,
 
+    TOK_NOT,
+    TOK_AND,
+    TOK_OR,
+
     TOK_ASSIGN,
+    TOK_PLUS_ASSIGN,
+    TOK_MINUS_ASSIGN,
+    TOK_STAR_ASSIGN,
+    TOK_FSLASH_ASSIGN,
+    TOK_MOD_ASSIGN,
+    TOK_SHL_ASSIGN,
+    TOK_SHR_ASSIGN,
+    TOK_AMP_ASSIGN,
+    TOK_PIPE_ASSIGN,
+    TOK_CARRET_ASSIGN,
+    TOK_AND_ASSIGN,
+    TOK_OR_ASSIGN,
+
+    TOK_INC,
+    TOK_DEC,
 
     TOK_LPAREN,
     TOK_RPAREN,

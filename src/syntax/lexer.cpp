@@ -34,6 +34,10 @@ void Lexer::NextToken(Token& tok) {
                 } else if (ahead == '*') {
                     skipBlockComment();
                     continue;
+                } else if (ahead == '=') {
+                    read();
+                    makeToken(tok, TOK_FSLASH_ASSIGN);
+                    return;
                 }
             }
 
@@ -46,28 +50,37 @@ void Lexer::NextToken(Token& tok) {
             lexStrLit(tok);
             return;
         case '+':
-            lexSingle(tok, TOK_PLUS);
+            lexSingleWithAssignOrDouble(tok, TOK_PLUS, TOK_INC, TOK_PLUS_ASSIGN);
             return;
         case '-':
-            lexSingle(tok, TOK_MINUS);
+            lexSingleWithAssignOrDouble(tok, TOK_MINUS, TOK_DEC, TOK_MINUS_ASSIGN);
             return;
         case '*':
-            lexSingle(tok, TOK_STAR);
+            lexSingleOrAssign(tok, TOK_STAR, TOK_STAR_ASSIGN);
             return;
         case '%':
-            lexSingle(tok, TOK_MOD);
+            lexSingleOrAssign(tok, TOK_MOD, TOK_MOD_ASSIGN);
+            return;
+        case '<':
+            lexSingleOrDoubleWithAssign(tok, TOK_LT, TOK_SHL, TOK_LE, TOK_SHL_ASSIGN);
+            return;
+        case '>':
+            lexSingleOrDoubleWithAssign(tok, TOK_GT, TOK_SHR, TOK_GE, TOK_SHR_ASSIGN);
             return;
         case '&':
-            lexSingle(tok, TOK_AMP);
+            lexSingleOrDoubleWithAssign(tok, TOK_AMP, TOK_AND, TOK_AMP_ASSIGN, TOK_AND_ASSIGN);
             return;
         case '|':
-            lexSingle(tok, TOK_PIPE);
+            lexSingleOrDoubleWithAssign(tok, TOK_PIPE, TOK_OR, TOK_PIPE_ASSIGN, TOK_OR_ASSIGN);
             return;
         case '^':
-            lexSingle(tok, TOK_CARRET);
+            lexSingleOrAssign(tok, TOK_CARRET, TOK_CARRET_ASSIGN);
+            return;
+        case '!':
+            lexSingleOrAssign(tok, TOK_NOT, TOK_NE);
             return;
         case '=':
-            lexSingle(tok, TOK_ASSIGN);
+            lexSingleOrDouble(tok, TOK_ASSIGN, TOK_EQ);
             return;
         case '(':
             lexSingle(tok, TOK_LPAREN);
@@ -123,6 +136,14 @@ void Lexer::NextToken(Token& tok) {
 static std::unordered_map<std::string, TokenKind> keyword_patterns {
     { "let", TOK_LET },
     { "func", TOK_FUNC },
+    { "if", TOK_IF },
+    { "elif", TOK_ELIF },
+    { "else", TOK_ELSE },
+    { "while", TOK_WHILE },
+    { "for", TOK_FOR },
+    { "break", TOK_BREAK },
+    { "continue", TOK_CONTINUE },
+    { "return", TOK_RETURN },
     { "as", TOK_AS },
     { "null", TOK_NULL },
     { "i8", TOK_I8 },
@@ -278,6 +299,87 @@ bool Lexer::readFloatOrIntLit(Token& tok, DigitCheckFunc f_is_digit, char exp_ch
 }
 
 /* -------------------------------------------------------------------------- */
+
+void Lexer::lexSingleOrDoubleWithAssign(
+    Token& tok, 
+    TokenKind single, TokenKind doub, 
+    TokenKind singleAssign, TokenKind doubAssign
+) {
+    mark();
+
+    rune first = ahead;
+    read();
+
+    if (peek()) {
+        if (ahead == first) {
+            read();
+
+            if (peek() && ahead == '=') {
+                read();
+                makeToken(tok, doubAssign);
+            } else {
+                makeToken(tok, doub);
+            }
+
+            return;
+        } else if (ahead == '=') {
+            read();
+            makeToken(tok, singleAssign);
+            return;
+        }
+    }
+
+    makeToken(tok, single);
+}
+
+void Lexer::lexSingleWithAssignOrDouble(Token& tok, TokenKind single, TokenKind doub, TokenKind assign) {
+    mark();
+
+    rune first = ahead;
+    read();
+
+    if (peek()) {
+        if (ahead == first) {
+            read();
+            makeToken(tok, doub);
+            return;
+        } else if (ahead == '=') {
+            read();
+            makeToken(tok, assign);
+            return;
+        }
+    }
+
+    makeToken(tok, single);
+}
+
+void Lexer::lexSingleOrAssign(Token& tok, TokenKind single, TokenKind assign) {
+    mark();
+    read();
+
+    if (peek() && ahead == '=') {
+        read();
+        makeToken(tok, assign);
+        return;
+    }
+
+    makeToken(tok, single);
+}
+
+void Lexer::lexSingleOrDouble(Token& tok, TokenKind single, TokenKind doub) {
+    mark();
+
+    rune first = ahead;
+    read();
+
+    if (peek() && ahead == first) {
+        read();
+        makeToken(tok, doub);
+        return;
+    }
+
+    makeToken(tok, single);
+}
 
 void Lexer::lexSingle(Token& tok, TokenKind kind) {
     mark();
