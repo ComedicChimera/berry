@@ -27,9 +27,9 @@ std::unordered_map<TokenKind, AstOpKind> tok_to_aop {
     { TOK_STAR, AOP_MUL },
     { TOK_FSLASH, AOP_DIV },
     { TOK_MOD, AOP_MOD },
-    { TOK_AMP, AOP_BAND },
-    { TOK_PIPE, AOP_BOR },
-    { TOK_CARRET, AOP_BXOR }
+    { TOK_AMP, AOP_BWAND },
+    { TOK_PIPE, AOP_BWOR },
+    { TOK_CARRET, AOP_BWXOR }
 };
 
 #define PRED_TABLE_SIZE 5

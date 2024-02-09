@@ -18,7 +18,7 @@ void Checker::Visit(AstBinaryOp& node) {
 
         node.type = node.lhs->type;
         break;
-    case AOP_BAND: case AOP_BOR: case AOP_BXOR:
+    case AOP_BWAND: case AOP_BWOR: case AOP_BWXOR:
         mustEqual(node.span, node.lhs->type, node.rhs->type);
 
         mustIntType(node.lhs->span, node.lhs->type);

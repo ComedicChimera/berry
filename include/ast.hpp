@@ -16,6 +16,37 @@ enum {
     ASTF_IDENT = 4
 };
 
+// AstOpKind enumerates the different possible opcodes for AST operators.
+enum AstOpKind {
+    AOP_ADD,
+    AOP_SUB,
+    AOP_MUL,
+    AOP_DIV,
+    AOP_MOD,
+
+    AOP_SHL,
+    AOP_SHR,
+
+    AOP_EQ,
+    AOP_NE,
+    AOP_LT,
+    AOP_GT,
+    AOP_LE,
+    AOP_GE,
+
+    AOP_BWAND,
+    AOP_BWOR,
+    AOP_BWXOR,
+
+    AOP_LGAND,
+    AOP_LGOR,
+
+    AOP_NEG,
+    AOP_NOT,
+
+    AOP_NONE
+};
+
 // AstNode is a node in the AST.
 struct AstNode {
     // span is the source span containing the node.
@@ -163,6 +194,187 @@ struct AstBlock : public AstNode {
     void Accept(Visitor* v) override;
 };
 
+// AstCondBranch represents a conditional branch of an if statement.
+struct AstCondBranch : public AstNode {
+    // cond_expr is the conditional expression of the branch.
+    std::unique_ptr<AstExpr> cond_expr;
+
+    // body is the body of the node (to be executed if cond_expr is true).
+    std::unique_ptr<AstNode> body;
+
+    AstCondBranch(
+        const TextSpan& span, 
+        std::unique_ptr<AstExpr>&& cond_expr,
+         std::unique_ptr<AstNode>&& body
+    ) 
+    : AstNode(span)
+    , cond_expr(std::move(cond_expr))
+    , body(std::move(body))
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+// AstIfTree represents a if/elif/else tree.
+struct AstIfTree : public AstNode {
+    // branches stores all the conditional branches of the if statement.
+    std::vector<AstCondBranch> branches;
+
+    // else_body is the body of the else clause or nullptr if there isn't one.
+    std::unique_ptr<AstNode> else_body;
+
+    AstIfTree(std::vector<AstCondBranch>&& branches, std::unique_ptr<AstNode>&& else_body)
+    : AstNode(SpanOver(branches[0].span, else_body ? else_body->span : branches.back().span))
+    , branches(std::move(branches))
+    , else_body(std::move(else_body))
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+// AstWhileLoop represents a while or do-while loop.
+struct AstWhileLoop : public AstNode {
+    // cond_expr is the conditional expression of the loop.
+    std::unique_ptr<AstExpr> cond_expr;
+
+    // body is the body of the loop.
+    std::unique_ptr<AstNode> body;
+
+    // else_clause stores the loop's else clause or nullptr if there isn't one.
+    std::unique_ptr<AstNode> else_clause;
+
+    // is_do_while indicates whether this is a while loop or a do-while loop.
+    bool is_do_while;
+
+    AstWhileLoop(
+        const TextSpan& span,
+        std::unique_ptr<AstExpr>&& cond_expr,
+        std::unique_ptr<AstNode>&& body,
+        std::unique_ptr<AstNode>&& else_clause,
+        bool is_do_while
+    )
+    : AstNode(span)
+    , cond_expr(std::move(cond_expr))
+    , body(std::move(body))
+    , else_clause(std::move(else_clause))
+    , is_do_while(is_do_while)
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+// AstForLoop represents a tripartite (C-style) for loop.
+struct AstForLoop : public AstNode {
+    // var_def stores the loop's var_def or nullptr if there isn't one.
+    std::unique_ptr<AstLocalVarDef> var_def;
+
+    // cond_expr stores the loop's conditional expression or nullptr if there
+    // isn't one.
+    std::unique_ptr<AstExpr> cond_expr;
+
+    // update_stmt stores the "update statement" of the loop (called at the end
+    // of every loop iteration) or nullptr if there isn't one.
+    std::unique_ptr<AstNode> update_stmt;
+
+    // body stores the body of the for loop.
+    std::unique_ptr<AstNode> body;
+
+    // else_clause stores the loop's else clause or nullptr if there isn't one.
+    std::unique_ptr<AstNode> else_clause;
+
+    AstForLoop(
+        const TextSpan& span,
+        std::unique_ptr<AstLocalVarDef>&& var_def,
+        std::unique_ptr<AstExpr>&& cond_expr,
+        std::unique_ptr<AstNode>&& update_stmt,
+        std::unique_ptr<AstNode>&& body,
+        std::unique_ptr<AstNode>&& else_clause
+    )
+    : AstNode(span)
+    , var_def(std::move(var_def))
+    , cond_expr(std::move(cond_expr))
+    , update_stmt(std::move(update_stmt))
+    , body(std::move(body))
+    , else_clause(std::move(else_clause))
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+/* -------------------------------------------------------------------------- */
+
+// AstIncDec represents an increment or a decrement statement (ex: `a++`).
+struct AstIncDec : public AstNode {
+    // lhs is the expression being incremented.
+    std::unique_ptr<AstExpr> lhs;
+
+    // op_kind is the operator used (`+` for `++`, `-` for `--`).
+    AstOpKind op_kind;
+
+    AstIncDec(const TextSpan& span, std::unique_ptr<AstExpr>&& lhs, AstOpKind op)
+    : AstNode(span)
+    , lhs(std::move(lhs))
+    , op_kind(op)
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+// AstAssign represents an assignment state (ex: `x = 2`).
+struct AstAssign : public AstNode {
+    // lhs the left hand side of the assignment.
+    std::unique_ptr<AstExpr> lhs;
+
+    // rhs is the right hand side of the assignment.
+    std::unique_ptr<AstExpr> rhs;
+
+    // compound_op_kind is the optional compound assignment operation (ex: `+`
+    // for `+=`). If no compound op is used, then this will be AOP_NONE.
+    AstOpKind compound_op_kind;
+
+    AstAssign(
+        const TextSpan& span, 
+        std::unique_ptr<AstExpr>&& lhs, 
+        std::unique_ptr<AstExpr>&& rhs, 
+        AstOpKind cpd_op = AOP_NONE
+    )
+    : AstNode(span)
+    , lhs(std::move(lhs))
+    , rhs(std::move(rhs))
+    , compound_op_kind(cpd_op)
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+// AstReturn represents a return statement (ex: `return a`).
+struct AstReturn : public AstNode {
+    // value is the returned value.  his may be null if nothing is returned.
+    std::unique_ptr<AstExpr> value;
+
+    AstReturn(const TextSpan& span)
+    : AstNode(span)
+    , value(nullptr)
+    {}
+
+    AstReturn(const TextSpan& span, std::unique_ptr<AstExpr>&& value) 
+    : AstNode(span)
+    , value(std::move(value))
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+// AstBreakStmt represents a break statement (ex: `break`).
+struct AstBreakStmt : public AstNode {
+    void Accept(Visitor* v) override;
+};
+
+// AstContinueStmt represents a continue statement (ex: `continue`).
+struct AstContinueStmt : public AstNode {
+    void Accept(Visitor* v) override;
+};
+
 /* -------------------------------------------------------------------------- */
 
 // AstCast represents a type cast (ex: x as int).  The evaluated type of the
@@ -177,21 +389,6 @@ struct AstCast : public AstExpr {
     {}
 
     void Accept(Visitor* v) override;
-};
-
-// AstOpKind enumerates the different possible opcodes for AST operators.
-enum AstOpKind {
-    AOP_ADD,
-    AOP_SUB,
-    AOP_MUL,
-    AOP_DIV,
-    AOP_MOD,
-
-    AOP_BAND,
-    AOP_BOR,
-    AOP_BXOR,
-
-    AOP_NEG
 };
 
 // AstBinaryOp represents a binary operation (ex: a + b).

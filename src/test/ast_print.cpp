@@ -143,13 +143,13 @@ void AstPrinter::Visit(AstBinaryOp& node) {
     case AOP_MOD: 
         std::cout << "MOD";
         break;
-    case AOP_BAND: 
+    case AOP_BWAND: 
         std::cout << "BAND";
         break;
-    case AOP_BOR: 
+    case AOP_BWOR: 
         std::cout << "BOR";
         break;
-    case AOP_BXOR: 
+    case AOP_BWXOR: 
         std::cout << "BXOR";
         break;
     }

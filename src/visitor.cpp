@@ -16,6 +16,16 @@ void AstFloatLit::Accept(Visitor* v) { v->Visit(*this); }
 void AstBoolLit::Accept(Visitor* v) { v->Visit(*this); }
 void AstNullLit::Accept(Visitor* v) { v->Visit(*this); }
 
+void AstCondBranch::Accept(Visitor* v) { /* TODO */ }
+void AstIfTree::Accept(Visitor* v) { /* TODO */}
+void AstWhileLoop::Accept(Visitor* v) { /* TODO */}
+void AstForLoop::Accept(Visitor* v) { /* TODO */}
+void AstIncDec::Accept(Visitor* v) { /* TODO */}
+void AstAssign::Accept(Visitor* v) { /* TODO */}
+void AstReturn::Accept(Visitor* v) { /* TODO */}
+void AstBreakStmt::Accept(Visitor* v) { /* TODO */}
+void AstContinueStmt::Accept(Visitor* v) { /* TODO */}
+
 /* -------------------------------------------------------------------------- */
 
 void Visitor::visitNode(std::unique_ptr<AstNode>& node) { node->Accept(this); }
