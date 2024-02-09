@@ -47,6 +47,93 @@ static void printMetadata(const Metadata& meta) {
     std::cout << ']';
 }
 
+static void printAstOp(AstOpKind op) {
+    switch (op) {
+    case AOP_ADD:
+        std::cout << "ADD";
+        break;
+    case AOP_SUB:
+        std::cout << "SUB";
+        break;
+    case AOP_MUL:
+        std::cout << "MUL";
+        break;
+    case AOP_DIV:
+        std::cout << "DIV";
+        break;
+    case AOP_MOD:
+        std::cout << "MOD";
+        break;
+    case AOP_SHL:
+        std::cout << "SHL";
+        break;
+    case AOP_SHR:
+        std::cout << "SHR";
+        break;
+    case AOP_EQ:
+        std::cout << "EQ";
+        break;
+    case AOP_NE:
+        std::cout << "NE";
+        break;
+    case AOP_LT:
+        std::cout << "LT";
+        break;
+    case AOP_GT:
+        std::cout << "GT";
+        break;
+    case AOP_LE:
+        std::cout << "LE";
+        break;
+    case AOP_GE:
+        std::cout << "GE";
+        break;
+    case AOP_BWAND:
+        std::cout << "BWAND";
+        break;
+    case AOP_BWOR:
+        std::cout << "BWOR";
+        break;
+    case AOP_BWXOR:
+        std::cout << "BWXOR";
+        break;
+    case AOP_LGAND:
+        std::cout << "LGAND";
+        break;
+    case AOP_LGOR:
+        std::cout << "LGOR";
+        break;
+    case AOP_NEG:
+        std::cout << "NEG";
+        break;
+    case AOP_NOT:
+        std::cout << "NOT";
+        break;
+    case AOP_NONE:
+        std::cout << "NONE";
+        break;
+    default:
+        Panic("unsupported AST operator: {}", (int)op);
+        break;
+    }
+}
+
+void AstPrinter::visitOrEmpty(std::unique_ptr<AstNode>& node) {
+    if (node) {
+        visitNode(node);
+    } else {
+        std::cout << "<empty>";
+    }
+}
+
+void AstPrinter::visitOrEmpty(std::unique_ptr<AstExpr>& node) {
+    if (node) {
+        visitNode(node);
+    } else {
+        std::cout << "<empty>";
+    }
+}
+
 /* -------------------------------------------------------------------------- */
 
 void AstPrinter::Visit(AstFuncDef& node) {
@@ -69,11 +156,7 @@ void AstPrinter::Visit(AstFuncDef& node) {
     }
 
     std::cout << "], body=";
-    if (node.body) {
-        visitNode(node.body);
-    } else {
-        std::cout << "<empty>";
-    }
+    visitOrEmpty(node.body);
 
     std::cout << ')';
 }
@@ -104,15 +187,109 @@ void AstPrinter::Visit(AstBlock& node) {
     std::cout << "])";
 }
 
-void AstPrinter::Visit(AstLocalVarDef& node) {
-    std::cout << std::format("LocalVarDef(span={}, type={}, name={}, init=", spanToStr(node.span), typeToStr(node.symbol->type), node.symbol->name);
+void AstPrinter::Visit(AstCondBranch& node) {
+    std::cout << std::format("CondBranch(span={}, condition=", spanToStr(node.span));
+    visitNode(node.cond_expr);
 
-    if (node.init) {
-        visitNode(node.init);
+    std::cout << ", body=";
+    visitNode(node.body);
+
+    std::cout << ')';
+}
+
+void AstPrinter::Visit(AstIfTree& node) {
+    std::cout << std::format("IfTree(span={}, branches=[", spanToStr(node.span));
+    for (int i = 0; i < node.branches.size(); i++) {
+        if (i > 0)
+            std::cout << ", ";
+
+        node.branches[i].Accept(this);
+    }
+
+    std::cout << "], else=";
+    visitOrEmpty(node.else_body);
+
+    std::cout << ')';
+}
+
+void AstPrinter::Visit(AstWhileLoop& node) {
+    std::cout << std::format(
+        "{}(span={}, condition=", 
+        node.is_do_while ? "DoWhileLoop" : "WhileLoop", 
+        spanToStr(node.span)
+    );
+
+    visitNode(node.cond_expr);
+
+    std::cout << ", body=";
+    visitNode(node.body);
+
+    std::cout << ", else=";
+    visitOrEmpty(node.body);
+
+    std::cout << ')';
+}
+
+void AstPrinter::Visit(AstForLoop& node) {
+    std::cout << std::format("ForLoop(span={}, var_def=", spanToStr(node.span));
+
+    if (node.var_def) {
+        node.var_def->Accept(this);
     } else {
         std::cout << "<empty>";
     }
 
+    std::cout << ", condition=";
+    visitOrEmpty(node.cond_expr);
+
+    std::cout << ", update_stmt=";
+    visitOrEmpty(node.update_stmt);
+
+    std::cout << ", body=";
+    visitNode(node.body);
+
+    std::cout << ", else=";
+    visitOrEmpty(node.else_clause);
+
+    std::cout << ')';
+}
+
+void AstPrinter::Visit(AstIncDec& node) {
+    std::cout << std::format("IncDec(span={}, lhs=", spanToStr(node.span));
+    visitNode(node.lhs);
+    std::cout << ", op=";
+    printAstOp(node.op_kind);
+    std::cout << ')';
+}
+
+void AstPrinter::Visit(AstAssign& node) {
+    std::cout << std::format("Assign(span={}, lhs=", spanToStr(node.span));
+    visitNode(node.lhs);
+    std::cout << ", rhs=";
+    visitNode(node.rhs);
+    std::cout << ", assign_op=";
+    printAstOp(node.assign_op_kind);
+    std::cout << ')';
+}
+
+void AstPrinter::Visit(AstReturn& node) {
+    std::cout << std::format("Return(span={}, value=", spanToStr(node.span));
+    visitOrEmpty(node.value);
+
+    std::cout << ')';
+}
+
+void AstPrinter::Visit(AstBreak& node) {
+    std::cout << std::format("Break(span={})", spanToStr(node.span));
+}
+
+void AstPrinter::Visit(AstContinue& node) {
+    std::cout << std::format("Continue(span={})", spanToStr(node.span));
+}
+
+void AstPrinter::Visit(AstLocalVarDef& node) {
+    std::cout << std::format("LocalVarDef(span={}, type={}, name={}, init=", spanToStr(node.span), typeToStr(node.symbol->type), node.symbol->name);
+    visitOrEmpty(node.init);
     std::cout << ')';
 }
 
@@ -127,32 +304,7 @@ void AstPrinter::Visit(AstCast& node) {
 void AstPrinter::Visit(AstBinaryOp& node) {
     std::cout << std::format("BinaryOp(span={}, type={}, aop=", spanToStr(node.span), typeToStr(node.type));
 
-    switch (node.op_kind) {
-    case AOP_ADD: 
-        std::cout << "ADD";
-        break;
-    case AOP_SUB: 
-        std::cout << "SUB";
-        break;
-    case AOP_MUL: 
-        std::cout << "MUL";
-        break;
-    case AOP_DIV: 
-        std::cout << "DIV";
-        break;
-    case AOP_MOD: 
-        std::cout << "MOD";
-        break;
-    case AOP_BWAND: 
-        std::cout << "BAND";
-        break;
-    case AOP_BWOR: 
-        std::cout << "BOR";
-        break;
-    case AOP_BWXOR: 
-        std::cout << "BXOR";
-        break;
-    }
+    printAstOp(node.op_kind);
 
     std::cout << ", lhs=";
     visitNode(node.lhs);
@@ -166,11 +318,7 @@ void AstPrinter::Visit(AstBinaryOp& node) {
 void AstPrinter::Visit(AstUnaryOp& node) {
     std::cout << std::format("UnaryOp(span={}, type={}, aop=", spanToStr(node.span), typeToStr(node.type));
     
-    switch (node.op_kind) {
-    case AOP_NEG:
-        std::cout << "NEG";
-        break;
-    }
+    printAstOp(node.op_kind);
 
     std::cout << ", operand=";
     visitNode(node.operand);

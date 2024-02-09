@@ -27,18 +27,31 @@ std::unordered_map<TokenKind, AstOpKind> tok_to_aop {
     { TOK_STAR, AOP_MUL },
     { TOK_FSLASH, AOP_DIV },
     { TOK_MOD, AOP_MOD },
+    { TOK_SHL, AOP_SHL },
+    { TOK_SHR, AOP_SHR },
     { TOK_AMP, AOP_BWAND },
     { TOK_PIPE, AOP_BWOR },
-    { TOK_CARRET, AOP_BWXOR }
+    { TOK_CARRET, AOP_BWXOR },
+    { TOK_EQ, AOP_EQ },
+    { TOK_NE, AOP_NE },
+    { TOK_LT, AOP_LT },
+    { TOK_GT, AOP_GT },
+    { TOK_LE, AOP_LE },
+    { TOK_GE, AOP_GE },
+    { TOK_AND, AOP_LGAND },
+    { TOK_OR, AOP_LGOR },
 };
 
-#define PRED_TABLE_SIZE 5
+#define PRED_TABLE_SIZE 8
 std::vector<TokenKind> pred_table[PRED_TABLE_SIZE] = {
-    std::vector<TokenKind>{ TOK_PIPE },
-    std::vector<TokenKind>{ TOK_CARRET },
-    std::vector<TokenKind>{ TOK_AMP },
-    std::vector<TokenKind>{ TOK_PLUS, TOK_MINUS },
-    std::vector<TokenKind>{ TOK_STAR, TOK_FSLASH, TOK_MOD }
+    { TOK_AND, TOK_OR },
+    { TOK_EQ, TOK_NE, TOK_LT, TOK_GT, TOK_LE, TOK_GE },
+    { TOK_PIPE },
+    { TOK_CARRET },
+    { TOK_AMP },
+    { TOK_SHL, TOK_SHR },
+    { TOK_PLUS, TOK_MINUS },
+    { TOK_STAR, TOK_FSLASH, TOK_MOD }
 };
 
 std::unique_ptr<AstExpr> Parser::parseBinaryOp(int pred_level) {
@@ -95,6 +108,13 @@ std::unique_ptr<AstExpr> Parser::parseUnaryOp() {
         auto atom_expr = parseAtomExpr();
         auto span = SpanOver(start_span, atom_expr->span);
         return std::make_unique<AstUnaryOp>(span, AOP_NEG, std::move(atom_expr));
+    } break;
+    case TOK_NOT: {
+        next();
+        
+        auto atom_expr = parseAtomExpr();
+        auto span = SpanOver(start_span, atom_expr->span);
+        return std::make_unique<AstUnaryOp>(span, AOP_NOT, std::move(atom_expr));
     } break;
     default:
         return parseAtomExpr();

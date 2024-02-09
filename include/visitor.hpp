@@ -20,6 +20,15 @@ struct Visitor {
     virtual void Visit(AstFloatLit& node) = 0;
     virtual void Visit(AstBoolLit& node) = 0;
     virtual void Visit(AstNullLit& node) = 0;
+    virtual void Visit(AstCondBranch& node) = 0;
+    virtual void Visit(AstIfTree& node) = 0;
+    virtual void Visit(AstWhileLoop& node) = 0;
+    virtual void Visit(AstForLoop& node) = 0;
+    virtual void Visit(AstIncDec& node) = 0;
+    virtual void Visit(AstAssign& node) = 0;
+    virtual void Visit(AstReturn& node) = 0;
+    virtual void Visit(AstBreak& node) = 0;
+    virtual void Visit(AstContinue& node) = 0;
 
 protected:
     // NOTE: Is there a better way to do this?  (C++ is scuffed af).

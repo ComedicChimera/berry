@@ -148,3 +148,15 @@ void CodeGenerator::visitNode(std::unique_ptr<AstExpr>& node) {
 void CodeGenerator::visitNode(std::unique_ptr<AstDef>& node) {
     node->Accept(this);
 }
+
+/* -------------------------------------------------------------------------- */
+
+void CodeGenerator::Visit(AstCondBranch& node) {}
+void CodeGenerator::Visit(AstIfTree& node) {}
+void CodeGenerator::Visit(AstWhileLoop& node) {}
+void CodeGenerator::Visit(AstForLoop& node) {}
+void CodeGenerator::Visit(AstIncDec& node) {}
+void CodeGenerator::Visit(AstAssign& node) {}
+void CodeGenerator::Visit(AstReturn& node) {}
+void CodeGenerator::Visit(AstBreak& node) {}
+void CodeGenerator::Visit(AstContinue& node) {}

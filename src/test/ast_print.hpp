@@ -20,6 +20,19 @@ struct AstPrinter : public Visitor {
     void Visit(AstFloatLit& node) override;
     void Visit(AstBoolLit& node) override;
     void Visit(AstNullLit& node) override;
+    void Visit(AstCondBranch& node) override;
+    void Visit(AstIfTree& node) override;
+    void Visit(AstWhileLoop& node) override;
+    void Visit(AstForLoop& node) override;
+    void Visit(AstIncDec& node) override;
+    void Visit(AstAssign& node) override;
+    void Visit(AstReturn& node) override;
+    void Visit(AstBreak& node) override;
+    void Visit(AstContinue& node) override;
+
+private:
+    void visitOrEmpty(std::unique_ptr<AstNode> &node);
+    void visitOrEmpty(std::unique_ptr<AstExpr>& node);
 };
 
 #endif

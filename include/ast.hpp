@@ -328,20 +328,20 @@ struct AstAssign : public AstNode {
     // rhs is the right hand side of the assignment.
     std::unique_ptr<AstExpr> rhs;
 
-    // compound_op_kind is the optional compound assignment operation (ex: `+`
+    // assign_op_kind is the optional compound assignment operation (ex: `+`
     // for `+=`). If no compound op is used, then this will be AOP_NONE.
-    AstOpKind compound_op_kind;
+    AstOpKind assign_op_kind;
 
     AstAssign(
         const TextSpan& span, 
         std::unique_ptr<AstExpr>&& lhs, 
         std::unique_ptr<AstExpr>&& rhs, 
-        AstOpKind cpd_op = AOP_NONE
+        AstOpKind assign_op = AOP_NONE
     )
     : AstNode(span)
     , lhs(std::move(lhs))
     , rhs(std::move(rhs))
-    , compound_op_kind(cpd_op)
+    , assign_op_kind(assign_op)
     {}
 
     void Accept(Visitor* v) override;

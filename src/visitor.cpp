@@ -16,15 +16,15 @@ void AstFloatLit::Accept(Visitor* v) { v->Visit(*this); }
 void AstBoolLit::Accept(Visitor* v) { v->Visit(*this); }
 void AstNullLit::Accept(Visitor* v) { v->Visit(*this); }
 
-void AstCondBranch::Accept(Visitor* v) { /* TODO */ }
-void AstIfTree::Accept(Visitor* v) { /* TODO */}
-void AstWhileLoop::Accept(Visitor* v) { /* TODO */}
-void AstForLoop::Accept(Visitor* v) { /* TODO */}
-void AstIncDec::Accept(Visitor* v) { /* TODO */}
-void AstAssign::Accept(Visitor* v) { /* TODO */}
-void AstReturn::Accept(Visitor* v) { /* TODO */}
-void AstBreak::Accept(Visitor* v) { /* TODO */}
-void AstContinue::Accept(Visitor* v) { /* TODO */}
+void AstCondBranch::Accept(Visitor* v) { v->Visit(*this); }
+void AstIfTree::Accept(Visitor* v) { v->Visit(*this); }
+void AstWhileLoop::Accept(Visitor* v) { v->Visit(*this); }
+void AstForLoop::Accept(Visitor* v) { v->Visit(*this); }
+void AstIncDec::Accept(Visitor* v) { v->Visit(*this); }
+void AstAssign::Accept(Visitor* v) { v->Visit(*this); }
+void AstReturn::Accept(Visitor* v) { v->Visit(*this); }
+void AstBreak::Accept(Visitor* v) { v->Visit(*this); }
+void AstContinue::Accept(Visitor* v) { v->Visit(*this); }
 
 /* -------------------------------------------------------------------------- */
 

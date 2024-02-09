@@ -96,3 +96,15 @@ void Checker::popScope() {
 
     scope_stack.pop_back();
 }
+
+/* -------------------------------------------------------------------------- */
+
+void Checker::Visit(AstCondBranch& node) {}
+void Checker::Visit(AstIfTree& node) {}
+void Checker::Visit(AstWhileLoop& node) {}
+void Checker::Visit(AstForLoop& node) {}
+void Checker::Visit(AstIncDec& node) {}
+void Checker::Visit(AstAssign& node) {}
+void Checker::Visit(AstReturn& node) {}
+void Checker::Visit(AstBreak& node) {}
+void Checker::Visit(AstContinue& node) {}
