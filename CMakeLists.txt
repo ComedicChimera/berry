@@ -19,7 +19,6 @@ set(SRCS
     "syntax/parse_def.cpp"
     "syntax/parse_type.cpp"
     "syntax/parse_stmt.cpp"
-    "syntax/parse_block.cpp"
     "syntax/parse_expr.cpp"
 
     "types/type_to_str.cpp"

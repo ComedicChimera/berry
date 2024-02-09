@@ -365,13 +365,17 @@ struct AstReturn : public AstNode {
     void Accept(Visitor* v) override;
 };
 
-// AstBreakStmt represents a break statement (ex: `break`).
-struct AstBreakStmt : public AstNode {
+// AstBreak represents a break statement (ex: `break`).
+struct AstBreak : public AstNode {
+    AstBreak(const TextSpan& span) : AstNode(span) {}
+
     void Accept(Visitor* v) override;
 };
 
-// AstContinueStmt represents a continue statement (ex: `continue`).
-struct AstContinueStmt : public AstNode {
+// AstContinue represents a continue statement (ex: `continue`).
+struct AstContinue : public AstNode {
+    AstContinue(const TextSpan& span) : AstNode(span) {}
+
     void Accept(Visitor* v) override;
 };
 

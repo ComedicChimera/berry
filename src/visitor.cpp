@@ -23,8 +23,8 @@ void AstForLoop::Accept(Visitor* v) { /* TODO */}
 void AstIncDec::Accept(Visitor* v) { /* TODO */}
 void AstAssign::Accept(Visitor* v) { /* TODO */}
 void AstReturn::Accept(Visitor* v) { /* TODO */}
-void AstBreakStmt::Accept(Visitor* v) { /* TODO */}
-void AstContinueStmt::Accept(Visitor* v) { /* TODO */}
+void AstBreak::Accept(Visitor* v) { /* TODO */}
+void AstContinue::Accept(Visitor* v) { /* TODO */}
 
 /* -------------------------------------------------------------------------- */
 

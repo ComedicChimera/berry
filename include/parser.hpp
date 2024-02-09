@@ -46,11 +46,16 @@ private:
     /* ---------------------------------------------------------------------- */
 
     std::unique_ptr<AstNode> parseBlock();
-
-    /* ---------------------------------------------------------------------- */
-
     std::unique_ptr<AstNode> parseStmt();
+
+    std::unique_ptr<AstNode> parseIfStmt();
+    std::unique_ptr<AstNode> parseWhileLoop();
+    std::unique_ptr<AstNode> parseDoWhileLoop();
+    std::unique_ptr<AstNode> parseForLoop();
+    std::unique_ptr<AstNode> maybeParseElse();
+
     std::unique_ptr<AstLocalVarDef> parseLocalVarDef();
+    std::unique_ptr<AstNode> parseExprAssignStmt();
 
     /* ---------------------------------------------------------------------- */
 
