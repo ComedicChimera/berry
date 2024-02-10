@@ -1,0 +1,132 @@
+// Useful API Functions
+@[extern, callconv("win64")]
+func ExitProcess(exit_code: u32);
+
+@[extern, callconv("win64")]
+func GetStdHandle(n_handle: u32) *u8;
+
+@[extern, callconv("win64")]
+func WriteConsoleA(h: *u8, buff: *u8, n_to_write: i32, n_written: *i32, reserved: *u8) bool;
+
+// Berry Runtime
+@extern
+func __LibBerry_Init();
+
+@abientry
+func __LibBerry_Start() {
+    __LibBerry_Init();
+
+    main();
+
+    ExitProcess(0);
+}
+
+let stdout: *u8 = GetStdHandle(-11 as u32);
+
+// ------------------------------------------------------------------------- //
+
+// Buffered IO example
+let out_buff: [1024]u8;
+let out_cursor: i64;
+
+func write(b: []u8) {
+    for let i = 0; i < b._len; i++ {
+        if i + out_cursor >= out_buff._len {
+            flush();
+        }
+
+        out_buff[i + out_cursor] = b[i];
+        out_cursor++;
+
+        if b[i] == '\n' || b[i] == '\r' {
+            flush();
+        }
+    }
+    
+}
+
+func flush() {
+    WriteConsoleA(stdout, out_buff._ptr, out_cursor as i32, null, null);
+    out_cursor = 0;
+}
+
+// ------------------------------------------------------------------------- //
+
+func putRune(c: i32) {
+    let data = [c as u8];
+    write(data);
+}
+
+func putInt(n: i64) {
+    let digit_buff: [20]u8;
+
+    let i = 19; 
+    do {
+        let digit = n % 10;
+        digit_buff[i] = digit;
+
+        n /= 10;
+        i--;
+    } while (n > 0 && i >= 0);
+
+    digit_buff = digit_buff[i+1:];
+    write(digit_buff);
+}
+
+// ------------------------------------------------------------------------- //
+
+func swap(arr: []i64, i, j: i64) {
+    let tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+}
+
+func partition(arr: []i64, lo, hi: i64) i64 {
+    let p = hi - 1;
+
+    for let i = 0; i < p; i++ {
+        if arr[i] > arr[p] {
+            swap(arr, i, p);
+            p--;
+            swap(arr, i, p);
+        }
+    }
+
+    return p;
+}
+
+func qsort(arr: []i64, lo, hi: i64) {
+    if hi - lo < 2 {
+        return;
+    }
+
+    let p = partition(arr, lo, hi);
+    qsort(arr, lo, p);
+    qsort(arr, p, hi);
+}
+
+func quickSort(arr: []i64) {
+    qsort(arr, 0, arr._len);
+}
+
+func printArray(arr: []i64) {
+    putRune('[');
+
+    for let i = 0; i < arr._len; i++ {
+        putInt(arr[i]);
+        write(", ");    
+    }
+
+    write("]\n");
+}
+
+func main() {
+    write("Hello, world!\n");
+    
+    let arr = [6, 8, 1, 4, 3, 2, 9, 7, 6, 5];
+    quickSort(arr);
+    printArray(arr);
+
+    write("Big man"[1:5]);
+    putRune('\n');
+}
