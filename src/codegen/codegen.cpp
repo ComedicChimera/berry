@@ -16,6 +16,18 @@ void CodeGenerator::GenerateModule() {
 
     debug.FinishModule();
 
+    // TODO: find a better way to do this...
+    // Add _fltused global symbol.
+    auto* ll_double_type = llvm::Type::getDoubleTy(ctx);
+    auto* gv_fltused = new llvm::GlobalVariable(
+        mod,
+        ll_double_type,
+        true,
+        llvm::GlobalValue::ExternalLinkage,
+        llvm::Constant::getNullValue(ll_double_type),
+        "_fltused"
+    );
+
     std::string err_msg;
     llvm::raw_string_ostream oss(err_msg);
     if (llvm::verifyModule(mod, &oss)) {
@@ -53,7 +65,7 @@ void CodeGenerator::genInitFunc() {
 
 void CodeGenerator::finishInitFunc() {
     auto& last_block = ll_init_func->back();   
-    builder.SetInsertPoint(&last_block);
+    setCurrentBlock(&last_block);
     builder.CreateRetVoid();
 }
 
@@ -105,11 +117,11 @@ llvm::Type* CodeGenerator::genType(Type* type) {
         return llvm::FunctionType::get(genType(func_type->return_type), ll_param_types, false);
     } break;
     case TYPE_UNTYP:
-        Panic("abstract untyped in code generator");
+        Panic("abstract untyped in codegen");
         break;
     }
 
-    Panic("unimplemented type in code generator");
+    Panic("unimplemented type in codegen");
     return nullptr;
 }
 
@@ -128,9 +140,58 @@ void CodeGenerator::pushValueMode(bool mode) {
 }
 
 void CodeGenerator::popValueMode() {
-    Assert(value_mode_stack.size() > 0, "pop on empty value mode stack");
-
+    Assert(value_mode_stack.size() > 0, "pop on empty value mode stack in codegen");
     value_mode_stack.pop_back();
+}
+
+/* -------------------------------------------------------------------------- */
+
+LoopContext& CodeGenerator::getLoopCtx() {
+    Assert(loop_ctx_stack.size() > 0, "loop control statement missing loop context in codegen");
+    return loop_ctx_stack.back();
+}
+
+void CodeGenerator::pushLoopContext(llvm::BasicBlock* break_block, llvm::BasicBlock* continue_block) {
+    loop_ctx_stack.emplace_back(break_block, continue_block);
+}
+
+void CodeGenerator::popLoopContext() {
+    Assert(loop_ctx_stack.size() > 0, "pop on empty loop context stack in codegen");
+    loop_ctx_stack.pop_back();
+}
+
+/* -------------------------------------------------------------------------- */
+
+llvm::BasicBlock* CodeGenerator::getCurrentBlock() {
+    return builder.GetInsertBlock();
+}
+
+void CodeGenerator::setCurrentBlock(llvm::BasicBlock* block) {
+    builder.SetInsertPoint(block);
+}
+
+llvm::BasicBlock* CodeGenerator::appendBlock() {
+    Assert(ll_enclosing_func != nullptr, "append basic block without enclosing function");
+
+    return llvm::BasicBlock::Create(ctx, "", ll_enclosing_func);
+}
+
+bool CodeGenerator::currentHasTerminator() {
+    return getCurrentBlock()->getTerminator() != nullptr;
+}
+
+bool CodeGenerator::hasPredecessor(llvm::BasicBlock* block) {
+    if (block == nullptr) 
+        block = getCurrentBlock();
+
+    return block->hasNPredecessorsOrMore(1);
+}
+
+void CodeGenerator::deleteCurrentBlock(llvm::BasicBlock* new_current) {
+    auto* old_current = getCurrentBlock();
+    setCurrentBlock(new_current);
+    
+    old_current->eraseFromParent();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -148,15 +209,3 @@ void CodeGenerator::visitNode(std::unique_ptr<AstExpr>& node) {
 void CodeGenerator::visitNode(std::unique_ptr<AstDef>& node) {
     node->Accept(this);
 }
-
-/* -------------------------------------------------------------------------- */
-
-void CodeGenerator::Visit(AstCondBranch& node) {}
-void CodeGenerator::Visit(AstIfTree& node) {}
-void CodeGenerator::Visit(AstWhileLoop& node) {}
-void CodeGenerator::Visit(AstForLoop& node) {}
-void CodeGenerator::Visit(AstIncDec& node) {}
-void CodeGenerator::Visit(AstAssign& node) {}
-void CodeGenerator::Visit(AstReturn& node) {}
-void CodeGenerator::Visit(AstBreak& node) {}
-void CodeGenerator::Visit(AstContinue& node) {}

@@ -71,28 +71,232 @@ void CodeGenerator::Visit(AstCast& node) {
 }
 
 void CodeGenerator::Visit(AstBinaryOp& node) {
-    Panic("codegen for binary ops is not implemented yet");
+    visitNode(node.lhs);
+
+    // Handle short circuit operators.
+    if (node.op_kind == AOP_LGAND) {
+        auto* start_block = getCurrentBlock(); 
+        auto* true_block = appendBlock();
+        auto* end_block = appendBlock();
+
+        builder.CreateCondBr(node.lhs->llvm_value, true_block, end_block);
+
+        setCurrentBlock(true_block);
+        visitNode(node.rhs);
+        builder.CreateBr(end_block);
+
+        setCurrentBlock(end_block);
+        auto* phi_node = builder.CreatePHI(llvm::Type::getInt1Ty(ctx), 2);
+        phi_node->addIncoming(node.lhs->llvm_value, start_block);
+        phi_node->addIncoming(node.rhs->llvm_value, true_block);
+
+        node.llvm_value = phi_node;
+        return;
+    } else if (node.op_kind == AOP_LGOR) {
+        auto* start_block = getCurrentBlock();
+        auto* false_block = appendBlock();
+        auto* end_block = appendBlock();
+
+        builder.CreateCondBr(node.lhs->llvm_value, end_block, false_block);
+
+        setCurrentBlock(false_block);
+        visitNode(node.rhs);
+        builder.CreateBr(end_block);
+
+        setCurrentBlock(end_block);
+        auto* phi_node = builder.CreatePHI(llvm::Type::getInt1Ty(ctx), 2);
+        phi_node->addIncoming(node.lhs->llvm_value, start_block);
+        phi_node->addIncoming(node.rhs->llvm_value, false_block);
+
+        node.llvm_value = phi_node;
+        return;
+    }
+
+    visitNode(node.rhs);
+
+    auto lhs_type = node.lhs->type->Inner();
+    auto* lhs_val = node.lhs->llvm_value;
+    auto* rhs_val = node.rhs->llvm_value;
+    switch (node.op_kind) {
+    case AOP_ADD:
+        if (lhs_type->GetKind() == TYPE_INT) {
+            node.llvm_value = builder.CreateAdd(lhs_val, rhs_val);
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for ADD op in codegen");
+            node.llvm_value = builder.CreateFAdd(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_SUB:
+        if (lhs_type->GetKind() == TYPE_INT) {
+            node.llvm_value = builder.CreateSub(lhs_val, rhs_val);
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for SUB op in codegen");
+            node.llvm_value = builder.CreateFSub(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_MUL:
+        if (lhs_type->GetKind() == TYPE_INT) {
+            node.llvm_value = builder.CreateMul(lhs_val, rhs_val);
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for MUL op in codegen");
+            node.llvm_value = builder.CreateFMul(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_DIV:
+        if (lhs_type->GetKind() == TYPE_INT) {
+            auto* int_type = dynamic_cast<IntType*>(lhs_type);
+            if (int_type->is_signed) {
+                node.llvm_value = builder.CreateSDiv(lhs_val, rhs_val);
+            } else {
+                node.llvm_value = builder.CreateUDiv(lhs_val, rhs_val);
+            }
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for DIV op in codegen");
+            node.llvm_value = builder.CreateFDiv(lhs_val, rhs_val);         
+        }
+        return;
+    case AOP_MOD:
+        if (lhs_type->GetKind() == TYPE_INT) {
+            auto* int_type = dynamic_cast<IntType*>(lhs_type);
+            if (int_type->is_signed) {
+                node.llvm_value = builder.CreateSRem(lhs_val, rhs_val);
+            } else {
+                node.llvm_value = builder.CreateURem(lhs_val, rhs_val);
+            }
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for MOD op in codegen");
+            node.llvm_value = builder.CreateFRem(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_SHL:
+        Assert(lhs_type->GetKind() == TYPE_INT, "invalid types for SHL op in codegen");
+        node.llvm_value = builder.CreateShl(lhs_val, rhs_val);
+        return;
+    case AOP_SHR: {
+        Assert(lhs_type->GetKind() == TYPE_INT, "invalid types for SHR op in codegen");
+
+        auto* int_type = dynamic_cast<IntType*>(lhs_type);
+
+        if (int_type->is_signed) {
+            node.llvm_value = builder.CreateAShr(lhs_val, rhs_val);
+        } else {
+            node.llvm_value = builder.CreateLShr(lhs_val, rhs_val);
+        }
+    } return;
+    case AOP_EQ:
+        if (lhs_type->GetKind() == TYPE_INT || lhs_type->GetKind() == TYPE_PTR || lhs_type->GetKind() == TYPE_BOOL) {
+            node.llvm_value = builder.CreateICmpEQ(lhs_val, rhs_val);
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for EQ op in codegen");
+            node.llvm_value = builder.CreateFCmpOEQ(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_NE:
+        if (lhs_type->GetKind() == TYPE_INT || lhs_type->GetKind() == TYPE_PTR || lhs_type->GetKind() == TYPE_BOOL) {
+            node.llvm_value = builder.CreateICmpNE(lhs_val, rhs_val);
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for NE op in codegen");
+            node.llvm_value = builder.CreateFCmpONE(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_LT:
+        if (lhs_type->GetKind() == TYPE_INT) {
+            auto* int_type = dynamic_cast<IntType*>(lhs_type);
+
+            if (int_type->is_signed) {
+                node.llvm_value = builder.CreateICmpSLT(lhs_val, rhs_val);
+            } else {
+                node.llvm_value = builder.CreateICmpULT(lhs_val, rhs_val);
+            }
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for LT op in codegen");
+            node.llvm_value = builder.CreateFCmpOLT(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_GT:
+        if (lhs_type->GetKind() == TYPE_INT) {
+            auto* int_type = dynamic_cast<IntType*>(lhs_type);
+
+            if (int_type->is_signed) {
+                node.llvm_value = builder.CreateICmpSGT(lhs_val, rhs_val);
+            } else {
+                node.llvm_value = builder.CreateICmpUGT(lhs_val, rhs_val);
+            }
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for GT op in codegen");
+            node.llvm_value = builder.CreateFCmpOGT(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_LE:
+        if (lhs_type->GetKind() == TYPE_INT) {
+            auto* int_type = dynamic_cast<IntType*>(lhs_type);
+
+            if (int_type->is_signed) {
+                node.llvm_value = builder.CreateICmpSLE(lhs_val, rhs_val);
+            } else {
+                node.llvm_value = builder.CreateICmpULE(lhs_val, rhs_val);
+            }
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for LE op in codegen");
+            node.llvm_value = builder.CreateFCmpOLE(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_GE:
+        if (lhs_type->GetKind() == TYPE_INT) {
+            auto* int_type = dynamic_cast<IntType*>(lhs_type);
+
+            if (int_type->is_signed) {
+                node.llvm_value = builder.CreateICmpSGE(lhs_val, rhs_val);
+            } else {
+                node.llvm_value = builder.CreateICmpUGE(lhs_val, rhs_val);
+            }
+        } else {
+            Assert(lhs_type->GetKind() == TYPE_FLOAT, "invalid types for GE op in codegen");
+            node.llvm_value = builder.CreateFCmpOGE(lhs_val, rhs_val);
+        }
+        return;
+    case AOP_BWAND:
+        Assert(lhs_type->GetKind() == TYPE_INT, "invalid types for BWAND op in codegen");
+        node.llvm_value = builder.CreateAnd(lhs_val, rhs_val);
+        return;
+    case AOP_BWOR:
+        Assert(lhs_type->GetKind() == TYPE_INT, "invalid types for BWOR op in codegen");
+        node.llvm_value = builder.CreateOr(lhs_val, rhs_val);
+        return;
+    case AOP_BWXOR:
+        Assert(lhs_type->GetKind() == TYPE_INT, "invalid types for BWXOR op in codegen");
+        node.llvm_value = builder.CreateXor(lhs_val, rhs_val);
+        return;     
+    }
+
+    Panic("unsupported binary operator in codegen: {}", (int)node.op_kind);
 }
 
 void CodeGenerator::Visit(AstUnaryOp& node) {
     visitNode(node.operand);
 
+    auto* operand_type = node.type->Inner();
+    auto* operand_val = node.operand->llvm_value;
     switch (node.op_kind) {
-    case AOP_NEG: {
-        if (node.type->Inner()->GetKind() == TYPE_INT) {
-            node.llvm_value = builder.CreateNeg(node.operand->llvm_value);
-        } else if (node.type->Inner()->GetKind() == TYPE_FLOAT) {
-            node.llvm_value = builder.CreateFNeg(node.operand->llvm_value);
+    case AOP_NEG:
+        if (operand_type->GetKind() == TYPE_INT) {
+            node.llvm_value = builder.CreateNeg(operand_val);
         } else {
-            Panic("invalid operand for unary `-` in codegen");
+            Assert(operand_type->GetKind() == TYPE_FLOAT, "invalid type for NEG in codegen");
+            node.llvm_value = builder.CreateFNeg(operand_val);
         }
-    } break;
+        return;
+    case AOP_NOT:
+        Assert(operand_type->GetKind() == TYPE_BOOL, "invalid type for NOT in codegen");
+        node.llvm_value = builder.CreateNot(operand_val);
+        return;
     }
+
+    Panic("unsupported unary operator in codegen: {}", (int)node.op_kind);
 }
 
 void CodeGenerator::Visit(AstAddrOf& node) {
-    // TODO: handle heap allocations
-    Assert(node.elem->IsLValue(), "referencing to rvalues is not implemented yet");
+    Assert(node.elem->IsLValue(), "tried to take address of r-value in codegen");
 
     pushValueMode(false);
     visitNode(node.elem);
@@ -155,23 +359,38 @@ void CodeGenerator::Visit(AstIdent& node) {
 }
 
 void CodeGenerator::Visit(AstIntLit& node) {
-    Assert(node.type->Inner()->GetKind() == TYPE_INT, "non-integral type integer literal in codegen");
-    auto* int_type = dynamic_cast<IntType*>(node.type->Inner());
-
-    llvm::APInt ap_int(int_type->bit_size, node.value, int_type->is_signed);
-    node.llvm_value = llvm::Constant::getIntegerValue(genType(node.type), ap_int);
+    // NOTE: It is possible for an int literal to have a float type if a number
+    // literal implicitly takes on a floating point value.
+    auto inner_type = node.type->Inner();
+    switch (inner_type->GetKind()) {
+    case TYPE_INT: {
+        auto* int_type = dynamic_cast<IntType*>(inner_type);
+        llvm::APInt ap_int(int_type->bit_size, node.value, int_type->is_signed);
+        node.llvm_value = llvm::Constant::getIntegerValue(genType(node.type), ap_int);
+    } break;
+    case TYPE_FLOAT: {
+        auto* float_type = dynamic_cast<FloatType*>(inner_type);
+        node.llvm_value = makeLLVMFloatLit(float_type, (double)node.value);
+    } break;
+    default:
+        Panic("non-numeric type integer literal in codegen");
+    }    
 }
 
 void CodeGenerator::Visit(AstFloatLit& node) {
     Assert(node.type->Inner()->GetKind() == TYPE_FLOAT, "non-floating type float literal in codegen");
     auto* float_type = dynamic_cast<FloatType*>(node.type->Inner());
 
+    node.llvm_value = makeLLVMFloatLit(float_type, node.value);
+}
+
+llvm::Value* CodeGenerator::makeLLVMFloatLit(FloatType* float_type, double value) {
     if (float_type->bit_size == 64) {
-        llvm::APFloat ap_float(node.value);
-        node.llvm_value = llvm::ConstantFP::get(ctx, ap_float);
+        llvm::APFloat ap_float(value);
+        return llvm::ConstantFP::get(ctx, ap_float);
     } else {
-        llvm::APFloat ap_float((float)node.value);
-        node.llvm_value = llvm::ConstantFP::get(ctx, ap_float);
+        llvm::APFloat ap_float((float)value);
+        return llvm::ConstantFP::get(ctx, ap_float);
     }
 }
 

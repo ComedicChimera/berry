@@ -57,6 +57,7 @@ void CodeGenerator::Visit(AstFuncDef& node) {
     for (auto& arg : ll_func->args()) {
         arg.setName(node.params[i]->name);
         node.params[i]->llvm_value = &arg;
+        i++;
     }
 
     node.symbol->llvm_value = ll_func;
@@ -69,7 +70,7 @@ void CodeGenerator::genFuncBody(AstFuncDef& node) {
     auto* ll_func = llvm::dyn_cast<llvm::Function>(node.symbol->llvm_value);
 
     var_block = llvm::BasicBlock::Create(ctx, "entry", ll_func);
-    builder.SetInsertPoint(var_block);
+    setCurrentBlock(var_block);
 
     for (auto* param : node.params) {
         auto* ll_param = builder.CreateAlloca(param->llvm_value->getType());
@@ -77,22 +78,26 @@ void CodeGenerator::genFuncBody(AstFuncDef& node) {
         param->llvm_value = ll_param;
     }
 
-    auto* body_block = llvm::BasicBlock::Create(ctx, "", ll_func);
-    builder.SetInsertPoint(body_block);
+    ll_enclosing_func = ll_func;
+
+    auto* body_block = appendBlock();
+    setCurrentBlock(body_block);
+    
     visitNode(node.body);
+    if (!currentHasTerminator()) {
+        builder.CreateRetVoid();
+    }
+    
+    ll_enclosing_func = nullptr;
 
     debug.ClearDebugLocation();
-    builder.SetInsertPoint(var_block);
+    setCurrentBlock(var_block);
     builder.CreateBr(body_block);
-
-    // TODO: check for user returns.
-    builder.SetInsertPoint(&ll_func->back());
-    builder.CreateRetVoid();
 
     std::string err_msg;
     llvm::raw_string_ostream oss(err_msg);
     if (llvm::verifyFunction(*ll_func, &oss)) {
-        std::cerr << "error: verifying LLVM module:\n\n";
+        std::cerr << "error: verifying LLVM function:\n\n";
         std::cerr << err_msg << "\n\n";
         std::cerr << "printing module:\n\n";
         mod.print(llvm::errs(), nullptr);
@@ -113,9 +118,12 @@ void CodeGenerator::Visit(AstGlobalVarDef &node) {
             debug.PushDisable();
 
             auto& last_init_block = ll_init_func->back();
-            builder.SetInsertPoint(&last_init_block);
+            setCurrentBlock(&last_init_block);
 
+            ll_enclosing_func = ll_init_func;
             visitNode(node.var_def->init);
+            ll_enclosing_func = nullptr;
+            
             builder.CreateStore(node.var_def->init->llvm_value, node.var_def->symbol->llvm_value);
 
             debug.PopDisable();

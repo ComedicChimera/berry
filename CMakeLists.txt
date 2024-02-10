@@ -34,7 +34,6 @@ set(SRCS
 
     "codegen/codegen.cpp"
     "codegen/gen_def.cpp"
-    "codegen/gen_block.cpp"
     "codegen/gen_expr.cpp"
     "codegen/gen_stmt.cpp"
     "codegen/gen_debug.cpp"
@@ -54,6 +53,10 @@ set(INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/")
 target_include_directories(${PROJECT_NAME} PRIVATE ${INC_DIR})
 
 # LLVM Configuration
+if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4624")
+endif()
+
 if (NOT DEFINED LLVM_CONFIG_PATH)
     set(LLVM_CONFIG_PATH "D:/DevTools/llvm-17.0.6/llvm/out/Debug/bin/llvm-config.exe")
 endif()

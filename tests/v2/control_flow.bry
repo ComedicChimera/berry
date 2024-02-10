@@ -32,15 +32,25 @@ func putc(c: i32) {
 // ------------------------------------------------------------------------- //
 
 func puti(n: i64) {
-    if n < 0 {
+    if n == 0 {
+        putc('0');
+    } elif n < 0 {
         putc('-');
         n = -n;
     }
 
-    do {
-        putc('0' + (n % 10 as i32));
-        n /= 10;
-    } while n > 0;
+    let place = 1_000_000_000_000_000_000;
+    let hit_nonzero = false;
+    while place > 0 {
+        let digit = (n / place) % 10;
+
+        if digit > 0 || hit_nonzero {
+            putc('0' + (digit as i32));
+            hit_nonzero = true;
+        }
+
+        place /= 10;
+    }
 }
 
 func putbool(b: bool) {
@@ -89,6 +99,7 @@ func fibonacci(n: i64) {
     let tmp = 0;
     while a < n {
         puti(a);
+        putc('\n');
 
         tmp = a;
         a = b;
@@ -157,6 +168,7 @@ func main() {
 
     puti(sqrt(9) as i64);
     putc('\n');
+    putc('\n');
 
     puti(ack(1, 1));
     putc('\n');
@@ -166,8 +178,10 @@ func main() {
 
     puti(ack(3, 4));
     putc('\n');
+    putc('\n');
 
     puti(findFirstFactor(49));
+    putc('\n');
     putc('\n');
 
     putbool(containsPrime(10, 20));
@@ -177,5 +191,9 @@ func main() {
     putc('\n');
 
     putbool(containsPrime(24, 27));
+    putc('\n');
+    putc('\n');
+
+    puti(-10);
     putc('\n');
 }
