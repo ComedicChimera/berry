@@ -10,37 +10,13 @@ void Checker::Visit(AstBinaryOp& node) {
     visitNode(node.lhs);
     visitNode(node.rhs);
 
-    switch (node.op_kind) {
-    case AOP_ADD: case AOP_SUB: case AOP_MUL: case AOP_DIV: case AOP_MOD:
-        mustEqual(node.span, node.lhs->type, node.rhs->type);
-
-        mustNumberType(node.lhs->span, node.lhs->type);
-
-        node.type = node.lhs->type;
-        break;
-    case AOP_BWAND: case AOP_BWOR: case AOP_BWXOR:
-        mustEqual(node.span, node.lhs->type, node.rhs->type);
-
-        mustIntType(node.lhs->span, node.lhs->type);
-
-        node.type = node.lhs->type;
-        break;
-    default:
-        Panic("unsupported binary operator");
-    }
+    node.type = mustApplyBinaryOp(node.span, node.op_kind, node.lhs->type, node.rhs->type);
 }
 
 void Checker::Visit(AstUnaryOp& node) {
     visitNode(node.operand);
 
-    switch (node.op_kind) {
-    case AOP_NEG:
-        mustNumberType(node.operand->span, node.operand->type);
-       node.type = node.operand->type;
-        break;
-    default:
-        Panic("unsupported unary operator");
-    }
+    node.type = mustApplyUnaryOp(node.span, node.op_kind, node.operand->type);
 }
 
 void Checker::Visit(AstAddrOf& node) {
@@ -75,7 +51,7 @@ void Checker::Visit(AstCall& node) {
     }
 
     for (int i = 0; i < node.args.size(); i++) {
-        if (node.args[i]->Flags() & ASTF_NULL) {
+        if (node.args[i]->GetFlags() & ASTF_NULL) {
             node.args[i]->type = func_type->param_types[i];
         } else {
             visitNode(node.args[i]);

@@ -135,7 +135,7 @@ func containsPrime(l, h: i64) bool {
             continue;
         }
 
-        if find_first_factor(i) == -1 {
+        if findFirstFactor(i) == -1 {
             break;
         }
     } else {

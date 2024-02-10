@@ -30,26 +30,6 @@ void Checker::mustCast(const TextSpan &span, Type* src, Type* dest) {
     tctx.flags ^= TC_INFER;
 }
 
-void Checker::mustNumberType(const TextSpan &span, Type *type) {
-    tctx.flags |= TC_INFER;
-
-    if (!tctx.IsNumberType(type)) {
-        fatal(span, "expected a number type but got {}", type->ToString());
-    }
-
-    tctx.flags ^= TC_INFER;
-}
-
-void Checker::mustIntType(const TextSpan &span, Type *type) {
-    tctx.flags |= TC_INFER;
-
-    if (!tctx.IsIntType(type)) {
-        fatal(span, "expected a integer type but got {}", type->ToString());
-    }
-
-    tctx.flags ^= TC_INFER;
-}
-
 Untyped* Checker::newUntyped(UntypedKind kind) {
     return arena.New<Untyped>(&tctx, kind);
 }
@@ -71,6 +51,7 @@ Symbol* Checker::lookup(const std::string &name, const TextSpan &span) {
         return it->second;
     }
 
+    fatal(span, "undefined symbol: {}", name);
     return nullptr;
 }
 
@@ -96,15 +77,3 @@ void Checker::popScope() {
 
     scope_stack.pop_back();
 }
-
-/* -------------------------------------------------------------------------- */
-
-void Checker::Visit(AstCondBranch& node) {}
-void Checker::Visit(AstIfTree& node) {}
-void Checker::Visit(AstWhileLoop& node) {}
-void Checker::Visit(AstForLoop& node) {}
-void Checker::Visit(AstIncDec& node) {}
-void Checker::Visit(AstAssign& node) {}
-void Checker::Visit(AstReturn& node) {}
-void Checker::Visit(AstBreak& node) {}
-void Checker::Visit(AstContinue& node) {}

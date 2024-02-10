@@ -22,11 +22,22 @@ class Checker : public Visitor {
     // tctx is the checker's type context.
     TypeContext tctx;
 
+    // enclosing_return_type is the return type of the function whose body is
+    // being type checked. If the checker is running outside of a function body,
+    // then this value is nullptr.
+    Type* enclosing_return_type;
+
+    // loop_depth keeps track of how many enclosing loops there are.  This is
+    // used for break and continue checking.
+    int loop_depth;
+
 public:
     // Creates a new checker for src_file allocating in arena.
     Checker(Arena& arena, SourceFile& src_file)
     : arena(arena)
     , src_file(src_file)
+    , enclosing_return_type(nullptr)
+    , loop_depth(0)
     {}
 
     // Visitor methods
@@ -69,12 +80,10 @@ private:
     // mustCast asserts that src can be cast to dest.
     void mustCast(const TextSpan& span, Type* src, Type* dest);
 
-    // mustNumberType asserts that type is a number type.
-    void mustNumberType(const TextSpan& span, Type* type);
+    Type* mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_type, Type* rhs_type);
 
-    // mustIntType asserts that type is an integer type.
-    void mustIntType(const TextSpan& span, Type* type);
-    
+    Type* mustApplyUnaryOp(const TextSpan &span, AstOpKind aop, Type* operand_type);
+
     // newUntyped creates a new untyped of kind kind.
     Untyped* newUntyped(UntypedKind kind);
 

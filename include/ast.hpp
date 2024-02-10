@@ -6,7 +6,7 @@
 struct Visitor;
 
 // AstFlags enumerates the different values that can be returned from
-// ast->Flags().  These are used to indicate AST nodes that have some special
+// ast->GetFlags().  These are used to indicate AST nodes that have some special
 // significance to visitors.
 typedef int AstFlags;
 enum {
@@ -52,15 +52,20 @@ struct AstNode {
     // span is the source span containing the node.
     TextSpan span;
 
+    // always_returns indicates whether this node always returns.  That is to
+    // say, when it is encountered in a block, no code after it will execute.
+    bool always_returns;
+
     AstNode(const TextSpan& span)
     : span(span)
+    , always_returns(false)
     {}
 
     // Accept passes this node to a visitor.
     virtual void Accept(Visitor* v) = 0;
 
-    // Flags returns the AST nodes flags.
-    inline virtual AstFlags Flags() const { return ASTF_NONE; }
+    // GetFlags returns the AST nodes flags.
+    inline virtual AstFlags GetFlags() const { return ASTF_NONE; }
 };
 
 // AstExpr is an expression AST node.
@@ -83,7 +88,7 @@ struct AstExpr : public AstNode {
     , type(type)
     {}
 
-    inline AstFlags Flags() const override { return ASTF_EXPR; }
+    inline AstFlags GetFlags() const override { return ASTF_EXPR; }
 };
 
 // MetadataTag represents a Berry metadata tag.
@@ -360,7 +365,9 @@ struct AstReturn : public AstNode {
     AstReturn(const TextSpan& span, std::unique_ptr<AstExpr>&& value) 
     : AstNode(span)
     , value(std::move(value))
-    {}
+    {
+        always_returns = true;
+    }
 
     void Accept(Visitor* v) override;
 };
@@ -501,8 +508,8 @@ struct AstIdent : public AstExpr {
     // until symbol resolution occurs.
     Symbol* symbol;
 
-    // Name returns the name associated with the identifier.
-    inline std::string_view Name() const { return symbol == NULL ? temp_name : symbol->name; }
+    // GetName returns the name associated with the identifier.
+    inline std::string_view GetName() const { return symbol == NULL ? temp_name : symbol->name; }
 
     AstIdent(const TextSpan& span, std::string&& temp_name)
     : AstExpr(span, nullptr)
@@ -512,7 +519,7 @@ struct AstIdent : public AstExpr {
 
     void Accept(Visitor* v) override;
 
-    inline AstFlags Flags() const override { return ASTF_EXPR | ASTF_IDENT; }
+    inline AstFlags GetFlags() const override { return ASTF_EXPR | ASTF_IDENT; }
     
     inline bool IsImmut() const override { return symbol->immut; }
     inline bool IsLValue() const override { return true; }
@@ -569,7 +576,7 @@ struct AstNullLit : public AstExpr {
 
     void Accept(Visitor* v) override;
 
-    inline AstFlags Flags() const override { return ASTF_EXPR | ASTF_NULL; }
+    inline AstFlags GetFlags() const override { return ASTF_EXPR | ASTF_NULL; }
 };
 
 #endif

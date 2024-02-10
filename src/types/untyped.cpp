@@ -51,9 +51,9 @@ std::string TypeContext::GetAbstractUntypedStr(const Untyped* ut) {
         case UK_INT:
             return "untyped int";
         case UK_FLOAT:
-            return "untyped_float";
+            return "untyped float";
         case UK_NUM:
-            return "untyped_number";
+            return "untyped number";
         default:
             Panic("invalid untyped kind");
             return {};
@@ -75,8 +75,10 @@ void TypeContext::InferAll() {
             switch (entry.kind) {
             case UK_INT: case UK_NUM:
                 ut->concrete_type = &prim_i64_type;
+                break;
             case UK_FLOAT:
                 ut->concrete_type = &prim_f64_type;
+                break;
             }
         } else {
             ut->concrete_type = entry.concrete_type;

@@ -60,7 +60,13 @@ void Checker::Visit(AstFuncDef& node) {
     if (node.body != nullptr) {
         pushScope();
 
+        enclosing_return_type = node.return_type;
         visitNode(node.body);
+        enclosing_return_type = nullptr;
+
+        if (node.return_type->GetKind() != TYPE_UNIT && !node.body->always_returns) {
+            error(node.body->span, "function must return a value");
+        }
 
         popScope();
     }

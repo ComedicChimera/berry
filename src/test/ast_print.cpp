@@ -362,7 +362,7 @@ void AstPrinter::Visit(AstIdent& node) {
         "Identifier(span={}, type={}, name={})",
         spanToStr(node.span),
         typeToStr(node.type),
-        node.Name()
+        node.GetName()
     );
 }
 

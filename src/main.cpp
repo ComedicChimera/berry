@@ -27,6 +27,15 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
         return false;
     }
 
+    Checker c(arena, src_file); 
+    for (auto& def : src_file.defs) {
+        def->Accept(&c);
+    }
+
+    if (ErrorCount() > 0) {
+        return false;
+    }
+
     AstPrinter printer;
     for (auto& def : src_file.defs) {
         def->Accept(&printer);
@@ -34,15 +43,6 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
     }
 
     return true;
-
-    // Checker c(arena, src_file); 
-    // for (auto& def : src_file.defs) {
-    //     def->Accept(&c);
-    // }
-
-    // if (ErrorCount() > 0) {
-    //     return false;
-    // }
 
     // llvm::LLVMContext ll_ctx;
     // llvm::Module ll_mod(mod.name, ll_ctx);

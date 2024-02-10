@@ -28,9 +28,9 @@ set(SRCS
 
     "check/checker.cpp"
     "check/check_def.cpp"
-    "check/check_block.cpp"
     "check/check_stmt.cpp"
     "check/check_expr.cpp"
+    "check/check_op.cpp"
 
     "codegen/codegen.cpp"
     "codegen/gen_def.cpp"
