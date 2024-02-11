@@ -130,6 +130,10 @@ void Checker::Visit(AstLocalVarDef& node) {
 
 void Checker::Visit(AstAssign& node) {
     visitNode(node.lhs);
+    if (!node.lhs->IsLValue()) {
+        error(node.lhs->span, "cannot assign to an r-value");
+    }
+
     visitNode(node.rhs);
 
     if (node.assign_op_kind == AOP_NONE) {

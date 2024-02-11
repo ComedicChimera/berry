@@ -392,6 +392,8 @@ void CodeGenerator::Visit(AstIndex& node) {
 }
 
 void CodeGenerator::Visit(AstSlice& node) {
+    // TODO: lhs slice
+
     Assert(node.array->type->Inner()->GetKind() == TYPE_ARRAY, "slice on non-array type in codegen");
 
     visitNode(node.array);
@@ -444,6 +446,8 @@ void CodeGenerator::Visit(AstSlice& node) {
 }
 
 void CodeGenerator::Visit(AstFieldAccess& node) {
+    // TODO: lhs field access
+
     visitNode(node.root);
 
     if (node.root->type->Inner()->GetKind() == TYPE_ARRAY) {
