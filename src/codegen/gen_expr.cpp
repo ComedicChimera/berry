@@ -342,7 +342,157 @@ void CodeGenerator::Visit(AstCall& node) {
     node.llvm_value = builder.CreateCall(ll_func_type, node.func->llvm_value, args);
 }
 
+llvm::Value* CodeGenerator::getArrayPtr(llvm::Value* array) {
+    return builder.CreateExtractValue(array, 0);
+}
+
+llvm::Value* CodeGenerator::getArrayLen(llvm::Value* array) {
+    return builder.CreateExtractValue(array, 1);
+}
+
+void CodeGenerator::genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len) {
+    auto* is_ge_zero = builder.CreateICmpSGE(ndx, llvm::Constant::getNullValue(ndx->getType()));
+    llvm::Value* is_lt_len;
+    if (can_equal_len) {
+        is_lt_len = builder.CreateICmpSLE(ndx, arr_len);
+    } else {
+        is_lt_len = builder.CreateICmpSLT(ndx, arr_len);
+    }
+    auto* is_in_bounds = builder.CreateAnd(is_ge_zero, is_lt_len);
+
+    auto* bb_oob = appendBlock();
+    auto* bb_in_bounds = appendBlock();
+
+    builder.CreateCondBr(is_in_bounds, bb_in_bounds, bb_oob);
+    
+    setCurrentBlock(bb_oob);
+    builder.CreateCall(ll_panic_func);
+    builder.CreateUnreachable();
+
+    setCurrentBlock(bb_in_bounds);
+}
+
+void CodeGenerator::Visit(AstIndex& node) {
+    Assert(node.array->type->Inner()->GetKind() == TYPE_ARRAY, "index on non-array type in codegen");
+
+    visitNode(node.array);
+    visitNode(node.index);
+
+    genBoundsCheck(node.index->llvm_value, getArrayLen(node.array->llvm_value));
+
+    auto* array_type = dynamic_cast<ArrayType*>(node.array->type->Inner());
+    auto* elem_type = genType(array_type->elem_type);
+    auto* elem_ptr = builder.CreateGEP(llvm::ArrayType::get(elem_type, 0), getArrayPtr(node.array->llvm_value), node.index->llvm_value);
+
+    if (isValueMode()) {
+        node.llvm_value = builder.CreateLoad(elem_type, elem_ptr);
+    } else {
+        node.llvm_value = elem_ptr;
+    }
+}
+
+void CodeGenerator::Visit(AstSlice& node) {
+    Assert(node.array->type->Inner()->GetKind() == TYPE_ARRAY, "slice on non-array type in codegen");
+
+    visitNode(node.array);
+    auto* arr_len = getArrayLen(node.array->llvm_value);
+
+    bool needs_bad_slice_check = node.start_index && node.end_index;
+
+    llvm::Value* start_ndx;
+    if (node.start_index) {
+        visitNode(node.start_index);
+        genBoundsCheck(node.start_index->llvm_value, arr_len);
+        start_ndx = node.start_index->llvm_value;
+    } else {
+        start_ndx = llvm::Constant::getNullValue(llvm::Type::getInt64Ty(ctx));
+    }
+
+    llvm::Value* end_ndx;
+    if (node.end_index) {
+        visitNode(node.end_index);
+        genBoundsCheck(node.end_index->llvm_value, arr_len, true);
+        end_ndx = node.end_index->llvm_value;
+    } else {
+        end_ndx = arr_len;
+    }
+
+    if (needs_bad_slice_check) {
+        auto* is_good_slice = builder.CreateICmpSLE(start_ndx, end_ndx);
+
+        auto* bb_is_bad_slice = appendBlock();
+        auto* bb_is_good_slice = appendBlock();
+
+        builder.CreateCondBr(is_good_slice, bb_is_good_slice, bb_is_bad_slice);
+
+        setCurrentBlock(bb_is_bad_slice);
+        builder.CreateCall(ll_panic_func);
+        builder.CreateUnreachable();
+
+        setCurrentBlock(bb_is_good_slice);
+    }
+
+    auto* array_type = dynamic_cast<ArrayType*>(node.array->type->Inner());
+    auto* elem_type = genType(array_type->elem_type);
+
+    auto* new_arr_ptr = builder.CreateGEP(llvm::ArrayType::get(elem_type, 0), getArrayPtr(node.array->llvm_value), start_ndx);
+    auto* new_arr_len = builder.CreateSub(end_ndx, start_ndx);
+
+    auto* empty_array = llvm::Constant::getNullValue(ll_array_type);
+    auto* new_array = builder.CreateInsertValue(empty_array, new_arr_ptr, 0);
+    node.llvm_value = builder.CreateInsertValue(new_array, new_arr_len, 1);
+}
+
+void CodeGenerator::Visit(AstFieldAccess& node) {
+    visitNode(node.root);
+
+    if (node.root->type->Inner()->GetKind() == TYPE_ARRAY) {
+        if (node.field_name == "_ptr") {
+            node.llvm_value = getArrayPtr(node.root->llvm_value);
+        } else if (node.field_name == "_len") {
+            node.llvm_value = getArrayLen(node.root->llvm_value);
+        } else {
+            Panic("bad array field {} in codegen", node.field_name);
+        }
+    } else {
+        Panic("get field on non-array type in codegen");
+    }
+}
+
 /* -------------------------------------------------------------------------- */
+
+void CodeGenerator::Visit(AstStringLit& node) {
+    auto* str_constant = llvm::ConstantDataArray::getString(ctx, node.value, false);
+
+    auto* gv_str_data = new llvm::GlobalVariable(
+        mod,
+        str_constant->getType(),
+        true,
+        llvm::GlobalValue::PrivateLinkage,
+        str_constant
+    );
+    gv_str_data->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+    
+    llvm::APInt ap_len(64, node.value.size(), false);
+    auto* str_array_constant = llvm::ConstantStruct::get(
+        ll_array_type,
+        {
+            gv_str_data,
+            llvm::Constant::getIntegerValue(llvm::Type::getInt64Ty(ctx), ap_len)
+        }
+    );
+
+    auto* gv_str = new llvm::GlobalVariable(
+        mod,
+        ll_array_type,
+        true,
+        llvm::GlobalValue::PrivateLinkage,
+        str_array_constant
+    );
+    gv_str->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+
+    node.llvm_value = gv_str;
+}
 
 void CodeGenerator::Visit(AstNullLit& node) {
     node.llvm_value = llvm::Constant::getNullValue(genType(node.type));

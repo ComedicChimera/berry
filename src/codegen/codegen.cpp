@@ -10,6 +10,9 @@ void CodeGenerator::GenerateModule() {
     pred_mode = true;
     genInitFunc();
 
+    ll_panic_func = mod.getFunction("_panic");
+    Assert(ll_panic_func != nullptr, "missing _panic");
+
     visitAll();
 
     finishInitFunc();
@@ -51,6 +54,16 @@ void CodeGenerator::visitAll() {
             visitNode(def);
         }
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+void CodeGenerator::createGlobalTypes() {
+    ll_array_type = llvm::StructType::create(
+        ctx, 
+        { llvm::PointerType::get(ctx, 0), llvm::Type::getInt64Ty(ctx) }, 
+        "_array"
+    );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -116,6 +129,8 @@ llvm::Type* CodeGenerator::genType(Type* type) {
 
         return llvm::FunctionType::get(genType(func_type->return_type), ll_param_types, false);
     } break;
+    case TYPE_ARRAY: 
+        return ll_array_type;
     case TYPE_UNTYP:
         Panic("abstract untyped in codegen");
         break;
@@ -212,8 +227,4 @@ void CodeGenerator::visitNode(std::unique_ptr<AstDef>& node) {
 
 /* -------------------------------------------------------------------------- */
 
-void CodeGenerator::Visit(AstIndex& node) {}
-void CodeGenerator::Visit(AstSlice& node) {}
 void CodeGenerator::Visit(AstArrayLit& node) {}
-void CodeGenerator::Visit(AstStringLit& node) {}
-void CodeGenerator::Visit(AstFieldAccess& node) {}

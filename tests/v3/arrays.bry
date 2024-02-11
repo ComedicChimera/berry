@@ -21,8 +21,7 @@ func __LibBerry_Start() {
     ExitProcess(0);
 }
 
-func _panic_out_of_bounds() {
-    write("panic: index out of bounds\n");
+func _panic() {
     ExitProcess(1);
 }
 

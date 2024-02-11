@@ -126,6 +126,12 @@ class CodeGenerator : public Visitor {
     // loop_ctx_stack is the stack of enclosing loop contexts.
     std::vector<LoopContext> loop_ctx_stack;
 
+    // ll_array_type is the LLVM type for all Berry arrays (opaque pointer POG).
+    llvm::StructType* ll_array_type;
+
+    // ll_panic_func is the panic function for the runtime.
+    llvm::Function* ll_panic_func;
+
 public:
     // Creates a new code generator using ctx and outputting to mod.
     CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& bry_mod)
@@ -136,6 +142,8 @@ public:
     , var_block(nullptr)
     , pred_mode(false)
     , ll_init_func(nullptr)
+    , ll_array_type(nullptr)
+    , ll_panic_func(nullptr)
     {}
 
     // GenerateModule compiles the module.
@@ -152,7 +160,7 @@ public:
     void Visit(AstAddrOf& node) override;
     void Visit(AstDeref& node) override;
     void Visit(AstCall& node) override;
-    void Visit(AstIdent& node) override;
+    void Visit(AstIdent &node) override;
     void Visit(AstIntLit& node) override;
     void Visit(AstFloatLit& node) override;
     void Visit(AstBoolLit &node) override;
@@ -182,6 +190,10 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
+    void createGlobalTypes();
+
+    /* ---------------------------------------------------------------------- */
+
     void genInitFunc();
     void finishInitFunc();
 
@@ -207,7 +219,10 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    llvm::Value* makeLLVMFloatLit(FloatType *float_type, double value);
+    llvm::Value* getArrayPtr(llvm::Value* array);
+    llvm::Value *getArrayLen(llvm::Value *array);
+    void genBoundsCheck(llvm::Value *ndx, llvm::Value *arr_len, bool can_equal_len = false);
+    llvm::Value *makeLLVMFloatLit(FloatType *float_type, double value);
 
     /* ---------------------------------------------------------------------- */
 
