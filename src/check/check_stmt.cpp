@@ -1,6 +1,8 @@
 #include "checker.hpp"
 
 void Checker::Visit(AstBlock& node) {
+    pushScope();
+
     for (auto& stmt : node.stmts) {
         visitNode(stmt);
 
@@ -10,6 +12,8 @@ void Checker::Visit(AstBlock& node) {
 
         node.always_returns = node.always_returns || stmt->always_returns;
     }
+
+    popScope();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -55,6 +59,8 @@ void Checker::Visit(AstWhileLoop& node) {
 }
 
 void Checker::Visit(AstForLoop& node) {
+    pushScope();
+
     if (node.var_def)
         Visit(*node.var_def);
 
@@ -73,6 +79,8 @@ void Checker::Visit(AstForLoop& node) {
     if (node.else_clause) {
         visitNode(node.else_clause);
     }
+
+    popScope();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -115,9 +123,9 @@ void Checker::Visit(AstLocalVarDef& node) {
         }
 
         finishExpr();
-
-        declareLocal(node.symbol);
     }
+
+    declareLocal(node.symbol);
 }
 
 void Checker::Visit(AstAssign& node) {

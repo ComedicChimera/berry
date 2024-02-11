@@ -30,6 +30,16 @@ void Checker::mustCast(const TextSpan &span, Type* src, Type* dest) {
     tctx.flags ^= TC_INFER;
 }
 
+void Checker::mustIntType(const TextSpan& span, Type* type) {
+    tctx.flags |= TC_INFER;
+
+    if (!tctx.IsIntType(type)) {
+        fatal(span, "expected an integer type but got {}", type->ToString());
+    }
+
+    tctx.flags ^= TC_INFER;
+}
+
 Untyped* Checker::newUntyped(UntypedKind kind) {
     return arena.New<Untyped>(&tctx, kind);
 }
@@ -77,11 +87,3 @@ void Checker::popScope() {
 
     scope_stack.pop_back();
 }
-
-/* -------------------------------------------------------------------------- */
-
-void Checker::Visit(AstIndex& node) {}
-void Checker::Visit(AstSlice& node) {}
-void Checker::Visit(AstArrayLit& node) {}
-void Checker::Visit(AstStringLit& node) {}
-void Checker::Visit(AstFieldAccess& node) {}

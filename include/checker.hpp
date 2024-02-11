@@ -85,6 +85,8 @@ private:
     // mustCast asserts that src can be cast to dest.
     void mustCast(const TextSpan& span, Type* src, Type* dest);
 
+    void mustIntType(const TextSpan &span, Type *type);
+
     Type* mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_type, Type* rhs_type);
 
     Type* mustApplyUnaryOp(const TextSpan &span, AstOpKind aop, Type* operand_type);

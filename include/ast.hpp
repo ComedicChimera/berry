@@ -489,15 +489,15 @@ struct AstDeref : public AstExpr {
 
 // AstIndex represents an index expression (ex: `arr[i]`).
 struct AstIndex : public AstExpr {
-    // arr is the array being indexed.
-    std::unique_ptr<AstExpr> arr;
+    // array is the array being indexed.
+    std::unique_ptr<AstExpr> array;
 
     // index is the index expression being used.
     std::unique_ptr<AstExpr> index;
 
-    AstIndex(const TextSpan& span, std::unique_ptr<AstExpr>&& arr, std::unique_ptr<AstExpr>&& index)
+    AstIndex(const TextSpan& span, std::unique_ptr<AstExpr>&& array, std::unique_ptr<AstExpr>&& index)
     : AstExpr(span, nullptr)
-    , arr(std::move(arr))
+    , array(std::move(array))
     , index(std::move(index))
     {}
 
@@ -506,8 +506,8 @@ struct AstIndex : public AstExpr {
 
 // AstSlice represents a slice expression (ex: `arr[i:j]`, `arr[:k]`).
 struct AstSlice : public AstExpr {
-    // arr is the array being sliced.
-    std::unique_ptr<AstExpr> arr;
+    // array is the array being sliced.
+    std::unique_ptr<AstExpr> array;
 
     // start_index is the start index expression or nullptr if there isn't one.
     std::unique_ptr<AstExpr> start_index;
@@ -517,12 +517,12 @@ struct AstSlice : public AstExpr {
 
     AstSlice(
         const TextSpan& span, 
-        std::unique_ptr<AstExpr>&& arr,
+        std::unique_ptr<AstExpr>&& array,
         std::unique_ptr<AstExpr>&& start_index,
         std::unique_ptr<AstExpr> end_index
     ) 
     : AstExpr(span, nullptr)
-    , arr(std::move(arr))
+    , array(std::move(array))
     , start_index(std::move(start_index))
     , end_index(std::move(end_index))
     {}
@@ -670,7 +670,7 @@ struct AstStringLit : public AstExpr {
     std::string value;
 
     AstStringLit(const TextSpan& span, std::string&& value)
-    : AstExpr(span, nullptr)
+    : AstExpr(span, &prim_string_type)
     , value(std::move(value))
     {}
 

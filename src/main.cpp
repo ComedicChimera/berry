@@ -18,6 +18,14 @@
 
 #include "test/ast_print.hpp"
 
+static void printAst(SourceFile& src_file) {
+    AstPrinter printer;
+    for (auto& def : src_file.defs) {
+        def->Accept(&printer);
+        std::cout << "\n\n";
+    }
+}
+
 bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {  
     Arena arena;
     Parser p(arena, file, src_file);
@@ -27,21 +35,17 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
         return false;
     }
 
-    AstPrinter printer;
+    Checker c(arena, src_file); 
     for (auto& def : src_file.defs) {
-        def->Accept(&printer);
-        std::cout << "\n\n";
+        def->Accept(&c);
     }
+
+    if (ErrorCount() > 0) {
+        return false;
+    }
+
+    printAst(src_file);
     return true;
-
-    // Checker c(arena, src_file); 
-    // for (auto& def : src_file.defs) {
-    //     def->Accept(&c);
-    // }
-
-    // if (ErrorCount() > 0) {
-    //     return false;
-    // }
 
     // llvm::LLVMContext ll_ctx;
     // llvm::Module ll_mod(mod.name, ll_ctx);

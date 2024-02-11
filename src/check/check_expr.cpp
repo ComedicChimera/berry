@@ -62,6 +62,76 @@ void Checker::Visit(AstCall& node) {
    node.type = func_type->return_type;
 }
 
+void Checker::Visit(AstSlice& node) {
+    visitNode(node.array);
+
+    if (node.start_index)
+        visitNode(node.start_index);
+
+    if (node.end_index)
+        visitNode(node.end_index);
+
+    auto* inner_type = node.array->type->Inner();
+    if (inner_type->GetKind() == TYPE_ARRAY) {
+        if (node.start_index)
+            mustIntType(node.start_index->span, node.start_index->type);
+
+        if (node.end_index)
+            mustIntType(node.end_index->span, node.end_index->type);
+
+        node.type = inner_type;
+    } else {
+        fatal(node.array->span, "{} is not array type", node.array->type->ToString());
+    }
+}
+
+void Checker::Visit(AstIndex& node) {
+    visitNode(node.array);
+    visitNode(node.index);
+
+    auto* inner_type = node.array->type->Inner();
+    if (inner_type->GetKind() == TYPE_ARRAY) {
+        mustIntType(node.index->span, node.index->type);
+
+        auto* array_type = dynamic_cast<ArrayType*>(inner_type);
+        node.type = array_type->elem_type;
+    } else {
+        fatal(node.array->span, "{} is not array type", node.array->type->ToString());
+    }
+}
+
+void Checker::Visit(AstFieldAccess& node) {
+    visitNode(node.root);
+
+    auto root_inner_type = node.root->type->Inner();
+    if (root_inner_type->GetKind() == TYPE_ARRAY) {
+        if (node.field_name == "_ptr") {
+            auto* array_type = dynamic_cast<ArrayType*>(root_inner_type);
+            node.type = arena.New<PointerType>(array_type->elem_type);
+        } else if (node.field_name == "_len") {
+            // TODO: platform sizes?
+            node.type = &prim_i64_type;
+        } else {
+            fatal(node.span, "{} has no field named {}", node.root->type->ToString(), node.field_name);
+        }
+    } else {
+        fatal(node.root->span, "{} is not array type", node.root->type->ToString());
+    }
+}
+
+void Checker::Visit(AstArrayLit& node) {
+    for (auto& elem : node.elements) {
+        visitNode(elem);
+    }
+
+    auto* first_type = node.elements[0]->type;
+    for (int i = 1; i < node.elements.size(); i++) {
+        mustEqual(node.elements[i]->span, first_type, node.elements[i]->type);
+    }
+
+    node.type = arena.New<ArrayType>(first_type);
+}
+
 void Checker::Visit(AstIdent& node) {
     node.symbol = lookup(node.temp_name, node.span);
     node.type = node.symbol->type;
@@ -79,6 +149,10 @@ void Checker::Visit(AstFloatLit& node) {
 }
 
 void Checker::Visit(AstBoolLit& node) {
+    // Nothing to do :)
+}
+
+void Checker::Visit(AstStringLit& node) {
     // Nothing to do :)
 }
 

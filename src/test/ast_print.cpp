@@ -360,7 +360,7 @@ void AstPrinter::Visit(AstCall& node) {
 void AstPrinter::Visit(AstIndex& node) {
     std::cout << std::format("Index(span={}, type={}, array=", spanToStr(node.span), typeToStr(node.type));
 
-    visitNode(node.arr);
+    visitNode(node.array);
 
     std::cout << ", index=";
     visitNode(node.index);
@@ -371,7 +371,7 @@ void AstPrinter::Visit(AstIndex& node) {
 void AstPrinter::Visit(AstSlice& node) {
     std::cout << std::format("Slice(span={}, type={}, array=", spanToStr(node.span), typeToStr(node.type));
 
-    visitNode(node.arr);
+    visitNode(node.array);
 
     std::cout << ", start_index=";
     visitOrEmpty(node.start_index);

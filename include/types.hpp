@@ -314,5 +314,6 @@ inline FloatType prim_f32_type { 32 };
 inline FloatType prim_f64_type { 64 };
 inline BoolType prim_bool_type;
 inline UnitType prim_unit_type;
+inline ArrayType prim_string_type { &prim_u8_type };
 
 #endif
