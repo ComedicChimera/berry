@@ -166,6 +166,11 @@ public:
     void Visit(AstReturn& node) override;
     void Visit(AstBreak& node) override;
     void Visit(AstContinue& node) override;
+    void Visit(AstIndex& node) override;
+    void Visit(AstSlice& node) override;
+    void Visit(AstArrayLit& node) override;
+    void Visit(AstStringLit& node) override;
+    void Visit(AstFieldAccess& node) override;
 
 protected:
     void visitNode(std::unique_ptr<AstNode>& node) override;

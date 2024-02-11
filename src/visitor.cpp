@@ -26,6 +26,12 @@ void AstReturn::Accept(Visitor* v) { v->Visit(*this); }
 void AstBreak::Accept(Visitor* v) { v->Visit(*this); }
 void AstContinue::Accept(Visitor* v) { v->Visit(*this); }
 
+void AstIndex::Accept(Visitor* v) { v->Visit(*this); }
+void AstSlice::Accept(Visitor* v) { v->Visit(*this); }
+void AstArrayLit::Accept(Visitor* v) { v->Visit(*this); }
+void AstStringLit::Accept(Visitor* v) { v->Visit(*this); }
+void AstFieldAccess::Accept(Visitor* v) { v->Visit(*this); }
+
 /* -------------------------------------------------------------------------- */
 
 void Visitor::visitNode(std::unique_ptr<AstNode>& node) { node->Accept(this); }

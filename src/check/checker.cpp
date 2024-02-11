@@ -77,3 +77,11 @@ void Checker::popScope() {
 
     scope_stack.pop_back();
 }
+
+/* -------------------------------------------------------------------------- */
+
+void Checker::Visit(AstIndex& node) {}
+void Checker::Visit(AstSlice& node) {}
+void Checker::Visit(AstArrayLit& node) {}
+void Checker::Visit(AstStringLit& node) {}
+void Checker::Visit(AstFieldAccess& node) {}

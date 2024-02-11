@@ -162,10 +162,20 @@ struct AstLocalVarDef : public AstNode {
     // has no initializer.
     std::unique_ptr<AstExpr> init;
 
-    AstLocalVarDef(const TextSpan& span, Symbol* symbol, std::unique_ptr<AstExpr>&& init)
+    // array_size is the size of the array allocated by this local def. If no
+    // array is allocated, then this will be 0.
+    size_t array_size;
+
+    AstLocalVarDef(
+        const TextSpan& span, 
+        Symbol* symbol, 
+        std::unique_ptr<AstExpr>&& init, 
+        size_t array_size
+    )
     : AstNode(span)
     , symbol(symbol)
     , init(std::move(init))
+    , array_size(array_size)
     {}
 
     void Accept(Visitor* v) override;
@@ -388,7 +398,7 @@ struct AstContinue : public AstNode {
 
 /* -------------------------------------------------------------------------- */
 
-// AstCast represents a type cast (ex: x as int).  The evaluated type of the
+// AstCast represents a type cast (ex: `x as int`).  The evaluated type of the
 // cast stores the destination type (cast->type == dest_type).
 struct AstCast : public AstExpr {
     // src is the expression being type cast.
@@ -402,7 +412,7 @@ struct AstCast : public AstExpr {
     void Accept(Visitor* v) override;
 };
 
-// AstBinaryOp represents a binary operation (ex: a + b).
+// AstBinaryOp represents a binary operation (ex: `a + b`).
 struct AstBinaryOp : public AstExpr {
     // op_kind is the operator applied.
     AstOpKind op_kind;
@@ -424,7 +434,7 @@ struct AstBinaryOp : public AstExpr {
     void Accept(Visitor* v) override;
 };
 
-// AstUnaryOp represents a (non-pointer) unary operation (ex: !a, -a).
+// AstUnaryOp represents a (non-pointer) unary operation (ex: `!a`, `-a`).
 struct AstUnaryOp : public AstExpr {
     // op_kind is the operator applied.
     AstOpKind op_kind;
@@ -441,7 +451,7 @@ struct AstUnaryOp : public AstExpr {
     void Accept(Visitor* v) override;
 };
 
-// AstAddrOf represents an address-of/indirect operation (ex: &a, &const a).
+// AstAddrOf represents an address-of/indirect operation (ex: `&a`, `&const a`).
 struct AstAddrOf : public AstExpr {
     // elem is the element/value being referenced.
     std::unique_ptr<AstExpr> elem;
@@ -458,7 +468,7 @@ struct AstAddrOf : public AstExpr {
     void Accept(Visitor* v) override;
 };
 
-// AstDeref represents a derference operation (ex: *a).
+// AstDeref represents a derference operation (ex: `*a`).
 struct AstDeref : public AstExpr {
     // ptr is the pointer being dereferenced.
     std::unique_ptr<AstExpr> ptr;
@@ -477,7 +487,67 @@ struct AstDeref : public AstExpr {
     void Accept(Visitor* v) override;
 };
 
-// AstCall represents a function call (ex: fn(a, b)).
+// AstIndex represents an index expression (ex: `arr[i]`).
+struct AstIndex : public AstExpr {
+    // arr is the array being indexed.
+    std::unique_ptr<AstExpr> arr;
+
+    // index is the index expression being used.
+    std::unique_ptr<AstExpr> index;
+
+    AstIndex(const TextSpan& span, std::unique_ptr<AstExpr>&& arr, std::unique_ptr<AstExpr>&& index)
+    : AstExpr(span, nullptr)
+    , arr(std::move(arr))
+    , index(std::move(index))
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+// AstSlice represents a slice expression (ex: `arr[i:j]`, `arr[:k]`).
+struct AstSlice : public AstExpr {
+    // arr is the array being sliced.
+    std::unique_ptr<AstExpr> arr;
+
+    // start_index is the start index expression or nullptr if there isn't one.
+    std::unique_ptr<AstExpr> start_index;
+
+    // end_index is the end index expression or nullptr if there isn't one.
+    std::unique_ptr<AstExpr> end_index;
+
+    AstSlice(
+        const TextSpan& span, 
+        std::unique_ptr<AstExpr>&& arr,
+        std::unique_ptr<AstExpr>&& start_index,
+        std::unique_ptr<AstExpr> end_index
+    ) 
+    : AstExpr(span, nullptr)
+    , arr(std::move(arr))
+    , start_index(std::move(start_index))
+    , end_index(std::move(end_index))
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+// AstFieldAccess represents a field or method access (ex: `s.x`).
+struct AstFieldAccess : public AstExpr {
+    // root is the root expression of the field access.
+    std::unique_ptr<AstExpr> root;
+
+    // field_name is the name of the accessed field.
+    std::string field_name;
+
+    AstFieldAccess(const TextSpan& span, std::unique_ptr<AstExpr>&& root, std::string&& field_name)
+    : AstExpr(span, nullptr)
+    , root(std::move(root))
+    , field_name(std::move(field_name))
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+// AstCall represents a function call (ex: `fn(a, b)`).
 struct AstCall : public AstExpr {
     // func is the function being called.
     std::unique_ptr<AstExpr> func;
@@ -496,7 +566,22 @@ struct AstCall : public AstExpr {
 
 /* -------------------------------------------------------------------------- */
 
-// AstIdent represents an identifier (ex: a, my_func).
+// AstArrayLit represents an array literal.
+struct AstArrayLit : public AstExpr {
+    // elements is the elements of the array.
+    std::vector<std::unique_ptr<AstExpr>> elements;
+
+    AstArrayLit(const TextSpan& span, std::vector<std::unique_ptr<AstExpr>>&& elems)
+    : AstExpr(span, nullptr)
+    , elements(std::move(elems))
+    {}
+
+    void Accept(Visitor* v) override;
+};
+
+/* -------------------------------------------------------------------------- */
+
+// AstIdent represents an identifier (ex: `a`, `my_func`).
 struct AstIdent : public AstExpr {
     // temp_name contains the name of the identifier until its corresponding
     // symbol is found.  This field should only be accessed during
@@ -525,7 +610,8 @@ struct AstIdent : public AstExpr {
     inline bool IsLValue() const override { return true; }
 };
 
-// AstIntLit represents an integer literal (ex: 12, 0xff).
+// AstIntLit represents an integer literal (ex: `12`, `0xff`, `'a'`).  Note that
+// rune literals are represented as i32 literals in the AST.
 struct AstIntLit : public AstExpr {
     // value is the value of the integer literal.
     uint64_t value;
@@ -543,8 +629,7 @@ struct AstIntLit : public AstExpr {
     void Accept(Visitor* v) override;
 };
 
-// AstFloatLit represents a floating-point literal (ex: 12.25, 1e-9, 'a'). Note
-// that rune literals are represented as i32 literals in the AST.
+// AstFloatLit represents a floating-point literal (ex: `12.25`, `1e-9`). 
 struct AstFloatLit : public AstExpr {
     // value is the value of the float literal.
     double value;
@@ -557,7 +642,7 @@ struct AstFloatLit : public AstExpr {
     void Accept(Visitor* v) override;
 };
 
-// AstBoolLit represents a boolean literal (ex: true, false).
+// AstBoolLit represents a boolean literal (ex: `true`, `false`).
 struct AstBoolLit : public AstExpr {
     // value is the value of the boolean literal.
     bool value;
@@ -570,13 +655,26 @@ struct AstBoolLit : public AstExpr {
     void Accept(Visitor* v) override;
 };
 
-// AstNullLit represents a null literal (ex: null).
+// AstNullLit represents a null literal (ex: `null`).
 struct AstNullLit : public AstExpr {
     AstNullLit(const TextSpan& span) : AstExpr(span, nullptr) {}
 
     void Accept(Visitor* v) override;
 
     inline AstFlags GetFlags() const override { return ASTF_EXPR | ASTF_NULL; }
+};
+
+// AstStringLit represents a string literal (ex: `"hello"`).
+struct AstStringLit : public AstExpr {
+    // value is the string value of the literal.
+    std::string value;
+
+    AstStringLit(const TextSpan& span, std::string&& value)
+    : AstExpr(span, nullptr)
+    , value(std::move(value))
+    {}
+
+    void Accept(Visitor* v) override;
 };
 
 #endif

@@ -29,6 +29,11 @@ struct Visitor {
     virtual void Visit(AstReturn& node) = 0;
     virtual void Visit(AstBreak& node) = 0;
     virtual void Visit(AstContinue& node) = 0;
+    virtual void Visit(AstIndex& node) = 0;
+    virtual void Visit(AstSlice& node) = 0;
+    virtual void Visit(AstArrayLit& node) = 0;
+    virtual void Visit(AstStringLit& node) = 0;
+    virtual void Visit(AstFieldAccess& node) = 0;
 
 protected:
     // NOTE: Is there a better way to do this?  (C++ is scuffed af).

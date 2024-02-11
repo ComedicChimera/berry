@@ -48,3 +48,7 @@ std::string FuncType::ToString() const {
 
     return sb;
 }
+
+std::string ArrayType::ToString() const {
+    return std::format("[]{}", elem_type->ToString());
+}

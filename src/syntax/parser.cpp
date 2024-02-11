@@ -15,6 +15,22 @@ void Parser::ParseFile() {
 
 /* -------------------------------------------------------------------------- */
 
+std::vector<std::unique_ptr<AstExpr>> Parser::parseExprList(TokenKind delim) {
+    std::vector<std::unique_ptr<AstExpr>> exprs;
+
+    while (true) {
+        exprs.emplace_back(parseExpr());
+
+        if (has(delim)) {
+            next();
+        } else {
+            break;
+        }
+    }
+
+    return exprs;
+}
+
 std::unique_ptr<AstExpr> Parser::parseInitializer() {
     want(TOK_ASSIGN);
     return parseExpr();

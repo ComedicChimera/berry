@@ -161,6 +161,16 @@ bool FuncType::impl_Equal(TypeContext* tctx, Type* other) {
     return false;
 }
 
+bool ArrayType::impl_Equal(TypeContext* tctx, Type *other) {
+    if (other->GetKind() == TYPE_ARRAY) {
+        auto o_at = dynamic_cast<ArrayType*>(other);
+
+        return tctx->Equal(elem_type, o_at->elem_type);
+    }
+
+    return false;
+}
+
 /* -------------------------------------------------------------------------- */
 
 bool IntType::impl_Cast(TypeContext* tctx, Type* dest) {

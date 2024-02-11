@@ -15,6 +15,7 @@ enum TypeKind {
     TYPE_UNIT,  // Unit/void type
     TYPE_PTR,   // Pointer type
     TYPE_FUNC,  // Function type
+    TYPE_ARRAY, // Array Type
     TYPE_UNTYP  // Untyped
 };
 
@@ -132,6 +133,21 @@ struct FuncType : public Type {
     {}
     
     inline TypeKind GetKind() const override { return TYPE_FUNC; }
+    std::string ToString() const override;
+
+    bool impl_Equal(TypeContext* tctx, Type *other) override;
+};
+
+// ArrayType represents a Berry array type.
+struct ArrayType : public Type {
+    // elem_type is the array's element type.
+    Type* elem_type;
+
+    ArrayType(Type* elem_type)
+    : elem_type(elem_type)
+    {}
+
+    inline TypeKind GetKind() const override { return TYPE_ARRAY; }
     std::string ToString() const override;
 
     bool impl_Equal(TypeContext* tctx, Type *other) override;

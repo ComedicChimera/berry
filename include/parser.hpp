@@ -64,15 +64,18 @@ private:
     std::unique_ptr<AstExpr> parseUnaryOp();
     std::unique_ptr<AstExpr> parseAtomExpr();
     std::unique_ptr<AstExpr> parseFuncCall(std::unique_ptr<AstExpr> &&root);
+    std::unique_ptr<AstExpr> parseIndexOrSlice(std::unique_ptr<AstExpr> &&root);
     std::unique_ptr<AstExpr> parseAtom();
+    std::unique_ptr<AstArrayLit> parseArrayLit();
 
     /* ---------------------------------------------------------------------- */
 
-    Type *parseTypeExt();
-    Type *parseTypeLabel();
+    Type *parseTypeExt(size_t* arr_size = nullptr);
+    Type *parseTypeLabel(size_t* arr_size = nullptr);
 
     /* ---------------------------------------------------------------------- */
 
+    std::vector<std::unique_ptr<AstExpr>> parseExprList(TokenKind delim = TOK_COMMA);
     std::unique_ptr<AstExpr> parseInitializer();
     std::vector<Token> parseIdentList(TokenKind delim = TOK_COMMA);
 
@@ -119,5 +122,7 @@ private:
         );
     }
 };
+
+bool ConvertUint(const std::string& int_str, uint64_t* value);
 
 #endif

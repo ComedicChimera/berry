@@ -209,3 +209,11 @@ void CodeGenerator::visitNode(std::unique_ptr<AstExpr>& node) {
 void CodeGenerator::visitNode(std::unique_ptr<AstDef>& node) {
     node->Accept(this);
 }
+
+/* -------------------------------------------------------------------------- */
+
+void CodeGenerator::Visit(AstIndex& node) {}
+void CodeGenerator::Visit(AstSlice& node) {}
+void CodeGenerator::Visit(AstArrayLit& node) {}
+void CodeGenerator::Visit(AstStringLit& node) {}
+void CodeGenerator::Visit(AstFieldAccess& node) {}

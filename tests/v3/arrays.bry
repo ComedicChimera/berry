@@ -21,11 +21,15 @@ func __LibBerry_Start() {
     ExitProcess(0);
 }
 
-let stdout: *u8 = GetStdHandle(-11 as u32);
+func _panic_out_of_bounds() {
+    write("panic: index out of bounds\n");
+    ExitProcess(1);
+}
 
 // ------------------------------------------------------------------------- //
 
 // Buffered IO example
+let stdout: *u8 = GetStdHandle(-11 as u32);
 let out_buff: [1024]u8;
 let out_cursor: i64;
 
@@ -120,8 +124,31 @@ func printArray(arr: []i64) {
     write("]\n");
 }
 
+func rule110() {
+    let board: i64 = 1;
+
+    let table = [0, 2, 2, 2, 0, 2, 2, 0];
+    for let k = 0; k < 10; k++ {
+        for let i = 0; i < 62; i++ {
+            let cell = (board >> i) & 0b111;
+
+            board &= table[cell] << i;
+        }
+
+        for let i = 0; i < 64; i++ {
+            if (cell >> i & 1) == 0 {
+                putRune(' ');
+            } else {
+                putRune('*');
+            }
+        }
+    }
+}
+
 func main() {
     write("Hello, world!\n");
+
+    rule110();
     
     let arr = [6, 8, 1, 4, 3, 2, 9, 7, 6, 5];
     quickSort(arr);

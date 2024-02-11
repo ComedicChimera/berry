@@ -289,8 +289,10 @@ void AstPrinter::Visit(AstContinue& node) {
 
 void AstPrinter::Visit(AstLocalVarDef& node) {
     std::cout << std::format("LocalVarDef(span={}, type={}, name={}, init=", spanToStr(node.span), typeToStr(node.symbol->type), node.symbol->name);
+
     visitOrEmpty(node.init);
-    std::cout << ')';
+
+    std::cout << std::format(", array_size={})", node.array_size);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -355,7 +357,53 @@ void AstPrinter::Visit(AstCall& node) {
     std::cout << "])";
 }
 
+void AstPrinter::Visit(AstIndex& node) {
+    std::cout << std::format("Index(span={}, type={}, array=", spanToStr(node.span), typeToStr(node.type));
+
+    visitNode(node.arr);
+
+    std::cout << ", index=";
+    visitNode(node.index);
+
+    std::cout << ')';
+}
+
+void AstPrinter::Visit(AstSlice& node) {
+    std::cout << std::format("Slice(span={}, type={}, array=", spanToStr(node.span), typeToStr(node.type));
+
+    visitNode(node.arr);
+
+    std::cout << ", start_index=";
+    visitOrEmpty(node.start_index);
+
+    std::cout << ", end_index=";
+    visitOrEmpty(node.end_index);
+
+    std::cout << ')';
+}   
+
+void AstPrinter::Visit(AstFieldAccess& node) {
+    std::cout << std::format("FieldAccess(span={}, type={}, root=", spanToStr(node.span), typeToStr(node.type));
+    visitNode(node.root);
+
+    std::cout << std::format(", field_name={})", node.field_name);
+}
+
 /* -------------------------------------------------------------------------- */
+
+void AstPrinter::Visit(AstArrayLit& node) {
+    std::cout << std::format("ArrayLit(span={}, type={}, content=[", spanToStr(node.span), typeToStr(node.type));
+
+    for (int i = 0; i < node.elements.size(); i++) {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+
+        visitNode(node.elements[i]);
+    }
+
+    std::cout << "])";
+}
 
 void AstPrinter::Visit(AstIdent& node) {
     std::cout << std::format(
@@ -397,3 +445,11 @@ void AstPrinter::Visit(AstNullLit& node) {
     std::cout << std::format("Null(span={}, type={})", spanToStr(node.span), typeToStr(node.type));
 }
 
+void AstPrinter::Visit(AstStringLit& node) {
+    std::cout << std::format(
+        "StringLit(span={}, type={}, value=\"{}\")",
+        spanToStr(node.span),
+        typeToStr(node.type),
+        node.value
+    );
+}

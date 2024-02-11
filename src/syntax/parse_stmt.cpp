@@ -193,13 +193,32 @@ std::unique_ptr<AstLocalVarDef> Parser::parseLocalVarDef() {
 
     Type* type = nullptr;
     std::unique_ptr<AstExpr> init;
+    size_t arr_size = 0;
     TextSpan end_span;
     if (has(TOK_COLON)) {
-        type = parseTypeExt();
+        type = parseTypeExt(&arr_size);
 
         if (has(TOK_ASSIGN)) {
-            init = parseInitializer();
-            end_span = init->span;
+            if (arr_size > 0) {
+                next();
+
+                if (has(TOK_LBRACKET)) {
+                    auto arr_lit = parseArrayLit();
+
+                    if (arr_lit->elements.size() != arr_size) {
+                        error(arr_lit->span, "array literal does not match declared array size");
+                    }
+
+                    init = std::move(arr_lit);
+                    end_span = init->span;
+                } else {
+                    error(tok.span, "sized array declaration can only be initialized with array literal");
+                }
+            } else {
+                init = parseInitializer();
+                end_span = init->span;
+            }
+
         } else {
             end_span = prev.span;
         }
@@ -220,7 +239,8 @@ std::unique_ptr<AstLocalVarDef> Parser::parseLocalVarDef() {
     return std::make_unique<AstLocalVarDef>(
         SpanOver(start_span, end_span),
         symbol,
-        std::move(init)
+        std::move(init),
+        arr_size
     );
 }
 

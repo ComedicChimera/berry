@@ -131,6 +131,21 @@ std::unique_ptr<AstExpr> Parser::parseAtomExpr() {
         case TOK_LPAREN: {
             root = parseFuncCall(std::move(root));
         } break;
+        case TOK_LBRACKET: {
+            root = parseIndexOrSlice(std::move(root));
+        } break;
+        case TOK_DOT: {
+            next();
+
+            auto field_name_tok = wantAndGet(TOK_IDENT);
+
+            auto start_span = root->span;
+            root = std::make_unique<AstFieldAccess>(
+                SpanOver(start_span, field_name_tok.span),
+                std::move(root),
+                std::move(field_name_tok.value)
+            );
+        } break;
         default:
             return root;
         }
@@ -166,21 +181,74 @@ std::unique_ptr<AstExpr> Parser::parseFuncCall(std::unique_ptr<AstExpr>&& root) 
     return std::make_unique<AstCall>(SpanOver(start_span, end_span), std::move(root), std::move(args));
 }
 
+std::unique_ptr<AstExpr> Parser::parseIndexOrSlice(std::unique_ptr<AstExpr>&& root) {
+    next();
+    auto start_span = prev.span;
+
+    if (has(TOK_COLON)) {
+        next();
+
+        auto end_index = parseExpr();
+
+        want(TOK_RBRACKET);
+
+        return std::make_unique<AstSlice>(
+            SpanOver(start_span, prev.span), 
+            std::move(root), 
+            nullptr, 
+            std::move(end_index)
+        );
+    }
+
+    auto start_index = parseExpr();
+    if (has(TOK_COLON)) {
+        next();
+
+        std::unique_ptr<AstExpr> end_index { nullptr };
+        if (!has(TOK_RBRACKET)) {
+            end_index = parseExpr();
+        } 
+
+        want(TOK_RBRACKET);
+
+        return std::make_unique<AstSlice>(
+            SpanOver(start_span, prev.span),
+            std::move(root),
+            std::move(start_index),
+            std::move(end_index)
+        );
+    }
+
+    want(TOK_RBRACKET);
+
+    return std::make_unique<AstIndex>(
+        SpanOver(start_span, prev.span),
+        std::move(root),
+        std::move(start_index)
+    );
+}
+
 /* -------------------------------------------------------------------------- */
 
-uint64_t convertUint(const std::string& int_str) {
-    if (int_str.starts_with("0b")) {
-        return std::stoull(int_str.substr(2), nullptr, 2);
-    } else if (int_str.starts_with("0o")) {
-        return std::stoull(int_str.substr(2), nullptr, 8);
-    } else if (int_str.starts_with("0x")) {
-        return std::stoull(int_str.substr(2), nullptr, 16);
-    } else {
-        return std::stoull(int_str);
+bool ConvertUint(const std::string& int_str, uint64_t* value) {
+    try {
+        if (int_str.starts_with("0b")) {
+            *value = std::stoull(int_str.substr(2), nullptr, 2);
+        } else if (int_str.starts_with("0o")) {
+            *value = std::stoull(int_str.substr(2), nullptr, 8);
+        } else if (int_str.starts_with("0x")) {
+            *value = std::stoull(int_str.substr(2), nullptr, 16);
+        } else {
+            *value = std::stoull(int_str);
+        }
+
+        return true;
+    } catch (std::out_of_range&) {
+        return false;
     }
 }
 
-rune decodeRune(const std::string& rbytes) {
+static rune decodeRune(const std::string& rbytes) {
     byte b1 = rbytes[0];
     if (b1 == 0xff) {
         return -1;
@@ -221,7 +289,7 @@ rune decodeRune(const std::string& rbytes) {
     return r;
 }
 
-rune convertRuneLit(const std::string& rune_str) {
+static rune convertRuneLit(const std::string& rune_str) {
     if (rune_str[0] == '\\') {
         Assert(rune_str.size() == 2, "invalid escape code in parser: wrong char count");
 
@@ -258,9 +326,7 @@ std::unique_ptr<AstExpr> Parser::parseAtom() {
         next();
 
         uint64_t value = 0;
-        try {
-            value = convertUint(prev.value);
-        } catch (std::out_of_range&) {
+        if (!ConvertUint(prev.value, &value)) {
             error(prev.span, "integer literal is too big to be represented by any integer type");
         }
 
@@ -288,6 +354,11 @@ std::unique_ptr<AstExpr> Parser::parseAtom() {
 
         return std::make_unique<AstBoolLit>(prev.span, prev.value == "true");
     } break;
+    case TOK_STRLIT: {
+        next();
+
+        return std::make_unique<AstStringLit>(prev.span, std::move(prev.value));
+    } break;
     case TOK_IDENT: {
         auto name_tok = tok;
         next();
@@ -303,8 +374,21 @@ std::unique_ptr<AstExpr> Parser::parseAtom() {
 
         return sub_expr;
     } break;
+    case TOK_LBRACKET: 
+        return parseArrayLit();
     default:
         reject("expected expression");
         return nullptr;
     }
+}
+
+std::unique_ptr<AstArrayLit> Parser::parseArrayLit() {
+    next();
+    auto start_span = prev.span;
+
+    auto elems = parseExprList();
+
+    want(TOK_RBRACKET);
+
+    return std::make_unique<AstArrayLit>(SpanOver(start_span, prev.span), std::move(elems));
 }

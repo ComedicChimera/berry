@@ -27,71 +27,78 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
         return false;
     }
 
-    Checker c(arena, src_file); 
+    AstPrinter printer;
     for (auto& def : src_file.defs) {
-        def->Accept(&c);
+        def->Accept(&printer);
+        std::cout << "\n\n";
     }
+    return true;
 
-    if (ErrorCount() > 0) {
-        return false;
-    }
+    // Checker c(arena, src_file); 
+    // for (auto& def : src_file.defs) {
+    //     def->Accept(&c);
+    // }
 
-    llvm::LLVMContext ll_ctx;
-    llvm::Module ll_mod(mod.name, ll_ctx);
-    CodeGenerator cg(ll_ctx, ll_mod, mod);
-    cg.GenerateModule();
-
-    std::error_code err_code;
-
-    // // DEBUG: Print module.
-    // llvm::raw_fd_ostream out_file("out.ll", err_code);
-    // if (err_code) {
-    //     std::cerr << "error: creating output fd stream for module printing: " << err_code.message() << '\n';
+    // if (ErrorCount() > 0) {
     //     return false;
     // }
-    // ll_mod.print(out_file, nullptr);
-    // return true;
 
-    auto native_target_triple = llvm::sys::getDefaultTargetTriple();
+    // llvm::LLVMContext ll_ctx;
+    // llvm::Module ll_mod(mod.name, ll_ctx);
+    // CodeGenerator cg(ll_ctx, ll_mod, mod);
+    // cg.GenerateModule();
 
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmParser();
-    llvm::InitializeNativeTargetAsmPrinter();
+    // std::error_code err_code;
 
-    std::string err_msg;
-    auto* target = llvm::TargetRegistry::lookupTarget(native_target_triple, err_msg);
-    if (!target) {
-        std::cout << "error: finding native target: " << err_msg << '\n';
-        return false;
-    }
+    // // // DEBUG: Print module.
+    // // llvm::raw_fd_ostream out_file("out.ll", err_code);
+    // // if (err_code) {
+    // //     std::cerr << "error: creating output fd stream for module printing: " << err_code.message() << '\n';
+    // //     return false;
+    // // }
+    // // ll_mod.print(out_file, nullptr);
+    // // return true;
 
-    llvm::TargetOptions target_opt;
-    auto* target_machine = target->createTargetMachine(native_target_triple, "generic", "", target_opt, llvm::Reloc::PIC_);
+    // auto native_target_triple = llvm::sys::getDefaultTargetTriple();
 
-    ll_mod.setDataLayout(target_machine->createDataLayout());
-    ll_mod.setTargetTriple(native_target_triple);
+    // llvm::InitializeNativeTarget();
+    // llvm::InitializeNativeTargetAsmParser();
+    // llvm::InitializeNativeTargetAsmPrinter();
 
-    llvm::raw_fd_ostream out_file("out.o", err_code, llvm::sys::fs::OF_None);
-    if (err_code) {
-        std::cout << "error: opening output file: " << err_code.message() << '\n';
-        return false;
-    }
+    // std::string err_msg;
+    // auto* target = llvm::TargetRegistry::lookupTarget(native_target_triple, err_msg);
+    // if (!target) {
+    //     std::cout << "error: finding native target: " << err_msg << '\n';
+    //     return false;
+    // }
 
-    llvm::legacy::PassManager pass;
-    if (target_machine->addPassesToEmitFile(pass, out_file, nullptr, llvm::CodeGenFileType::CGFT_ObjectFile)) {
-        std::cout << "error: target machine was unable to generate output file\n";
-        return false;
-    }
-    pass.run(ll_mod);
-    out_file.flush();
-    out_file.close();
+    // llvm::TargetOptions target_opt;
+    // auto* target_machine = target->createTargetMachine(native_target_triple, "generic", "", target_opt, llvm::Reloc::PIC_);
 
-    LinkConfig config { "out.exe" };
-    config.obj_files.emplace_back("out.o");
-    bool link_result = RunLinker(config);
-    RemoveObjFile("out.o");
+    // ll_mod.setDataLayout(target_machine->createDataLayout());
+    // ll_mod.setTargetTriple(native_target_triple);
 
-    return link_result;
+    // llvm::raw_fd_ostream out_file("out.o", err_code, llvm::sys::fs::OF_None);
+    // if (err_code) {
+    //     std::cout << "error: opening output file: " << err_code.message() << '\n';
+    //     return false;
+    // }
+
+    // llvm::legacy::PassManager pass;
+    // if (target_machine->addPassesToEmitFile(pass, out_file, nullptr, llvm::CodeGenFileType::CGFT_ObjectFile)) {
+    //     std::cout << "error: target machine was unable to generate output file\n";
+    //     return false;
+    // }
+    // pass.run(ll_mod);
+    // out_file.flush();
+    // out_file.close();
+
+    // LinkConfig config { "out.exe" };
+    // config.obj_files.emplace_back("out.o");
+    // bool link_result = RunLinker(config);
+    // RemoveObjFile("out.o");
+
+    // return link_result;
 }
 
 int main(int argc, char* argv[]) {
