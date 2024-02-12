@@ -113,6 +113,10 @@ std::string CodeGenerator::mangleName(std::string_view name) {
 
 void CodeGenerator::Visit(AstGlobalVarDef &node) {
     if (pred_mode) {
+        if (node.var_def->array_size > 0) {
+            // TODO
+        }
+
         if (node.var_def->init) {
             // No debug info for global variable expressions.
             debug.PushDisable();

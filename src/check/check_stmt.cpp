@@ -128,11 +128,20 @@ void Checker::Visit(AstLocalVarDef& node) {
     declareLocal(node.symbol);
 }
 
+void Checker::mustBeAssignable(std::unique_ptr<AstExpr>& expr) {
+    if (!expr->IsLValue()) {
+        error(expr->span, "cannot assign to an r-value");
+    }
+
+    if (expr->immut) {
+        error(expr->span, "cannot assign to an immutable value");
+    }
+}
+
 void Checker::Visit(AstAssign& node) {
     visitNode(node.lhs);
-    if (!node.lhs->IsLValue()) {
-        error(node.lhs->span, "cannot assign to an r-value");
-    }
+
+    mustBeAssignable(node.lhs);
 
     visitNode(node.rhs);
 
@@ -147,6 +156,8 @@ void Checker::Visit(AstAssign& node) {
 void Checker::Visit(AstIncDec& node) {
     visitNode(node.lhs);
 
+    mustBeAssignable(node.lhs);
+    
     Type* result_type = mustApplyBinaryOp(node.span, node.op_kind, node.lhs->type, node.lhs->type);
     mustSubType(node.span, result_type, node.lhs->type);
 }

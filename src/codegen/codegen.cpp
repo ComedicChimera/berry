@@ -224,7 +224,3 @@ void CodeGenerator::visitNode(std::unique_ptr<AstExpr>& node) {
 void CodeGenerator::visitNode(std::unique_ptr<AstDef>& node) {
     node->Accept(this);
 }
-
-/* -------------------------------------------------------------------------- */
-
-void CodeGenerator::Visit(AstArrayLit& node) {}

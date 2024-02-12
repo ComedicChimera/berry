@@ -196,6 +196,10 @@ void CodeGenerator::Visit(AstLocalVarDef& node) {
 
     debug.EmitLocalVariableInfo(node, ll_var);
 
+    if (node.array_size > 0) {
+        // TODO
+    }
+
     if (node.init != nullptr) {
         visitNode(node.init);
 

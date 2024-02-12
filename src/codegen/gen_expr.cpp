@@ -392,7 +392,7 @@ void CodeGenerator::Visit(AstIndex& node) {
 }
 
 void CodeGenerator::Visit(AstSlice& node) {
-    // TODO: lhs slice
+    Assert(isValueMode(), "slice assignment is not implemented");
 
     Assert(node.array->type->Inner()->GetKind() == TYPE_ARRAY, "slice on non-array type in codegen");
 
@@ -446,7 +446,7 @@ void CodeGenerator::Visit(AstSlice& node) {
 }
 
 void CodeGenerator::Visit(AstFieldAccess& node) {
-    // TODO: lhs field access
+    Assert(isValueMode(), "field assignment is not implemented");
 
     visitNode(node.root);
 
@@ -461,6 +461,13 @@ void CodeGenerator::Visit(AstFieldAccess& node) {
     } else {
         Panic("get field on non-array type in codegen");
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+void CodeGenerator::Visit(AstArrayLit& node) {
+    // TODO: how to handle variables?
+    // let x = [1, 2, 3]?
 }
 
 /* -------------------------------------------------------------------------- */

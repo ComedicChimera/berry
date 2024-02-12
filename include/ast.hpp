@@ -47,6 +47,16 @@ enum AstOpKind {
     AOP_NONE
 };
 
+// AstAllocMode indicates what kind of allocation should be generated for an
+// "allocated" object.  In most cases, this defaults to heap allocation.
+// However, the compiler will always try to choose the most efficient allocation
+// mode it can.  
+enum AstAllocMode {
+    AST_ALLOC_STACK,
+    AST_ALLOC_GLOBAL,
+    AST_ALLOC_HEAP
+};
+
 // AstNode is a node in the AST.
 struct AstNode {
     // span is the source span containing the node.
@@ -76,8 +86,8 @@ struct AstExpr : public AstNode {
     // llvm_value is the LLVM value returned by this expr.
     llvm::Value* llvm_value;
 
-    // IsImmut indicates whether the expression can be assigned to.
-    inline virtual bool IsImmut() const { return false; }
+    // immut indicates whether the expression is mutable
+    bool immut;
 
     // IsLValue indicates whether the expression is an l-value (has a
     // well-defined memory location).
@@ -86,6 +96,7 @@ struct AstExpr : public AstNode {
     AstExpr(const TextSpan& span, Type* type)
     : AstNode(span)
     , type(type)
+    , immut(false)
     {}
 
     inline AstFlags GetFlags() const override { return ASTF_EXPR; }
@@ -478,9 +489,6 @@ struct AstDeref : public AstExpr {
     , ptr(std::move(ptr))
     {}
 
-    // *a is mutable if and only if a is.
-    inline bool IsImmut() const override { return dynamic_cast<PointerType*>(ptr->type)->immut; }
-
     // *a is always an l-value (even if it is immutable).
     inline bool IsLValue() const override { return true; }
 
@@ -502,6 +510,8 @@ struct AstIndex : public AstExpr {
     {}
 
     void Accept(Visitor* v) override;
+
+    inline bool IsLValue() const override { return array->IsLValue(); }
 };
 
 // AstSlice represents a slice expression (ex: `arr[i:j]`, `arr[:k]`).
@@ -528,6 +538,8 @@ struct AstSlice : public AstExpr {
     {}
 
     void Accept(Visitor* v) override;
+
+    inline bool IsLValue() const override { return array->IsLValue(); }
 };
 
 // AstFieldAccess represents a field or method access (ex: `s.x`).
@@ -545,6 +557,8 @@ struct AstFieldAccess : public AstExpr {
     {}
 
     void Accept(Visitor* v) override;
+
+    inline bool IsLValue() const override { return root->IsLValue(); }
 };
 
 // AstCall represents a function call (ex: `fn(a, b)`).
@@ -571,9 +585,14 @@ struct AstArrayLit : public AstExpr {
     // elements is the elements of the array.
     std::vector<std::unique_ptr<AstExpr>> elements;
 
+    // alloc_mode indicates how the array literal should be allocated.
+    AstAllocMode alloc_mode;
+
     AstArrayLit(const TextSpan& span, std::vector<std::unique_ptr<AstExpr>>&& elems)
     : AstExpr(span, nullptr)
     , elements(std::move(elems))
+    // TODO: update the heap mode...
+    , alloc_mode(AST_ALLOC_STACK)
     {}
 
     void Accept(Visitor* v) override;
@@ -606,7 +625,6 @@ struct AstIdent : public AstExpr {
 
     inline AstFlags GetFlags() const override { return ASTF_EXPR | ASTF_IDENT; }
     
-    inline bool IsImmut() const override { return symbol->immut; }
     inline bool IsLValue() const override { return true; }
 };
 

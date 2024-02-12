@@ -32,6 +32,7 @@ void Checker::Visit(AstDeref& node) {
         auto* ptr_type = dynamic_cast<PointerType*>(node.ptr->type->Inner());
 
         node.type = ptr_type->elem_type;
+        node.immut = ptr_type->immut;
     } else {
         fatal(node.ptr->span, "expected a pointer type but got {}", node.ptr->type->ToString());
     }
@@ -80,6 +81,9 @@ void Checker::Visit(AstSlice& node) {
             mustIntType(node.end_index->span, node.end_index->type);
 
         node.type = inner_type;
+
+        auto* array_type = dynamic_cast<ArrayType*>(inner_type);
+        node.immut = array_type->immut || node.array->immut;
     } else {
         fatal(node.array->span, "{} is not array type", node.array->type->ToString());
     }
@@ -95,6 +99,7 @@ void Checker::Visit(AstIndex& node) {
 
         auto* array_type = dynamic_cast<ArrayType*>(inner_type);
         node.type = array_type->elem_type;
+        node.immut = array_type->immut || node.array->immut;
     } else {
         fatal(node.array->span, "{} is not array type", node.array->type->ToString());
     }
@@ -130,12 +135,18 @@ void Checker::Visit(AstArrayLit& node) {
     }
 
     node.type = arena.New<ArrayType>(first_type);
+
+    // Move array literal to global memory if necessary.
+    if (enclosing_return_type == nullptr) {
+        node.alloc_mode = AST_ALLOC_GLOBAL;
+    }
 }
 
 void Checker::Visit(AstIdent& node) {
     node.symbol = lookup(node.temp_name, node.span);
     node.type = node.symbol->type;
     node.temp_name.clear();
+    node.immut = node.symbol->immut;
 }
 
 void Checker::Visit(AstIntLit& node) {

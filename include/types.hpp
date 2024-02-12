@@ -143,8 +143,12 @@ struct ArrayType : public Type {
     // elem_type is the array's element type.
     Type* elem_type;
 
-    ArrayType(Type* elem_type)
+    // immut indicates whether the pointer is immutable.
+    bool immut;
+
+    ArrayType(Type* elem_type, bool immut = false)
     : elem_type(elem_type)
+    , immut(immut)
     {}
 
     inline TypeKind GetKind() const override { return TYPE_ARRAY; }

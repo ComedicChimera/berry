@@ -43,7 +43,7 @@ public:
     // Visitor methods
     void Visit(AstFuncDef& node) override;
     void Visit(AstLocalVarDef& node) override;
-    void Visit(AstGlobalVarDef& node) override;
+    void Visit(AstGlobalVarDef &node) override;
     void Visit(AstBlock& node) override;
     void Visit(AstCast& node) override;
     void Visit(AstBinaryOp& node) override;
@@ -90,6 +90,8 @@ private:
     Type* mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_type, Type* rhs_type);
 
     Type* mustApplyUnaryOp(const TextSpan &span, AstOpKind aop, Type* operand_type);
+
+    void mustBeAssignable(std::unique_ptr<AstExpr>& expr);
 
     // newUntyped creates a new untyped of kind kind.
     Untyped* newUntyped(UntypedKind kind);
