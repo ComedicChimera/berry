@@ -34,11 +34,11 @@ set(SRCS
     "check/check_expr.cpp"
     "check/check_op.cpp"
 
-    # "codegen/codegen.cpp"
-    # "codegen/gen_def.cpp"
-    # "codegen/gen_expr.cpp"
-    # "codegen/gen_stmt.cpp"
-    # "codegen/gen_debug.cpp"
+    "codegen/codegen.cpp"
+    "codegen/gen_def.cpp"
+    "codegen/gen_expr.cpp"
+    "codegen/gen_stmt.cpp"
+    "codegen/gen_debug.cpp"
 
     "link/linker.cpp"
 

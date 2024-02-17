@@ -5,21 +5,34 @@
 #include "llvm/IR/Verifier.h"
 
 void CodeGenerator::GenerateModule() {
-    visitAll();
+    createBuiltinGlobals();
 
-    pred_mode = true;
-    genInitFunc();
+    for (auto& file : bry_mod.files) {
+        debug.EmitFileInfo(file);
+        debug.SetCurrentFile(file);
+
+        for (auto* def : file.defs) {
+            genTopDecl(def);
+        }
+    }
 
     ll_panic_func = mod.getFunction("_panic");
     Assert(ll_panic_func != nullptr, "missing _panic");
 
-    visitAll();
+    for (auto& file : bry_mod.files) {
+        debug.SetCurrentFile(file);
 
-    finishInitFunc();
+        for (auto* def : file.defs) {
+            genPredicates(def);
+        }
+    }
 
-    debug.FinishModule();
+    finishModule();    
+}
 
-    // TODO: find a better way to do this...
+/* -------------------------------------------------------------------------- */
+
+void CodeGenerator::createBuiltinGlobals() {
     // Add _fltused global symbol.
     auto* ll_double_type = llvm::Type::getDoubleTy(ctx);
     auto* gv_fltused = new llvm::GlobalVariable(
@@ -31,6 +44,30 @@ void CodeGenerator::GenerateModule() {
         "_fltused"
     );
 
+    // Declare the global array type.
+    ll_array_type = llvm::StructType::create(
+        ctx, 
+        { llvm::PointerType::get(ctx, 0), llvm::Type::getInt64Ty(ctx) }, 
+        "_array"
+    );
+
+    // Generate the module's init function signature.
+    ll_init_func = mod.getFunction("__LibBerry_Init");
+    Assert(ll_init_func != nullptr, "missing __LibBerry_Init");
+
+    llvm::BasicBlock::Create(ctx, "entry", ll_init_func);
+}
+
+void CodeGenerator::finishModule() {
+    // Close the body the init func.
+    auto& last_block = ll_init_func->back();   
+    setCurrentBlock(&last_block);
+    irb.CreateRetVoid();
+
+    // Finalize all the debug information.
+    debug.FinishModule();
+
+    // Verify the module.
     std::string err_msg;
     llvm::raw_string_ostream oss(err_msg);
     if (llvm::verifyModule(mod, &oss)) {
@@ -42,61 +79,19 @@ void CodeGenerator::GenerateModule() {
     }
 }
 
-void CodeGenerator::visitAll() {
-    for (auto& src_file : bry_mod.files) {
-        if (!pred_mode) {
-            debug.EmitFileInfo(src_file);
-        }
-
-        debug.SetCurrentFile(src_file);
-
-        for (auto& def : src_file.defs) {
-            visitNode(def);
-        }
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
-void CodeGenerator::createGlobalTypes() {
-    ll_array_type = llvm::StructType::create(
-        ctx, 
-        { llvm::PointerType::get(ctx, 0), llvm::Type::getInt64Ty(ctx) }, 
-        "_array"
-    );
-}
-
-/* -------------------------------------------------------------------------- */
-
-void CodeGenerator::genInitFunc() {
-    // TODO: support proper init() functions for each module.
-    ll_init_func = mod.getFunction("__LibBerry_Init");
-    Assert(ll_init_func != nullptr, "missing __LibBerry_Init");
-
-    llvm::BasicBlock::Create(ctx, "entry", ll_init_func);
-}
-
-void CodeGenerator::finishInitFunc() {
-    auto& last_block = ll_init_func->back();   
-    setCurrentBlock(&last_block);
-    builder.CreateRetVoid();
-}
-
 /* -------------------------------------------------------------------------- */
 
 llvm::Type* CodeGenerator::genType(Type* type) {
     type = type->Inner();
 
-    switch (type->GetKind()) {
+    switch (type->kind) {
     case TYPE_BOOL:
         return llvm::Type::getInt1Ty(ctx);
     case TYPE_UNIT:
         // TODO: handle in L-values...
         return llvm::Type::getVoidTy(ctx);
     case TYPE_INT: {
-        auto* int_type = dynamic_cast<IntType*>(type);
-
-        switch (int_type->bit_size) {
+        switch (type->ty_Int.bit_size) {
         case 8:
             return llvm::Type::getInt8Ty(ctx);
         case 16:
@@ -108,9 +103,7 @@ llvm::Type* CodeGenerator::genType(Type* type) {
         }
     } break;
     case TYPE_FLOAT: {
-        auto* float_type = dynamic_cast<FloatType*>(type);
-
-        switch (float_type->bit_size) {
+        switch (type->ty_Float.bit_size) {
         case 32:
             return llvm::Type::getFloatTy(ctx);
         case 64:
@@ -120,14 +113,14 @@ llvm::Type* CodeGenerator::genType(Type* type) {
     case TYPE_PTR: 
         return llvm::PointerType::get(ctx, 0);
     case TYPE_FUNC: {
-        auto* func_type = dynamic_cast<FuncType*>(type);
+        auto& func_type = type->ty_Func;
 
         std::vector<llvm::Type*> ll_param_types;
-        for (auto* param_type : func_type->param_types) {
+        for (auto* param_type : func_type.param_types) {
             ll_param_types.push_back(genType(param_type));
         }
 
-        return llvm::FunctionType::get(genType(func_type->return_type), ll_param_types, false);
+        return llvm::FunctionType::get(genType(func_type.return_type), ll_param_types, false);
     } break;
     case TYPE_ARRAY: 
         return ll_array_type;
@@ -138,25 +131,6 @@ llvm::Type* CodeGenerator::genType(Type* type) {
 
     Panic("unimplemented type in codegen");
     return nullptr;
-}
-
-/* -------------------------------------------------------------------------- */
-
-bool CodeGenerator::isValueMode() {
-    if (value_mode_stack.size() > 0) {
-        return value_mode_stack.back();
-    }
-
-    return true;
-}
-
-void CodeGenerator::pushValueMode(bool mode) {
-    value_mode_stack.push_back(mode);
-}
-
-void CodeGenerator::popValueMode() {
-    Assert(value_mode_stack.size() > 0, "pop on empty value mode stack in codegen");
-    value_mode_stack.pop_back();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -178,11 +152,11 @@ void CodeGenerator::popLoopContext() {
 /* -------------------------------------------------------------------------- */
 
 llvm::BasicBlock* CodeGenerator::getCurrentBlock() {
-    return builder.GetInsertBlock();
+    return irb.GetInsertBlock();
 }
 
 void CodeGenerator::setCurrentBlock(llvm::BasicBlock* block) {
-    builder.SetInsertPoint(block);
+    irb.SetInsertPoint(block);
 }
 
 llvm::BasicBlock* CodeGenerator::appendBlock() {
@@ -207,20 +181,4 @@ void CodeGenerator::deleteCurrentBlock(llvm::BasicBlock* new_current) {
     setCurrentBlock(new_current);
     
     old_current->eraseFromParent();
-}
-
-/* -------------------------------------------------------------------------- */
-
-void CodeGenerator::visitNode(std::unique_ptr<AstNode>& node) { 
-    debug.SetDebugLocation(node->span);
-    node->Accept(this); 
-}
-
-void CodeGenerator::visitNode(std::unique_ptr<AstExpr>& node) {
-    debug.SetDebugLocation(node->span);
-    node->Accept(this); 
-}
-
-void CodeGenerator::visitNode(std::unique_ptr<AstDef>& node) {
-    node->Accept(this);
 }

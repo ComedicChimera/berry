@@ -6,26 +6,43 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 
-std::unordered_map<std::string, llvm::CallingConv::ID> cconv_name_to_id {
+void CodeGenerator::genTopDecl(AstDef* def) {
+    switch (def->kind) {
+    case AST_FUNC:
+        genFuncProto(def);
+        break;
+    case AST_GLOBAL_VAR:
+        genGlobalVarDecl(def);
+        break;
+    default:
+        Panic("top declaration codegen not implemented for {}", (int)def->kind);
+    }
+}
+
+void CodeGenerator::genPredicates(AstDef* def) {
+    switch (def->kind) {
+    case AST_FUNC:
+        if (def->an_Func.body) {
+            genFuncBody(def);
+        }
+        break;
+    default:
+        Panic("predicate codegen not implemented for {}", (int)def->kind);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+std::unordered_map<std::string_view, llvm::CallingConv::ID> cconv_name_to_id {
     { "c", llvm::CallingConv::C },
     { "stdcall", llvm::CallingConv::X86_StdCall },
     { "win64", llvm::CallingConv::Win64 }
 };
 
-void CodeGenerator::Visit(AstFuncDef& node) {
-    if (pred_mode) {
-        if (node.body) {
-            debug.BeginFuncBody(node, llvm::dyn_cast<llvm::Function>(node.symbol->llvm_value));
+void CodeGenerator::genFuncProto(AstDef* node) {
+    auto* symbol = node->an_Func.symbol;
 
-            genFuncBody(node);
-
-            debug.EndFuncBody();
-        }
-
-        return;
-    }
-
-    auto* ll_type = genType(node.symbol->type);
+    auto* ll_type = genType(symbol->type);
     Assert(ll_type->isFunctionTy(), "function signature is not a function type in codegen");
 
     auto* ll_func_type = llvm::dyn_cast<llvm::FunctionType>(ll_type);
@@ -33,16 +50,16 @@ void CodeGenerator::Visit(AstFuncDef& node) {
     bool should_mangle = true;
     bool exported = false;
     llvm::CallingConv::ID cconv = llvm::CallingConv::C;
-    for (auto& tag : node.metadata) {
-        if (tag.first == "extern" || tag.first == "abientry") {
+    for (auto& tag : node->metadata) {
+        if (tag.name == "extern" || tag.name == "abientry") {
             exported = true;
             should_mangle = false;
-        } else if (tag.first == "callconv") {
-            cconv = cconv_name_to_id[tag.second.value];
+        } else if (tag.name == "callconv") {
+            cconv = cconv_name_to_id[tag.value];
         }
     }
 
-    std::string ll_name { should_mangle ? mangleName(node.symbol->name) : node.symbol->name };
+    std::string ll_name { should_mangle ? mangleName(symbol->name) : symbol->name };
 
     llvm::Function* ll_func = llvm::Function::Create(
         ll_func_type, 
@@ -55,26 +72,27 @@ void CodeGenerator::Visit(AstFuncDef& node) {
 
     int i = 0;
     for (auto& arg : ll_func->args()) {
-        arg.setName(node.params[i]->name);
-        node.params[i]->llvm_value = &arg;
+        arg.setName(node->an_Func.params[i]->name);
+        node->an_Func.params[i]->llvm_value = &arg;
         i++;
     }
 
-    node.symbol->llvm_value = ll_func;
+    symbol->llvm_value = ll_func;
 }
 
-void CodeGenerator::genFuncBody(AstFuncDef& node) {
+void CodeGenerator::genFuncBody(AstDef* node) {
+    debug.BeginFuncBody(node, llvm::dyn_cast<llvm::Function>(node->an_Func.symbol->llvm_value));
     debug.ClearDebugLocation();
 
-    Assert(llvm::Function::classof(node.symbol->llvm_value), "function def is not a function value in codegen");
-    auto* ll_func = llvm::dyn_cast<llvm::Function>(node.symbol->llvm_value);
+    Assert(llvm::Function::classof(node->an_Func.symbol->llvm_value), "function def is not a function value in codegen");
+    auto* ll_func = llvm::dyn_cast<llvm::Function>(node->an_Func.symbol->llvm_value);
 
     var_block = llvm::BasicBlock::Create(ctx, "entry", ll_func);
     setCurrentBlock(var_block);
 
-    for (auto* param : node.params) {
-        auto* ll_param = builder.CreateAlloca(param->llvm_value->getType());
-        builder.CreateStore(param->llvm_value, ll_param);
+    for (auto* param : node->an_Func.params) {
+        auto* ll_param = irb.CreateAlloca(param->llvm_value->getType());
+        irb.CreateStore(param->llvm_value, ll_param);
         param->llvm_value = ll_param;
     }
 
@@ -83,16 +101,16 @@ void CodeGenerator::genFuncBody(AstFuncDef& node) {
     auto* body_block = appendBlock();
     setCurrentBlock(body_block);
     
-    visitNode(node.body);
+    genStmt(node->an_Func.body);
     if (!currentHasTerminator()) {
-        builder.CreateRetVoid();
+        irb.CreateRetVoid();
     }
     
     ll_enclosing_func = nullptr;
 
     debug.ClearDebugLocation();
     setCurrentBlock(var_block);
-    builder.CreateBr(body_block);
+    irb.CreateBr(body_block);
 
     std::string err_msg;
     llvm::raw_string_ostream oss(err_msg);
@@ -103,40 +121,16 @@ void CodeGenerator::genFuncBody(AstFuncDef& node) {
         mod.print(llvm::errs(), nullptr);
         exit(1);
     }
-}
 
-std::string CodeGenerator::mangleName(std::string_view name) {
-    return std::format("bry{}.{}.{}", bry_mod.id, bry_mod.name, name);
+    debug.EndFuncBody();
 }
 
 /* -------------------------------------------------------------------------- */
 
-void CodeGenerator::Visit(AstGlobalVarDef &node) {
-    if (pred_mode) {
-        if (node.var_def->array_size > 0) {
-            // TODO
-        }
+void CodeGenerator::genGlobalVarDecl(AstDef* node) {
+    auto* symbol = node->an_GlobalVar.symbol;
 
-        if (node.var_def->init) {
-            // No debug info for global variable expressions.
-            debug.PushDisable();
-
-            auto& last_init_block = ll_init_func->back();
-            setCurrentBlock(&last_init_block);
-
-            ll_enclosing_func = ll_init_func;
-            visitNode(node.var_def->init);
-            ll_enclosing_func = nullptr;
-            
-            builder.CreateStore(node.var_def->init->llvm_value, node.var_def->symbol->llvm_value);
-
-            debug.PopDisable();
-        }
-
-        return;
-    }
-
-    auto* ll_type = genType(node.var_def->symbol->type);
+    auto* ll_type = genType(symbol->type);
 
     auto gv = new llvm::GlobalVariable(
         mod, 
@@ -144,9 +138,31 @@ void CodeGenerator::Visit(AstGlobalVarDef &node) {
         false, 
         llvm::GlobalValue::PrivateLinkage, 
         llvm::Constant::getNullValue(ll_type), 
-        mangleName(node.var_def->symbol->name)
+        mangleName(symbol->name)
     );
     debug.EmitGlobalVariableInfo(node, gv);
 
-    node.var_def->symbol->llvm_value = gv;
+    symbol->llvm_value = gv;
+}
+
+void CodeGenerator::genGlobalVarInit(AstDef* node) {
+    // No debug info for global variable expressions.
+    debug.PushDisable();
+
+    auto& last_init_block = ll_init_func->back();
+    setCurrentBlock(&last_init_block);
+
+    ll_enclosing_func = ll_init_func;
+    auto* ll_value = genExpr(node->an_GlobalVar.init);
+    ll_enclosing_func = nullptr;
+    
+    irb.CreateStore(ll_value, node->an_GlobalVar.symbol->llvm_value);
+
+    debug.PopDisable();
+}
+
+/* -------------------------------------------------------------------------- */
+
+std::string CodeGenerator::mangleName(std::string_view name) {
+    return std::format("bry{}.{}.{}", bry_mod.id, bry_mod.name, name);
 }

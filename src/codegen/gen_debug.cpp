@@ -69,7 +69,7 @@ void DebugGenerator::FinishModule() {
 
 /* -------------------------------------------------------------------------- */
 
-void DebugGenerator::BeginFuncBody(AstFuncDef& fd, llvm::Function* ll_func) {
+void DebugGenerator::BeginFuncBody(AstDef* fd, llvm::Function* ll_func) {
     if (no_emit) {
         return;
     }
@@ -77,25 +77,25 @@ void DebugGenerator::BeginFuncBody(AstFuncDef& fd, llvm::Function* ll_func) {
     Assert(curr_file != nullptr, "function debug info missing enclosing file");
 
     auto call_conv = llvm::dwarf::DW_CC_normal;
-    auto it = fd.metadata.find("call_conv");
-    if (it != fd.metadata.end()) {
-        auto cc_name = it->second.value;
-        if (cc_name == "win64") {
-            call_conv = llvm::dwarf::DW_CC_LLVM_Win64;
-        } else if (cc_name == "stdcall") {
-            // TOOD: borland stdcall?
-            call_conv = llvm::dwarf::DW_CC_BORLAND_stdcall;
+    for (auto& meta_tag : fd->metadata) {
+        if (meta_tag.name == "callconv") {
+            if (meta_tag.value == "win64") {
+                call_conv = llvm::dwarf::DW_CC_LLVM_Win64;
+            } else if (meta_tag.value == "stdcall") {
+                // TOOD: borland stdcall?
+                call_conv = llvm::dwarf::DW_CC_BORLAND_stdcall;
+            }    
         }
     }
 
     auto* sub = db.createFunction(
         curr_file,
-        fd.symbol->name,
+        fd->an_Func.symbol->name,
         ll_func->getLinkage() == llvm::GlobalValue::ExternalLinkage ? "external" : "private",
         curr_file,
-        fd.span.start_line,
-        llvm::dyn_cast<llvm::DISubroutineType>(GetDIType(fd.symbol->type, call_conv)),
-        fd.span.start_line,
+        fd->span.start_line,
+        llvm::dyn_cast<llvm::DISubroutineType>(GetDIType(fd->an_Func.symbol->type, call_conv)),
+        fd->span.start_line,
         llvm::DINode::FlagPrototyped,
         llvm::DISubprogram::SPFlagDefinition
     );
@@ -115,7 +115,7 @@ void DebugGenerator::EndFuncBody() {
     lexical_blocks.pop_back();
 }
 
-void DebugGenerator::EmitGlobalVariableInfo(AstGlobalVarDef& node, llvm::GlobalVariable* ll_gv) {
+void DebugGenerator::EmitGlobalVariableInfo(AstDef* node, llvm::GlobalVariable* ll_gv) {
     if (no_emit) {
         return;
     }
@@ -126,18 +126,18 @@ void DebugGenerator::EmitGlobalVariableInfo(AstGlobalVarDef& node, llvm::GlobalV
 
     auto* ll_di_gv = db.createGlobalVariableExpression(
         curr_file,
-        node.var_def->symbol->name,
+        node->an_GlobalVar.symbol->name,
         is_external ? "external" : "private",
         curr_file,
-        node.span.start_line,
-        GetDIType(node.var_def->symbol->type),
+        node->span.start_line,
+        GetDIType(node->an_GlobalVar.symbol->type),
         !is_external
     );
 
     ll_gv->addDebugInfo(ll_di_gv);
 }
 
-void DebugGenerator::EmitLocalVariableInfo(AstLocalVarDef& node, llvm::Value* ll_var) {
+void DebugGenerator::EmitLocalVariableInfo(AstStmt* node, llvm::Value* ll_var) {
     if (no_emit) {
         return;
     }
@@ -147,10 +147,10 @@ void DebugGenerator::EmitLocalVariableInfo(AstLocalVarDef& node, llvm::Value* ll
 
     auto* di_local = db.createAutoVariable(
         scope,
-        node.symbol->name,
+        node->an_LocalVar.symbol->name,
         curr_file,
-        node.span.start_line,
-        GetDIType(node.symbol->type),
+        node->span.start_line,
+        GetDIType(node->an_LocalVar.symbol->type),
         true
     );
 
@@ -158,7 +158,7 @@ void DebugGenerator::EmitLocalVariableInfo(AstLocalVarDef& node, llvm::Value* ll
         ll_var, 
         di_local, 
         db.createExpression(), 
-        GetDebugLoc(scope, node.span), 
+        GetDebugLoc(scope, node->span), 
         irb.GetInsertBlock()
     );
 }
@@ -204,44 +204,32 @@ llvm::DILocation* DebugGenerator::GetDebugLoc(llvm::DIScope* scope, const TextSp
 llvm::DIType* DebugGenerator::GetDIType(Type* type, uint call_conv) {
     type = type->Inner();
 
-    switch (type->GetKind()) {
+    switch (type->kind) {
     case TYPE_UNIT: 
         return prim_type_table[0];
     case TYPE_BOOL:
         return prim_type_table[11];
     case TYPE_INT:
-    {
-        auto* int_type = dynamic_cast<IntType*>(type);
-
-        return prim_type_table[(int_type->bit_size >> 2) - (uint)int_type->is_signed];
-    }
+    return prim_type_table[(type->ty_Int.bit_size >> 2) - (uint)type->ty_Int.is_signed];    
     case TYPE_FLOAT:
-    {
-        auto* float_type = dynamic_cast<FloatType*>(type);
-
-        return prim_type_table[(float_type->bit_size >> 3) + 2];
-    }
+        return prim_type_table[(type->ty_Float.bit_size >> 3) + 2];
     case TYPE_PTR:
-    {
-        auto ptr_type = dynamic_cast<PointerType*>(type);
-
         // TODO: set pointer size based on target
-        return db.createPointerType(GetDIType(ptr_type->elem_type), 64);
-    }
+        return db.createPointerType(GetDIType(type->ty_Ptr.elem_type), 64);
     case TYPE_FUNC:
     {
-        auto func_type = dynamic_cast<FuncType*>(type);
+        auto& func_type = type->ty_Func;
 
-        std::vector<llvm::Metadata*> di_param_types ( func_type->param_types.size() + 1);
-        for (int i = 0; i < func_type->param_types.size(); i++) {
-            di_param_types[i + 1] = GetDIType(func_type->param_types[i]);
+        std::vector<llvm::Metadata*> di_param_types ( func_type.param_types.size() + 1);
+        for (int i = 0; i < func_type.param_types.size(); i++) {
+            di_param_types[i + 1] = GetDIType(func_type.param_types[i]);
         }
 
-        if (func_type->return_type->Inner()->GetKind() == TYPE_UNIT) {
+        if (func_type.return_type->Inner()->kind == TYPE_UNIT) {
             di_param_types[0] = nullptr;
         } else {
 
-            di_param_types[0] = GetDIType(func_type->return_type);
+            di_param_types[0] = GetDIType(func_type.return_type);
         }
 
         return db.createSubroutineType(
@@ -250,6 +238,7 @@ llvm::DIType* DebugGenerator::GetDIType(Type* type, uint call_conv) {
             call_conv
         );
     }
+    // TODO: arrays
     }
 
     Panic("unsupported type");

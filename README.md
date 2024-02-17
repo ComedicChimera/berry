@@ -4,6 +4,42 @@
 
 TODO: move to a more appropriate location.
 
+### Struct Enums
+
+Example from Compiler Code (very ergonomic):
+
+```
+enum AstDef {	
+	span: *TextSpan;
+	
+	Func{
+		symbol: *Symbol;
+		params: []*Symbol;
+		return_type: *Type;
+		body: AstExpr; 
+	};
+	GlobalVar{
+		symbol: *Symbol;
+		init: AstExpr;
+	};
+}
+
+func checkFunc(fn: *AstDef.Func) {
+	defineGlobal(fn.Span, fn.symbol);
+
+	// -- snip --
+}
+
+func checkDef(AstDef def) {
+	match def in v {
+	Func:
+		checkFunc(v);
+	GlobalVar:
+		checkGlobalVar(v);
+	}
+}
+```
+
 ### Heap Allocation
 
 Remove `&` for r-value references (no implicit heap allocation).
@@ -12,7 +48,7 @@ Instead, use `new` which explicitly has the possibility to allocate on the heap.
 
 ```
 new Struct{x=10}   // New *Struct
-new [10]int        // New integer array of 10 elements
+new int[10]        // New integer array of 10 elements
 new List[int]{}    // New generic type
 ```
 

@@ -6,6 +6,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DIBuilder.h"
 
+#include "ast.hpp"
+
 // DebugGenerator generates debug information for a Berry module.  It is called
 // by the CodeGenerator and acts as its "companion".
 class DebugGenerator {
@@ -49,10 +51,10 @@ public:
 
     /* ---------------------------------------------------------------------- */
 
-    void BeginFuncBody(AstFuncDef& fd, llvm::Function* ll_func);
+    void BeginFuncBody(AstDef* fd, llvm::Function* ll_func);
     void EndFuncBody();
-    void EmitGlobalVariableInfo(AstGlobalVarDef& node, llvm::GlobalVariable* ll_gv);
-    void EmitLocalVariableInfo(AstLocalVarDef& node, llvm::Value* ll_var);
+    void EmitGlobalVariableInfo(AstDef* node, llvm::GlobalVariable* ll_gv);
+    void EmitLocalVariableInfo(AstStmt* node, llvm::Value* ll_var);
 
     /* ---------------------------------------------------------------------- */
 
@@ -86,7 +88,7 @@ class CodeGenerator {
     llvm::Module& mod;
 
     // builder is the IR builder being used.
-    llvm::IRBuilder<> builder;
+    llvm::IRBuilder<> irb;
     
     // debug is the debug generator instance.
     DebugGenerator debug;
@@ -101,17 +103,6 @@ class CodeGenerator {
 
     // var_block is the block to append variable allocas to.
     llvm::BasicBlock* var_block;
-
-    // value_mode_stack keeps track of whether the generator should generate
-    // expressions to produce values or addresses.  For example, the expression
-    // `a` usually compiled with a load instruction, but if we are referencing
-    // it (ex: `&a`), then we just want to return the address of `a`.
-    std::vector<bool> value_mode_stack;
-
-    // pred_mode indicates whether we are visiting in predicate mode (ie.
-    // generating executable code) or in declare mode (ie. only creating
-    // definitions).
-    bool pred_mode;
 
     // tctx is a utility type context for the code generator (used for comparisons).
     TypeContext tctx;
@@ -133,12 +124,11 @@ class CodeGenerator {
 public:
     // Creates a new code generator using ctx and outputting to mod.
     CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& bry_mod)
-    : ctx(ctx), mod(mod), builder(ctx)
-    , debug(true, mod, builder)
+    : ctx(ctx), mod(mod), irb(ctx)
+    , debug(true, mod, irb)
     , bry_mod(bry_mod)
     , ll_enclosing_func(nullptr)
     , var_block(nullptr)
-    , pred_mode(false)
     , ll_init_func(nullptr)
     , ll_array_type(nullptr)
     , ll_panic_func(nullptr)
@@ -147,64 +137,37 @@ public:
     // GenerateModule compiles the module.
     void GenerateModule();
 
-    // Visitor methods
-    void Visit(AstFuncDef& node) override;
-    void Visit(AstLocalVarDef &node) override;
-    void Visit(AstGlobalVarDef& node) override;
-    void Visit(AstBlock& node) override;
-    void Visit(AstCast& node) override;
-    void Visit(AstBinaryOp& node) override;
-    void Visit(AstUnaryOp& node) override;
-    void Visit(AstAddrOf& node) override;
-    void Visit(AstDeref& node) override;
-    void Visit(AstCall& node) override;
-    void Visit(AstIdent &node) override;
-    void Visit(AstIntLit& node) override;
-    void Visit(AstFloatLit& node) override;
-    void Visit(AstBoolLit &node) override;
-    void Visit(AstNullLit& node) override;
-    void Visit(AstCondBranch& node) override;
-    void Visit(AstIfTree& node) override;
-    void Visit(AstWhileLoop& node) override;
-    void Visit(AstForLoop& node) override;
-    void Visit(AstIncDec& node) override;
-    void Visit(AstAssign& node) override;
-    void Visit(AstReturn& node) override;
-    void Visit(AstBreak& node) override;
-    void Visit(AstContinue& node) override;
-    void Visit(AstIndex& node) override;
-    void Visit(AstSlice& node) override;
-    void Visit(AstArrayLit& node) override;
-    void Visit(AstStringLit& node) override;
-    void Visit(AstFieldAccess& node) override;
-
-protected:
-    void visitNode(std::unique_ptr<AstNode>& node) override;
-    void visitNode(std::unique_ptr<AstExpr>& node) override;
-    void visitNode(std::unique_ptr<AstDef>& node) override;
-
 private:
-    void visitAll();
+    void genTopDecl(AstDef *def);
+    void genPredicates(AstDef *def);
+
+    void genFuncProto(AstDef *node);
+    void genFuncBody(AstDef *node);
+
+    void genGlobalVarDecl(AstDef *node);
+    void genGlobalVarInit(AstDef *node);
+
+    std::string mangleName(std::string_view name);
 
     /* ---------------------------------------------------------------------- */
 
-    void createGlobalTypes();
+    void genStmt(AstStmt* stmt);
+    // TODO: stmts
 
     /* ---------------------------------------------------------------------- */
 
-    void genInitFunc();
-    void finishInitFunc();
+    llvm::Value* genExpr(AstExpr* expr);
+    // TODO: exprs
 
     /* ---------------------------------------------------------------------- */
 
-    // genFuncBody generates the function body for node.
-    void genFuncBody(AstFuncDef &node);
+    void createBuiltinGlobals();
+    void finishModule();
+
+    /* ---------------------------------------------------------------------- */
 
     // genType converts the Berry type type to an LLVM type.
     llvm::Type *genType(Type *type);
-
-    // mangleName converts a Berry global symbol name into its ABI equivalent.
-    std::string mangleName(std::string_view name);
 
     /* ---------------------------------------------------------------------- */
 
@@ -219,14 +182,8 @@ private:
 
     llvm::Value* getArrayPtr(llvm::Value* array);
     llvm::Value *getArrayLen(llvm::Value *array);
-    void genBoundsCheck(llvm::Value *ndx, llvm::Value *arr_len, bool can_equal_len = false);
-    llvm::Value *makeLLVMFloatLit(FloatType *float_type, double value);
-
-    /* ---------------------------------------------------------------------- */
-
-    bool isValueMode();
-    void pushValueMode(bool mode);
-    void popValueMode();
+    void genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len = false);
+    llvm::Value *makeLLVMFloatLit(Type* float_type, double value);
 
     /* ---------------------------------------------------------------------- */
 
