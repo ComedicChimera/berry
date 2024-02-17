@@ -3,9 +3,9 @@
 #define ARENA_CHUNK_SIZE ((8 * 1024 * 1024))
 
 #if ARCH_64_BIT
-    #define ARENA_ALIGN 64
+    #define ARENA_ALIGN 8
 #else
-    #define ARENA_ALIGN 32
+    #define ARENA_ALIGN 4
 #endif
 
 #define max(a, b) ((a) < (b) ? b : a)

@@ -1,12 +1,12 @@
 #include "parser.hpp"
 
-Type* Parser::parseTypeExt(size_t* arr_size) {
+Type* Parser::parseTypeExt() {
     want(TOK_COLON);
 
-    return parseTypeLabel(arr_size);
+    return parseTypeLabel();
 }
 
-Type* Parser::parseTypeLabel(size_t* arr_size) {
+Type* Parser::parseTypeLabel() {
     switch (tok.kind) {
     case TOK_I8:
         next();
@@ -44,32 +44,19 @@ Type* Parser::parseTypeLabel(size_t* arr_size) {
     case TOK_UNIT:
         next();
         return &prim_unit_type;
-    case TOK_STAR:
+    case TOK_STAR: {
         next();
-        return arena.New<PointerType>(parseTypeLabel());
+        auto* ptr_type = allocType(TYPE_PTR);
+        ptr_type->ty_Ptr.elem_type = parseTypeLabel();
+        return ptr_type;
+    } break;
     case TOK_LBRACKET: {
         next();
-
-        if (has(TOK_INTLIT)) {
-            next();
-
-            if (arr_size) {
-                if (!ConvertUint(prev.value, (uint64_t*)arr_size)) {
-                    error(prev.span, "integer literal is too big to be represented by any integer type");
-                }
-
-                if (*arr_size == 0) {
-                    error(prev.span, "array cannot have zero length");
-                }
-            } else {
-                error(prev.span, "array size can only be specified in variable declaration");
-            }
-        }
-
         want(TOK_RBRACKET);
 
-        // TODO: multi-dimensional arrays?
-        return arena.New<ArrayType>(parseTypeLabel());
+        auto* arr_type = allocType(TYPE_ARRAY);
+        arr_type->ty_Array.elem_type = parseTypeLabel();
+        return arr_type;
     } break;
     default:
         reject("expected type label");

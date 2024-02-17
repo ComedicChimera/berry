@@ -1,10 +1,10 @@
 #include "parser.hpp"
 
-std::unique_ptr<AstNode> Parser::parseBlock() {
+AstStmt* Parser::parseBlock() {
     auto start_span = tok.span;
     want(TOK_LBRACE);
 
-    std::vector<std::unique_ptr<AstNode>> stmts;
+    std::vector<AstStmt*> stmts;
     while (!has(TOK_RBRACE)) {
         stmts.emplace_back(parseStmt());
     }
@@ -12,11 +12,14 @@ std::unique_ptr<AstNode> Parser::parseBlock() {
 
     auto end_span = tok.span;
     want(TOK_RBRACE);
-    return std::make_unique<AstBlock>(SpanOver(start_span, end_span), std::move(stmts));
+
+    AstStmt* block = allocStmt(AST_BLOCK, SpanOver(start_span, end_span));
+    block->an_Block.stmts = arena.MoveVec(std::move(stmts));
+    return block;
 }
 
-std::unique_ptr<AstNode> Parser::parseStmt() {
-    std::unique_ptr<AstNode> stmt;
+AstStmt* Parser::parseStmt() {
+    AstStmt* stmt;
 
     switch (tok.kind) {
     case TOK_LET:
@@ -24,13 +27,13 @@ std::unique_ptr<AstNode> Parser::parseStmt() {
         break;
     case TOK_BREAK:
         next();
-        stmt = std::make_unique<AstBreak>(prev.span);
+        stmt = allocStmt(AST_BREAK, prev.span);
         break;
     case TOK_CONTINUE:
         next();
-        stmt = std::make_unique<AstContinue>(prev.span);
+        stmt = allocStmt(AST_CONTINUE, prev.span);
         break;
-    case TOK_RETURN:
+    case TOK_RETURN: {
         next();
 
         if (!has(TOK_SEMI)) {
@@ -38,12 +41,13 @@ std::unique_ptr<AstNode> Parser::parseStmt() {
             auto expr = parseExpr();
 
             auto span = SpanOver(start_span, expr->span);
-            stmt = std::make_unique<AstReturn>(span, std::move(expr));
+            stmt = allocStmt(AST_RETURN, span);
+            stmt->an_Return.value = expr;
         } else {
-            stmt = std::make_unique<AstReturn>(prev.span);
+            stmt = allocStmt(AST_RETURN, prev.span);
+            stmt->an_Return.value = nullptr;
         }
-
-        break;
+    } break;
     case TOK_IF:
         return parseIfStmt();
     case TOK_WHILE:
@@ -62,7 +66,7 @@ std::unique_ptr<AstNode> Parser::parseStmt() {
 
 /* -------------------------------------------------------------------------- */
 
-std::unique_ptr<AstNode> Parser::parseIfStmt() {
+AstStmt* Parser::parseIfStmt() {
     std::vector<AstCondBranch> branches;
 
     while (true) {
@@ -75,8 +79,8 @@ std::unique_ptr<AstNode> Parser::parseIfStmt() {
         auto span = SpanOver(start_span, body->span);
         branches.emplace_back(
             span,
-            std::move(cond_expr),
-            std::move(body)
+            cond_expr,
+            body
         );
 
         if (!has(TOK_ELIF)) {
@@ -85,10 +89,14 @@ std::unique_ptr<AstNode> Parser::parseIfStmt() {
     }
 
     auto else_block = maybeParseElse();
-    return std::make_unique<AstIfTree>(std::move(branches), std::move(else_block));
+    auto span = SpanOver(branches[0].span, else_block != nullptr ? else_block->span : branches.back().span);
+    auto* aif = allocStmt(AST_IF, span);
+    aif->an_If.branches = arena.MoveVec(std::move(branches));
+    aif->an_If.else_block = else_block;
+    return aif;
 }
 
-std::unique_ptr<AstNode> Parser::parseWhileLoop() {
+AstStmt* Parser::parseWhileLoop() {
     next();
     auto start_span = prev.span;
 
@@ -97,16 +105,15 @@ std::unique_ptr<AstNode> Parser::parseWhileLoop() {
     auto else_block = maybeParseElse();
 
     auto span = SpanOver(start_span, else_block ? else_block->span : body->span);
-    return std::make_unique<AstWhileLoop>(
-        span, 
-        std::move(cond_expr), 
-        std::move(body), 
-        std::move(else_block), 
-        false
-    );
+    auto* awhile = allocStmt(AST_WHILE, span);
+    awhile->an_While.cond_expr = cond_expr;
+    awhile->an_While.body = body;
+    awhile->an_While.else_block = else_block;
+    awhile->an_While.is_do_while = false;
+    return awhile;
 }
 
-std::unique_ptr<AstNode> Parser::parseDoWhileLoop() {
+AstStmt* Parser::parseDoWhileLoop() {
     next();
     auto start_span = prev.span;
 
@@ -115,7 +122,7 @@ std::unique_ptr<AstNode> Parser::parseDoWhileLoop() {
     want(TOK_WHILE);
     auto cond_expr = parseExpr();
 
-    std::unique_ptr<AstNode> else_block;
+    AstStmt* else_block;
     TextSpan end_span;
     if (has(TOK_ELSE)) {
         next();
@@ -127,34 +134,33 @@ std::unique_ptr<AstNode> Parser::parseDoWhileLoop() {
         end_span = prev.span;
     }
 
-    return std::make_unique<AstWhileLoop>(
-        SpanOver(start_span, end_span), 
-        std::move(cond_expr), 
-        std::move(body), 
-        std::move(else_block), 
-        true
-    );
+    auto* awhile = allocStmt(AST_WHILE, SpanOver(start_span, end_span));
+    awhile->an_While.cond_expr = cond_expr;
+    awhile->an_While.body = body;
+    awhile->an_While.else_block = else_block;
+    awhile->an_While.is_do_while = true;
+    return awhile;
 }  
 
-std::unique_ptr<AstNode> Parser::parseForLoop() {
+AstStmt* Parser::parseForLoop() {
     next();
     auto start_span = prev.span;
 
-    std::unique_ptr<AstLocalVarDef> var_def { nullptr };
+    AstStmt* var_def { nullptr };
     if (has(TOK_LET)) {
         var_def = parseLocalVarDef();
     }
 
     want(TOK_SEMI);
 
-    std::unique_ptr<AstExpr> cond_expr { nullptr }; 
+    AstExpr* cond_expr { nullptr }; 
     if (!has(TOK_SEMI)) {
         cond_expr = parseExpr();
     }
 
     want(TOK_SEMI);
 
-    std::unique_ptr<AstNode> update_stmt { nullptr };
+    AstStmt* update_stmt { nullptr };
     if (!has(TOK_LBRACE)) {
         update_stmt = parseExprAssignStmt();
     }
@@ -163,17 +169,16 @@ std::unique_ptr<AstNode> Parser::parseForLoop() {
     auto else_block = maybeParseElse();
 
     auto span = SpanOver(start_span, else_block ? else_block->span : body->span);
-    return std::make_unique<AstForLoop>(
-        span,
-        std::move(var_def),
-        std::move(cond_expr),
-        std::move(update_stmt),
-        std::move(body),
-        std::move(else_block)
-    );
+    auto* afor = allocStmt(AST_FOR, span);
+    afor->an_For.var_def = var_def;
+    afor->an_For.cond_expr = cond_expr;
+    afor->an_For.update_stmt = update_stmt;
+    afor->an_For.body = body;
+    afor->an_For.else_block = else_block;
+    return afor;
 }
 
-std::unique_ptr<AstNode> Parser::maybeParseElse() {
+AstStmt* Parser::maybeParseElse() {
     if (has(TOK_ELSE)) {
         next();
 
@@ -185,40 +190,21 @@ std::unique_ptr<AstNode> Parser::maybeParseElse() {
 
 /* -------------------------------------------------------------------------- */
 
-std::unique_ptr<AstLocalVarDef> Parser::parseLocalVarDef() {
+AstStmt* Parser::parseLocalVarDef() {
     auto start_span = tok.span;
     want(TOK_LET);
 
     auto name_tok = wantAndGet(TOK_IDENT);
 
     Type* type = nullptr;
-    std::unique_ptr<AstExpr> init;
-    size_t arr_size = 0;
+    AstExpr* init;
     TextSpan end_span;
     if (has(TOK_COLON)) {
-        type = parseTypeExt(&arr_size);
+        type = parseTypeExt();
 
         if (has(TOK_ASSIGN)) {
-            if (arr_size > 0) {
-                next();
-
-                if (has(TOK_LBRACKET)) {
-                    auto arr_lit = parseArrayLit();
-
-                    if (arr_lit->elements.size() != arr_size) {
-                        error(arr_lit->span, "array literal does not match declared array size");
-                    }
-
-                    init = std::move(arr_lit);
-                    end_span = init->span;
-                } else {
-                    error(tok.span, "sized array declaration can only be initialized with array literal");
-                }
-            } else {
-                init = parseInitializer();
-                end_span = init->span;
-            }
-
+            init = parseInitializer();
+            end_span = init->span;
         } else {
             end_span = prev.span;
         }
@@ -236,15 +222,13 @@ std::unique_ptr<AstLocalVarDef> Parser::parseLocalVarDef() {
         false
     );
 
-    return std::make_unique<AstLocalVarDef>(
-        SpanOver(start_span, end_span),
-        symbol,
-        std::move(init),
-        arr_size
-    );
+    auto* alocal = allocStmt(AST_LOCAL_VAR, SpanOver(start_span, end_span));
+    alocal->an_LocalVar.symbol = symbol;
+    alocal->an_LocalVar.init = init;
+    return alocal;
 }
 
-std::unique_ptr<AstNode> Parser::parseExprAssignStmt() {
+AstStmt* Parser::parseExprAssignStmt() {
     auto lhs = parseExpr();
 
     AstOpKind assign_op = AOP_NONE;
@@ -304,20 +288,33 @@ std::unique_ptr<AstNode> Parser::parseExprAssignStmt() {
         next();
         auto span = SpanOver(lhs->span, prev.span);
 
-        return std::make_unique<AstIncDec>(span, std::move(lhs), AOP_ADD);
+        auto* aid = allocStmt(AST_INCDEC, span);
+        aid->an_IncDec.lhs = lhs;
+        aid->an_IncDec.op = AOP_ADD;
+        return aid;
     } break;    
     case TOK_DEC:{
         next();
         auto span = SpanOver(lhs->span, prev.span);
 
-        return std::make_unique<AstIncDec>(span, std::move(lhs), AOP_SUB);
+        auto* aid = allocStmt(AST_INCDEC, span);
+        aid->an_IncDec.lhs = lhs;
+        aid->an_IncDec.op = AOP_SUB;
+        return aid;
     } break;
-    default:
-        return lhs;
+    default: {
+        auto* expr_stmt = allocStmt(AST_EXPR_STMT, lhs->span);
+        expr_stmt->an_ExprStmt.expr = lhs;
+        return expr_stmt;
+    } break;
     }
 
     auto rhs = parseExpr();
 
     auto span = SpanOver(lhs->span, rhs->span);
-    return std::make_unique<AstAssign>(span, std::move(lhs), std::move(rhs), assign_op);
+    auto* aassign = allocStmt(AST_ASSIGN, span);
+    aassign->an_Assign.lhs = lhs;
+    aassign->an_Assign.rhs = rhs;
+    aassign->an_Assign.assign_op = assign_op;
+    return aassign;
 }

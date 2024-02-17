@@ -3,7 +3,7 @@
 bool TypeContext::IsNumberType(Type* type) {
     auto* inner = type->Inner();
 
-    if (inner->GetKind() == TYPE_UNTYP) {
+    if (inner->kind == TYPE_UNTYP) {
         return true;
     }
 
@@ -13,10 +13,8 @@ bool TypeContext::IsNumberType(Type* type) {
 bool TypeContext::IsIntType(Type* type) {
     auto* inner = type->Inner();
 
-    if (inner->GetKind() == TYPE_UNTYP) {
-        auto* uk = dynamic_cast<Untyped*>(inner);
-
-        auto& entry = find(uk->key);
+    if (inner->kind == TYPE_UNTYP) {
+        auto& entry = find(inner->ty_Untyp.key);
 
         if (entry.kind == UK_INT) {
             return true;
@@ -30,5 +28,5 @@ bool TypeContext::IsIntType(Type* type) {
         return false;
     }
 
-    return inner->GetKind() == TYPE_INT;
+    return inner->kind == TYPE_INT;
 }

@@ -1,6 +1,6 @@
 #include "parser.hpp"
 
-void Parser::parseMetadata(Metadata& meta) {
+void Parser::parseMetadata(MetadataMap& meta) {
     next();
 
     if (has(TOK_LBRACKET)) {
@@ -22,9 +22,9 @@ void Parser::parseMetadata(Metadata& meta) {
     }
 }
 
-void Parser::parseMetaTag(Metadata& meta) {
+void Parser::parseMetaTag(MetadataMap& meta) {
     auto name_tok = wantAndGet(TOK_IDENT);
-    auto name = name_tok.value;
+    auto name = arena.MoveStr(std::move(name_tok.value));
 
     if (has(TOK_LPAREN)) {
         next();
@@ -32,14 +32,14 @@ void Parser::parseMetaTag(Metadata& meta) {
         want(TOK_RPAREN);
 
         meta.emplace(name, MetadataTag{
-            std::move(name_tok.value),
+            name,
             name_tok.span,
-            std::move(value_tok.value),
+            arena.MoveStr(std::move(value_tok.value)),
             value_tok.span
         });
     } else {
         meta.emplace(name, MetadataTag{ 
-            std::move(name_tok.value),
+            name,
             name_tok.span
         });
     }
@@ -47,7 +47,7 @@ void Parser::parseMetaTag(Metadata& meta) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseDef(Metadata&& meta) {
+void Parser::parseDef(MetadataMap&& meta) {
     switch (tok.kind) {
     case TOK_FUNC:
         parseFuncDef(std::move(meta));
@@ -63,7 +63,7 @@ void Parser::parseDef(Metadata&& meta) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseFuncDef(Metadata&& meta) {
+void Parser::parseFuncDef(MetadataMap&& meta) {
     auto start_span = tok.span;
     want(TOK_FUNC);
 
@@ -86,7 +86,7 @@ void Parser::parseFuncDef(Metadata&& meta) {
         break;
     }
 
-    std::unique_ptr<AstNode> body;
+    AstStmt* body { nullptr };
     TextSpan end_span;
     switch (tok.kind) {
     case TOK_SEMI:
@@ -107,10 +107,9 @@ void Parser::parseFuncDef(Metadata&& meta) {
         param_types.push_back(param_symbol->type);
     }
 
-    FuncType* func_type = arena.New<FuncType>(
-        arena.MoveVec(std::move(param_types)),
-        return_type
-    );    
+    auto* func_type = allocType(TYPE_FUNC);
+    func_type->ty_Func.param_types = arena.MoveVec(std::move(param_types));
+    func_type->ty_Func.return_type = return_type;
 
     Symbol* symbol = arena.New<Symbol>(
         arena.MoveStr(std::move(name_tok.value)),
@@ -123,14 +122,13 @@ void Parser::parseFuncDef(Metadata&& meta) {
 
     defineGlobal(symbol);
 
-    src_file.defs.emplace_back(std::make_unique<AstFuncDef>(
-        SpanOver(start_span, end_span),
-        std::move(meta),
-        symbol,
-        std::move(params),
-        return_type,
-        std::move(body)
-    ));
+    auto* afunc = allocDef(AST_FUNC, SpanOver(start_span, end_span), std::move(meta));
+    afunc->an_Func.symbol = symbol;
+    afunc->an_Func.params = arena.MoveVec(std::move(params));
+    afunc->an_Func.return_type = return_type;
+    afunc->an_Func.body = body;
+
+    src_file.defs.push_back(afunc);
 }
 
 void Parser::parseFuncParams(std::vector<Symbol*>& params) {
@@ -161,17 +159,40 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseGlobalVarDef(Metadata&& meta) {
-    auto local_var = parseLocalVarDef();
-    want(TOK_SEMI);
+void Parser::parseGlobalVarDef(MetadataMap&& meta) {
+    auto start_span = tok.span;
+    next();
 
-    if (local_var->symbol->type == nullptr) {
-        fatal(local_var->span, "global variable must have an explicit type label");
+    auto name_tok = wantAndGet(TOK_IDENT);
+
+    if (!has(TOK_COLON)) {
+        fatal(name_tok.span, "global variable must have an explicit type label");
     }
 
-    defineGlobal(local_var->symbol);
+    auto* type = parseTypeExt();
 
-    src_file.defs.emplace_back(
-        std::make_unique<AstGlobalVarDef>(std::move(meta), std::move(local_var))
+    AstExpr* init = nullptr;
+    if (has(TOK_ASSIGN)) {
+        init = parseInitializer();
+    }
+
+    auto end_span = tok.span;
+    want(TOK_SEMI);
+
+    Symbol* symbol = arena.New<Symbol>(
+        arena.MoveStr(std::move(name_tok.value)),
+        src_file.id,
+        name_tok.span,
+        SYM_VARIABLE,
+        type,
+        false
     );
+
+    defineGlobal(symbol);
+
+    auto* aglobal = allocDef(AST_GLOBAL_VAR, SpanOver(start_span, end_span), std::move(meta));
+    aglobal->an_GlobalVar.symbol = symbol;
+    aglobal->an_GlobalVar.init = init;
+
+    src_file.defs.push_back(aglobal);
 }

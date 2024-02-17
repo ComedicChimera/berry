@@ -81,7 +81,7 @@ struct SourceFile {
     std::string display_path;
 
     // defs is the definition ASTs comprising the file.
-    std::vector<std::unique_ptr<AstDef>> defs;
+    std::vector<AstDef*> defs;
 
     // llvm_di_file is the debug info scope associated with this file.
     llvm::DIFile* llvm_di_file { nullptr };

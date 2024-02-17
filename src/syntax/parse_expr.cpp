@@ -1,6 +1,6 @@
 #include "parser.hpp"
 
-std::unique_ptr<AstExpr> Parser::parseExpr() {
+AstExpr* Parser::parseExpr() {
     auto bin_op = parseBinaryOp(0);
 
     if (has(TOK_AS)) {
@@ -8,12 +8,10 @@ std::unique_ptr<AstExpr> Parser::parseExpr() {
 
         auto dest_type = parseTypeLabel();
 
-        auto bop_span = bin_op->span;
-        return std::make_unique<AstCast>(
-            SpanOver(bop_span, prev.span),
-            std::move(bin_op),
-            dest_type
-        );
+        auto* cast = allocExpr(AST_CALL, SpanOver(bin_op->span, prev.span));
+        cast->type = dest_type;
+        cast->an_Cast.src = bin_op;
+        return cast;
     }
 
     return bin_op;
@@ -54,7 +52,7 @@ std::vector<TokenKind> pred_table[PRED_TABLE_SIZE] = {
     { TOK_STAR, TOK_FSLASH, TOK_MOD }
 };
 
-std::unique_ptr<AstExpr> Parser::parseBinaryOp(int pred_level) {
+AstExpr* Parser::parseBinaryOp(int pred_level) {
     if (pred_level >= PRED_TABLE_SIZE) {
         return parseUnaryOp();
     }
@@ -73,18 +71,17 @@ std::unique_ptr<AstExpr> Parser::parseBinaryOp(int pred_level) {
         auto lhs_span = lhs->span;
         auto rhs_spah = rhs->span;
 
-        lhs = std::make_unique<AstBinaryOp>(
-            SpanOver(lhs->span, rhs->span),
-            tok_to_aop[*it],
-            std::move(lhs),
-            std::move(rhs)
-        );
+        auto* new_lhs = allocExpr(AST_BINOP, SpanOver(lhs->span, rhs->span));
+        new_lhs->an_Binop.op = tok_to_aop[*it];
+        new_lhs->an_Binop.lhs = lhs;
+        new_lhs->an_Binop.rhs = rhs;
+        lhs = new_lhs;
     }
 
     return lhs;
 }
 
-std::unique_ptr<AstExpr> Parser::parseUnaryOp() {
+AstExpr* Parser::parseUnaryOp() {
     auto start_span = tok.span;
     
     switch (tok.kind) {
@@ -92,29 +89,35 @@ std::unique_ptr<AstExpr> Parser::parseUnaryOp() {
         next();
 
         auto atom_expr = parseAtomExpr();
-        auto span = SpanOver(start_span, atom_expr->span);
-        return std::make_unique<AstAddrOf>(span, std::move(atom_expr));
+        auto* node = allocExpr(AST_ADDR, SpanOver(start_span, atom_expr->span));
+        node->an_Addr.elem = atom_expr;
+        return node;
     } break; 
     case TOK_STAR: {
         next();
 
         auto atom_expr = parseAtomExpr();
-        auto span = SpanOver(start_span, atom_expr->span);
-        return std::make_unique<AstDeref>(span, std::move(atom_expr));
+        auto* node = allocExpr(AST_DEREF, SpanOver(start_span, atom_expr->span));
+        node->an_Deref.ptr = atom_expr;
+        return node;
     } break;
     case TOK_MINUS: {
         next();
 
         auto atom_expr = parseAtomExpr();
-        auto span = SpanOver(start_span, atom_expr->span);
-        return std::make_unique<AstUnaryOp>(span, AOP_NEG, std::move(atom_expr));
+        auto* node = allocExpr(AST_UNOP, SpanOver(start_span, atom_expr->span));
+        node->an_Unop.operand = atom_expr;
+        node->an_Unop.op = AOP_NEG;
+        return node;
     } break;
     case TOK_NOT: {
         next();
         
         auto atom_expr = parseAtomExpr();
-        auto span = SpanOver(start_span, atom_expr->span);
-        return std::make_unique<AstUnaryOp>(span, AOP_NOT, std::move(atom_expr));
+        auto* node = allocExpr(AST_UNOP, SpanOver(start_span, atom_expr->span));
+        node->an_Unop.operand = atom_expr;
+        node->an_Unop.op = AOP_NOT;
+        return node;
     } break;
     default:
         return parseAtomExpr();
@@ -123,7 +126,7 @@ std::unique_ptr<AstExpr> Parser::parseUnaryOp() {
 
 /* -------------------------------------------------------------------------- */
 
-std::unique_ptr<AstExpr> Parser::parseAtomExpr() {
+AstExpr* Parser::parseAtomExpr() {
     auto root = parseAtom();
 
     while (true) {
@@ -139,12 +142,9 @@ std::unique_ptr<AstExpr> Parser::parseAtomExpr() {
 
             auto field_name_tok = wantAndGet(TOK_IDENT);
 
-            auto start_span = root->span;
-            root = std::make_unique<AstFieldAccess>(
-                SpanOver(start_span, field_name_tok.span),
-                std::move(root),
-                std::move(field_name_tok.value)
-            );
+            auto* node = allocExpr(AST_FIELD, SpanOver(root->span, field_name_tok.span));
+            node->an_Field.root = root;
+            node->an_Field.field_name = arena.MoveStr(std::move(field_name_tok.value));
         } break;
         default:
             return root;
@@ -152,16 +152,16 @@ std::unique_ptr<AstExpr> Parser::parseAtomExpr() {
     }
 }
 
-std::unique_ptr<AstExpr> Parser::parseFuncCall(std::unique_ptr<AstExpr>&& root) {
+AstExpr* Parser::parseFuncCall(AstExpr* root) {
     next();
 
-    std::vector<std::unique_ptr<AstExpr>> args;
+    std::vector<AstExpr*> args;
     if (!has(TOK_RPAREN)) {
         while (true) {
             if (has(TOK_NULL)) {
                 next();
 
-                args.emplace_back(std::make_unique<AstNullLit>(prev.span));
+                args.emplace_back(allocExpr(AST_NULL, prev.span));
             } else {
                 args.emplace_back(parseExpr());
             }
@@ -177,11 +177,13 @@ std::unique_ptr<AstExpr> Parser::parseFuncCall(std::unique_ptr<AstExpr>&& root) 
     auto end_span = tok.span;
     want(TOK_RPAREN);
 
-    auto start_span = root->span;
-    return std::make_unique<AstCall>(SpanOver(start_span, end_span), std::move(root), std::move(args));
+    auto* node = allocExpr(AST_CALL, SpanOver(root->span, end_span));
+    node->an_Call.func = root;
+    node->an_Call.args = arena.MoveVec(std::move(args));
+    return node;
 }
 
-std::unique_ptr<AstExpr> Parser::parseIndexOrSlice(std::unique_ptr<AstExpr>&& root) {
+AstExpr* Parser::parseIndexOrSlice(AstExpr* root) {
     next();
     auto start_span = prev.span;
 
@@ -192,40 +194,37 @@ std::unique_ptr<AstExpr> Parser::parseIndexOrSlice(std::unique_ptr<AstExpr>&& ro
 
         want(TOK_RBRACKET);
 
-        return std::make_unique<AstSlice>(
-            SpanOver(start_span, prev.span), 
-            std::move(root), 
-            nullptr, 
-            std::move(end_index)
-        );
+        auto* node = allocExpr(AST_SLICE, SpanOver(start_span, prev.span));
+        node->an_Slice.array = root;
+        node->an_Slice.start_index = nullptr;
+        node->an_Slice.end_index = end_index;
+        return node;
     }
 
     auto start_index = parseExpr();
     if (has(TOK_COLON)) {
         next();
 
-        std::unique_ptr<AstExpr> end_index { nullptr };
+        AstExpr* end_index { nullptr };
         if (!has(TOK_RBRACKET)) {
             end_index = parseExpr();
         } 
 
         want(TOK_RBRACKET);
 
-        return std::make_unique<AstSlice>(
-            SpanOver(start_span, prev.span),
-            std::move(root),
-            std::move(start_index),
-            std::move(end_index)
-        );
+        auto* node = allocExpr(AST_SLICE, SpanOver(start_span, prev.span));
+        node->an_Slice.array = root;
+        node->an_Slice.start_index = start_index;
+        node->an_Slice.end_index = end_index;
+        return node;
     }
 
     want(TOK_RBRACKET);
 
-    return std::make_unique<AstIndex>(
-        SpanOver(start_span, prev.span),
-        std::move(root),
-        std::move(start_index)
-    );
+    auto* node = allocExpr(AST_INDEX, SpanOver(start_span, prev.span));
+    node->an_Index.array = root;
+    node->an_Index.index = start_index;
+    return node;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -320,7 +319,7 @@ static rune convertRuneLit(const std::string& rune_str) {
     }
 }
 
-std::unique_ptr<AstExpr> Parser::parseAtom() {
+AstExpr* Parser::parseAtom() {
     switch (tok.kind) {
     case TOK_INTLIT: {
         next();
@@ -330,7 +329,9 @@ std::unique_ptr<AstExpr> Parser::parseAtom() {
             error(prev.span, "integer literal is too big to be represented by any integer type");
         }
 
-        return std::make_unique<AstIntLit>(prev.span, value);
+        auto* aint = allocExpr(AST_INT, prev.span);
+        aint->an_Int.value = value;
+        return aint;
     } break;
     case TOK_FLOATLIT: {
         next();
@@ -342,28 +343,38 @@ std::unique_ptr<AstExpr> Parser::parseAtom() {
             error(prev.span, "float literal cannot be accurately represented by any float type");
         }
 
-        return std::make_unique<AstFloatLit>(prev.span, value);
+        auto* afloat = allocExpr(AST_FLOAT, prev.span);
+        afloat->an_Float.value = value;
+        return afloat;
     } break;
     case TOK_RUNELIT: {
         next();
 
-        return std::make_unique<AstIntLit>(prev.span, &prim_i32_type, convertRuneLit(prev.value));
+        auto* aint = allocExpr(AST_INT, prev.span);
+        aint->type = &prim_i32_type;
+        aint->an_Int.value = convertRuneLit(prev.value);
+        return aint;
     } break;
     case TOK_BOOLLIT: {
         next();
 
-        return std::make_unique<AstBoolLit>(prev.span, prev.value == "true");
+        auto* abool = allocExpr(AST_BOOL, prev.span);
+        abool->an_Bool.value = prev.value == "true";
+        return abool;
     } break;
     case TOK_STRLIT: {
         next();
 
-        return std::make_unique<AstStringLit>(prev.span, std::move(prev.value));
+        auto* astr = allocExpr(AST_STR, prev.span);
+        astr->an_String.value = arena.MoveStr(std::move(prev.value));
+        return astr;
     } break;
     case TOK_IDENT: {
-        auto name_tok = tok;
         next();
 
-        return std::make_unique<AstIdent>(name_tok.span, std::move(name_tok.value));
+        auto* ident = allocExpr(AST_IDENT, prev.span);
+        ident->an_Ident.temp_name = arena.MoveStr(std::move(prev.value));
+        return ident;
     } break;
     case TOK_LPAREN: {
         next();
@@ -382,7 +393,7 @@ std::unique_ptr<AstExpr> Parser::parseAtom() {
     }
 }
 
-std::unique_ptr<AstArrayLit> Parser::parseArrayLit() {
+AstExpr* Parser::parseArrayLit() {
     next();
     auto start_span = prev.span;
 
@@ -390,5 +401,7 @@ std::unique_ptr<AstArrayLit> Parser::parseArrayLit() {
 
     want(TOK_RBRACKET);
 
-    return std::make_unique<AstArrayLit>(SpanOver(start_span, prev.span), std::move(elems));
+    auto* arr = allocExpr(AST_ARRAY, SpanOver(start_span, prev.span));
+    arr->an_Array.elems = elems;
+    return arr;
 }

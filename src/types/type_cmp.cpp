@@ -1,27 +1,70 @@
 #include "types.hpp"
 
+
 bool TypeContext::Equal(Type* a, Type* b) {
     return innerEqual(a->Inner(), b->Inner());
 }
 
 bool TypeContext::innerEqual(Type* a, Type* b) {
-    if (a->GetKind() == TYPE_UNTYP) {
-        auto* a_ut = dynamic_cast<Untyped*>(a);
-
-        if (b->GetKind() == TYPE_UNTYP) {
-            auto* b_ut = dynamic_cast<Untyped*>(b);
-
-            return tryUnion(a_ut->key, b_ut->key);
+    if (a->kind == TYPE_UNTYP) {
+        if (b->kind == TYPE_UNTYP) {
+            return tryUnion(a->ty_Untyp.key, b->ty_Untyp.key);
         }
 
-        return tryConcrete(a_ut->key, b);
-    } else if (b->GetKind() == TYPE_UNTYP) {
-        auto* b_ut = dynamic_cast<Untyped*>(b);
-
-        return tryConcrete(b_ut->key, a);
+        return tryConcrete(a->ty_Untyp.key, b);
+    } else if (b->kind == TYPE_UNTYP) {
+        return tryConcrete(b->ty_Untyp.key, a);
     }
 
-    return a->impl_Equal(this, b);
+    switch (a->kind) {
+    case TYPE_INT:
+        if (b->kind == TYPE_INT) {
+            return a->ty_Int.bit_size == b->ty_Int.bit_size && a->ty_Int.is_signed == b->ty_Int.is_signed;
+        }
+        break;
+    case TYPE_FLOAT:
+        if (b->kind == TYPE_FLOAT) {
+            return a->ty_Float.bit_size == b->ty_Float.bit_size;
+        }
+        break;
+    case TYPE_BOOL:
+        return b->kind == TYPE_BOOL;
+    case TYPE_UNIT:
+        return b->kind == TYPE_UNIT;
+    case TYPE_ARRAY:
+        if (b->kind == TYPE_ARRAY) {
+            return Equal(a->ty_Array.elem_type, b->ty_Array.elem_type);
+        }
+        break;
+    case TYPE_PTR:
+        if (b->kind == TYPE_PTR) {
+            return Equal(a->ty_Ptr.elem_type, b->ty_Ptr.elem_type);
+        }
+        break;
+    case TYPE_FUNC:
+        if (b->kind == TYPE_FUNC) {
+            auto& aft = a->ty_Func;
+            auto& bft = b->ty_Func;
+
+            if (aft.param_types.size() != bft.param_types.size()) {
+                return false;
+            }
+
+            for (int i = 0; i < aft.param_types.size(); i++) {
+                if (!Equal(aft.param_types[i], bft.param_types[i])) {
+                    return false;
+                }
+            }
+
+
+            return Equal(aft.return_type, bft.return_type);
+        }
+        break;
+    default:
+        Panic("type comparison not implemented for {}", (int)a->kind);
+    }
+
+    return false;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -31,8 +74,7 @@ bool TypeContext::SubType(Type* sub, Type* super) {
 }
 
 bool TypeContext::innerSubType(Type* sub, Type* super) {
-    if (super->impl_SuperType(this, sub))
-        return true;
+    // TODO: subtyping logic
 
     return innerEqual(sub, super);
 }
@@ -44,17 +86,15 @@ bool TypeContext::Cast(Type* src, Type* dest) {
 }
 
 bool TypeContext::innerCast(Type* src, Type* dest) {
-    if (src->GetKind() == TYPE_UNTYP) {
-        auto src_ut = dynamic_cast<Untyped*>(src);
-        
+    if (src->kind == TYPE_UNTYP) {        
         if (innerIsNumberType(dest)) {
             // We don't care if the types are incompatible: this mechanism just
             // allows us to optimize out the cast as necessary.
-            tryConcrete(src_ut->key, dest);
+            tryConcrete(src->ty_Untyp.key, dest);
 
             return true;
-        } else if (dest->GetKind() == TYPE_BOOL || dest->GetKind() == TYPE_PTR) {
-            auto& entry = find(src_ut->key);
+        } else if (dest->kind == TYPE_BOOL || dest->kind == TYPE_PTR) {
+            auto& entry = find(src->ty_Untyp.key);
 
             switch (entry.kind) {
             case UK_INT:
@@ -76,120 +116,22 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
         return false;
     }
 
-    if (src->impl_Cast(this, dest))
-        return true;
+    switch (src->kind) {
+    case TYPE_INT:
+        return innerIsNumberType(dest) || dest->kind == TYPE_BOOL || dest->kind == TYPE_PTR;
+    case TYPE_FLOAT:
+        return innerIsNumberType(dest);
+    case TYPE_BOOL:
+        if (dest->kind == TYPE_INT) {
+            return true;
+        }
+        break;
+    case TYPE_PTR:
+        if (dest->kind == TYPE_INT || dest->kind == TYPE_PTR) {
+            return true;
+        }
+        break;
+    }
 
     return innerSubType(src, dest);
-}
-
-/* -------------------------------------------------------------------------- */
-
-Type* Type::Inner() {
-    return this;
-}
-
-// By default, types have no subtyping relation (ex: int is not an explicit
-// super type of anything).
-bool Type::impl_SuperType(TypeContext *tctx, Type *sub) {
-    return false;
-}
-
-// By default, types have no extra casting logic (ex: func types don't cast at
-// all).
-bool Type::impl_Cast(TypeContext *tctx, Type *dest) {
-    return false;
-}
-
-/* -------------------------------------------------------------------------- */
-
-bool IntType::impl_Equal(TypeContext* tctx, Type* other) {
-    if (other->GetKind() == TYPE_INT) {
-        auto o_it = dynamic_cast<IntType*>(other);
-
-        return bit_size == o_it->bit_size && is_signed == o_it->is_signed;
-    }
-
-    return false;
-}
-
-bool FloatType::impl_Equal(TypeContext* tctx, Type* other) {
-    if (other->GetKind() == TYPE_FLOAT) {
-        auto o_ft = dynamic_cast<FloatType*>(other);
-
-        return bit_size == o_ft->bit_size;
-    }
-
-    return false;
-}
-
-bool BoolType::impl_Equal(TypeContext* tctx, Type* other) {
-    return other->GetKind() == TYPE_BOOL;
-}
-
-bool UnitType::impl_Equal(TypeContext* tctx, Type* other) {
-    return other->GetKind() == TYPE_UNIT;
-}
-
-bool PointerType::impl_Equal(TypeContext* tctx, Type* other) {
-    if (other->GetKind() == TYPE_PTR) {
-        auto o_pt = dynamic_cast<PointerType*>(other);
-
-        if (immut != o_pt->immut)
-            return false;
-
-        return tctx->Equal(elem_type, o_pt->elem_type);
-    }
-
-    return false;
-}
-
-bool FuncType::impl_Equal(TypeContext* tctx, Type* other) {
-    if (other->GetKind() == TYPE_FUNC) {
-        auto o_ft = dynamic_cast<FuncType*>(other);
-
-        if (param_types.size() != o_ft->param_types.size())
-            return false;
-
-        for (int i = 0; i < param_types.size(); i++) {
-            if (!tctx->Equal(param_types[i], o_ft->param_types[i]))
-                return false;
-        }
-
-        return tctx->Equal(return_type, o_ft->return_type);
-    }
-
-    return false;
-}
-
-bool ArrayType::impl_Equal(TypeContext* tctx, Type *other) {
-    if (other->GetKind() == TYPE_ARRAY) {
-        auto o_at = dynamic_cast<ArrayType*>(other);
-
-        return tctx->Equal(elem_type, o_at->elem_type);
-    }
-
-    return false;
-}
-
-/* -------------------------------------------------------------------------- */
-
-bool IntType::impl_Cast(TypeContext* tctx, Type* dest) {
-    switch (dest->GetKind()) {
-    case TYPE_BOOL: case TYPE_INT: case TYPE_FLOAT: case TYPE_PTR:
-        return true;
-    default:
-        return false;
-    }
-}
-
-bool FloatType::impl_Cast(TypeContext* tctx, Type* dest) {
-    return innerIsNumberType(dest);
-}
-
-bool BoolType::impl_Cast(TypeContext* tctx, Type* dest) {
-    return dest->GetKind() == TYPE_INT;
-}
-
-bool PointerType::impl_Cast(TypeContext* tctx, Type* dest) {
-    return dest->GetKind() == TYPE_PTR || dest->GetKind() == TYPE_INT;
 }

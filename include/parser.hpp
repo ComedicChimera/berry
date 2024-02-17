@@ -35,49 +35,56 @@ public:
     void ParseFile();
 
 private:
-    void parseMetadata(Metadata &meta);
-    void parseMetaTag(Metadata &meta);
+    void parseMetadata(MetadataMap &meta);
+    void parseMetaTag(MetadataMap &meta);
 
-    void parseDef(Metadata &&meta);
-    void parseFuncDef(Metadata &&meta);
+    void parseDef(MetadataMap &&meta);
+    void parseFuncDef(MetadataMap &&meta);
     void parseFuncParams(std::vector<Symbol *> &params);
-    void parseGlobalVarDef(Metadata &&meta);
+    void parseGlobalVarDef(MetadataMap &&meta);
 
     /* ---------------------------------------------------------------------- */
 
-    std::unique_ptr<AstNode> parseBlock();
-    std::unique_ptr<AstNode> parseStmt();
+    AstStmt* parseBlock();
+    AstStmt* parseStmt();
 
-    std::unique_ptr<AstNode> parseIfStmt();
-    std::unique_ptr<AstNode> parseWhileLoop();
-    std::unique_ptr<AstNode> parseDoWhileLoop();
-    std::unique_ptr<AstNode> parseForLoop();
-    std::unique_ptr<AstNode> maybeParseElse();
+    AstStmt* parseIfStmt();
+    AstStmt* parseWhileLoop();
+    AstStmt* parseDoWhileLoop();
+    AstStmt* parseForLoop();
+    AstStmt* maybeParseElse();
 
-    std::unique_ptr<AstLocalVarDef> parseLocalVarDef();
-    std::unique_ptr<AstNode> parseExprAssignStmt();
-
-    /* ---------------------------------------------------------------------- */
-
-    std::unique_ptr<AstExpr> parseExpr();
-    std::unique_ptr<AstExpr> parseBinaryOp(int pred_level);
-    std::unique_ptr<AstExpr> parseUnaryOp();
-    std::unique_ptr<AstExpr> parseAtomExpr();
-    std::unique_ptr<AstExpr> parseFuncCall(std::unique_ptr<AstExpr> &&root);
-    std::unique_ptr<AstExpr> parseIndexOrSlice(std::unique_ptr<AstExpr> &&root);
-    std::unique_ptr<AstExpr> parseAtom();
-    std::unique_ptr<AstArrayLit> parseArrayLit();
+    AstStmt* parseLocalVarDef();
+    AstStmt* parseExprAssignStmt();
 
     /* ---------------------------------------------------------------------- */
 
-    Type *parseTypeExt(size_t* arr_size = nullptr);
-    Type *parseTypeLabel(size_t* arr_size = nullptr);
+    AstExpr* parseExpr();
+    AstExpr* parseBinaryOp(int pred_level);
+    AstExpr* parseUnaryOp();
+    AstExpr* parseAtomExpr();
+    AstExpr* parseFuncCall(AstExpr* root);
+    AstExpr* parseIndexOrSlice(AstExpr* root);
+    AstExpr* parseAtom();
+    AstExpr* parseArrayLit();
 
     /* ---------------------------------------------------------------------- */
 
-    std::vector<std::unique_ptr<AstExpr>> parseExprList(TokenKind delim = TOK_COMMA);
-    std::unique_ptr<AstExpr> parseInitializer();
+    Type *parseTypeExt();
+    Type *parseTypeLabel();
+
+    /* ---------------------------------------------------------------------- */
+
+    std::span<AstExpr*> parseExprList(TokenKind delim = TOK_COMMA);
+    AstExpr* parseInitializer();
     std::vector<Token> parseIdentList(TokenKind delim = TOK_COMMA);
+
+    /* ---------------------------------------------------------------------- */
+
+    AstDef* allocDef(AstKind kind, const TextSpan& span, MetadataMap&& metadata);
+    AstStmt* allocStmt(AstKind kind, const TextSpan& span);
+    AstExpr* allocExpr(AstKind kind, const TextSpan& span);
+    Type *allocType(TypeKind kind);
 
     /* ---------------------------------------------------------------------- */
 

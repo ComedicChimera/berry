@@ -1,30 +1,22 @@
 #include <iostream>
 #include <fstream>
 
-#include "llvm/IR/Verifier.h"
-#include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/TargetParser/Host.h"
-#include "llvm/IR/LegacyPassManager.h"
+// #include "llvm/IR/Verifier.h"
+// #include "llvm/MC/TargetRegistry.h"
+// #include "llvm/Support/FileSystem.h"
+// #include "llvm/Support/TargetSelect.h"
+// #include "llvm/Support/raw_ostream.h"
+// #include "llvm/Target/TargetMachine.h"
+// #include "llvm/Target/TargetOptions.h"
+// #include "llvm/TargetParser/Host.h"
+// #include "llvm/IR/LegacyPassManager.h"
 
 #include "parser.hpp"
-#include "checker.hpp"
-#include "codegen.hpp"
+// #include "checker.hpp"
+// #include "codegen.hpp"
 #include "linker.hpp"
 
 #include "test/ast_print.hpp"
-
-static void printAst(SourceFile& src_file) {
-    AstPrinter printer;
-    for (auto& def : src_file.defs) {
-        def->Accept(&printer);
-        std::cout << "\n\n";
-    }
-}
 
 bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {  
     Arena arena;
@@ -35,16 +27,16 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
         return false;
     }
 
-    Checker c(arena, src_file); 
-    for (auto& def : src_file.defs) {
-        def->Accept(&c);
-    }
+    // Checker c(arena, src_file); 
+    // for (auto& def : src_file.defs) {
+    //     // def->Accept(&c);
+    // }
 
-    if (ErrorCount() > 0) {
-        return false;
-    }
+    // if (ErrorCount() > 0) {
+    //     return false;
+    // }
 
-    printAst(src_file);
+    PrintAst(src_file);
     return true;
 
     // llvm::LLVMContext ll_ctx;

@@ -6,8 +6,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DIBuilder.h"
 
-#include "visitor.hpp"
-
 // DebugGenerator generates debug information for a Berry module.  It is called
 // by the CodeGenerator and acts as its "companion".
 class DebugGenerator {
@@ -80,7 +78,7 @@ struct LoopContext {
 };
 
 // CodeGenerator compiles a Berry module to an LLVM module.
-class CodeGenerator : public Visitor {
+class CodeGenerator {
     // ctx is the LLVM context being compiled in.
     llvm::LLVMContext& ctx;
 

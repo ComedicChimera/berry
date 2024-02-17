@@ -3,7 +3,7 @@
 void Parser::ParseFile() {
     next();
 
-    Metadata meta;
+    MetadataMap meta;
     while (!has(TOK_EOF)) {
         if (has(TOK_ATSIGN)) {
             parseMetadata(meta);
@@ -15,8 +15,8 @@ void Parser::ParseFile() {
 
 /* -------------------------------------------------------------------------- */
 
-std::vector<std::unique_ptr<AstExpr>> Parser::parseExprList(TokenKind delim) {
-    std::vector<std::unique_ptr<AstExpr>> exprs;
+std::span<AstExpr*> Parser::parseExprList(TokenKind delim) {
+    std::vector<AstExpr*> exprs;
 
     while (true) {
         exprs.emplace_back(parseExpr());
@@ -28,10 +28,10 @@ std::vector<std::unique_ptr<AstExpr>> Parser::parseExprList(TokenKind delim) {
         }
     }
 
-    return exprs;
+    return arena.MoveVec(std::move(exprs));
 }
 
-std::unique_ptr<AstExpr> Parser::parseInitializer() {
+AstExpr* Parser::parseInitializer() {
     want(TOK_ASSIGN);
     return parseExpr();
 }

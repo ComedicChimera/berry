@@ -95,7 +95,9 @@ enum TokenKind {
     TOK_STRLIT,
     TOK_RUNELIT,
 
-    TOK_EOF
+    TOK_EOF,
+
+    TOKENS_COUNT
 };
 
 // Token is a lexical token.
