@@ -26,6 +26,9 @@ void CodeGenerator::genPredicates(AstDef* def) {
             genFuncBody(def);
         }
         break;
+    case AST_GLOBAL_VAR:
+        genGlobalVarInit(def);
+        break;
     default:
         Panic("predicate codegen not implemented for {}", (int)def->kind);
     }
