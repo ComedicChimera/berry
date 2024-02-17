@@ -21,6 +21,8 @@ Type* Type::Inner() {
 void TypeContext::AddUntyped(Type* ut, UntypedKind kind) {
     uint64_t key = unt_uf.size();
     ut->ty_Untyp.key = key;
+    ut->ty_Untyp.parent = this;
+    ut->ty_Untyp.concrete_type = nullptr;
 
     unt_uf.push_back(ut);
     unt_table.emplace_back(untypedTableEntry{ key, kind, nullptr });

@@ -26,12 +26,13 @@ set(SRCS
     "types/type_cmp.cpp" 
     "types/untyped.cpp"
     "types/prim_type.cpp"
+    "types/type_alloc.cpp"
 
-    # "check/checker.cpp"
-    # "check/check_def.cpp"
-    # "check/check_stmt.cpp"
-    # "check/check_expr.cpp"
-    # "check/check_op.cpp"
+    "check/checker.cpp"
+    "check/check_def.cpp"
+    "check/check_stmt.cpp"
+    "check/check_expr.cpp"
+    "check/check_op.cpp"
 
     # "codegen/codegen.cpp"
     # "codegen/gen_def.cpp"

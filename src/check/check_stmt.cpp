@@ -1,5 +1,11 @@
 #include "checker.hpp"
 
+bool Checker::checkStmt(AstStmt* stmt) {
+    return false;
+}
+
+/* -------------------------------------------------------------------------- */
+
 void Checker::Visit(AstBlock& node) {
     pushScope();
 

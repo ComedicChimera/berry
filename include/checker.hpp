@@ -2,6 +2,7 @@
 #define CHECKER_H_INC
 
 #include "arena.hpp"
+#include "ast.hpp"
 
 // Scope represents a local lexical scope.
 typedef std::unordered_map<std::string_view, Symbol*> Scope;
@@ -39,39 +40,27 @@ public:
     , loop_depth(0)
     {}
 
-    // Visitor methods
-    void Visit(AstFuncDef& node) override;
-    void Visit(AstLocalVarDef& node) override;
-    void Visit(AstGlobalVarDef &node) override;
-    void Visit(AstBlock& node) override;
-    void Visit(AstCast& node) override;
-    void Visit(AstBinaryOp& node) override;
-    void Visit(AstUnaryOp& node) override;
-    void Visit(AstAddrOf& node) override;
-    void Visit(AstDeref& node) override;
-    void Visit(AstCall& node) override;
-    void Visit(AstIdent& node) override;
-    void Visit(AstIntLit& node) override;
-    void Visit(AstFloatLit& node) override;
-    void Visit(AstBoolLit& node) override;
-    void Visit(AstNullLit& node) override;
-    void Visit(AstCondBranch& node) override;
-    void Visit(AstIfTree& node) override;
-    void Visit(AstWhileLoop& node) override;
-    void Visit(AstForLoop& node) override;
-    void Visit(AstIncDec& node) override;
-    void Visit(AstAssign& node) override;
-    void Visit(AstReturn& node) override;
-    void Visit(AstBreak& node) override;
-    void Visit(AstContinue& node) override;
-    void Visit(AstIndex& node) override;
-    void Visit(AstSlice& node) override;
-    void Visit(AstArrayLit& node) override;
-    void Visit(AstStringLit& node) override;
-    void Visit(AstFieldAccess& node) override;
+    void CheckDef(AstDef* def);
 
 private:
-    void checkFuncMetadata(AstFuncDef& fd);
+    void checkMetadata(AstDef* def);
+    void checkFuncDef(AstDef *node);
+    void checkGlobalVar(AstDef *node);
+
+    /* ---------------------------------------------------------------------- */
+
+    bool checkStmt(AstStmt* stmt);
+
+    /* ---------------------------------------------------------------------- */
+
+    void checkExpr(AstExpr* expr);
+    void checkDeref(AstExpr* node);
+    void checkCall(AstExpr* node);
+    void checkIndex(AstExpr* node);
+    void checkSlice(AstExpr* node);
+    void checkField(AstExpr* node);
+    void checkArray(AstExpr* node);
+    void checkNewExpr(AstExpr *node);
 
     /* ---------------------------------------------------------------------- */
 
@@ -93,7 +82,7 @@ private:
     void mustBeAssignable(std::unique_ptr<AstExpr>& expr);
 
     // newUntyped creates a new untyped of kind kind.
-    Untyped* newUntyped(UntypedKind kind);
+    Type* newUntyped(UntypedKind kind);
 
     inline void finishExpr() { 
         tctx.InferAll(); 
@@ -102,7 +91,7 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    Symbol* lookup(const std::string& name, const TextSpan& span);
+    Symbol* lookup(std::string_view name, const TextSpan& span);
     void declareLocal(Symbol* sym);
     void pushScope();
     void popScope();

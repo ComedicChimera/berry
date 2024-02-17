@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "base.hpp"
+#include "arena.hpp"
 
 struct TypeContext;
 
@@ -191,5 +192,7 @@ inline Type prim_f64_type { .kind{ TYPE_FLOAT }, .ty_Float{ 64 } };
 inline Type prim_bool_type { .kind { TYPE_BOOL }};
 inline Type prim_unit_type { .kind { TYPE_UNIT }};
 inline Type prim_string_type { .kind{ TYPE_ARRAY}, .ty_Array{ &prim_u8_type } };
+
+Type* AllocType(Arena& arena, TypeKind kind);
 
 #endif

@@ -157,6 +157,7 @@ struct AstExpr : public AstNode {
         struct {
             Type* elem_type;
             AstExpr* size_expr;
+            AstAllocMode alloc_mode;
         } an_New;
 
         struct {
@@ -191,8 +192,6 @@ struct AstCondBranch {
 };
 
 struct AstStmt : public AstNode {
-    bool always_returns;
-
     union {
         struct {
             std::span<AstStmt*> stmts;

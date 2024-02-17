@@ -40,13 +40,15 @@ void Checker::mustIntType(const TextSpan& span, Type* type) {
     tctx.flags ^= TC_INFER;
 }
 
-Untyped* Checker::newUntyped(UntypedKind kind) {
-    return arena.New<Untyped>(&tctx, kind);
+Type* Checker::newUntyped(UntypedKind kind) {
+    auto* untyped = AllocType(arena, TYPE_UNTYP);
+    tctx.AddUntyped(untyped, kind);
+    return untyped;
 }
 
 /* -------------------------------------------------------------------------- */
 
-Symbol* Checker::lookup(const std::string &name, const TextSpan &span) {
+Symbol* Checker::lookup(std::string_view name, const TextSpan &span) {
     for (int i = scope_stack.size() - 1; i >= 0; i--) {
         auto& scope = scope_stack[i];
 

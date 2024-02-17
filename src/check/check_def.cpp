@@ -2,84 +2,101 @@
 
 #include "checker.hpp"
 
-static std::unordered_map<std::string, bool> special_func_metadata {
-    { "extern", false },
-    { "abientry", false },
-    { "callconv", true }
+void Checker::CheckDef(AstDef* def) {
+    checkMetadata(def);
+
+    switch (def->kind) {
+    case AST_FUNC:
+        checkFuncDef(def);
+        break;
+    case AST_GLOBAL_VAR:
+        checkGlobalVar(def);
+        break;
+    default:
+        Panic("checking is not implemented for {}", (int)def->kind);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+static std::unordered_map<std::string_view, std::unordered_set<std::string_view>> special_metadata_table[] = {
+    {
+        { "extern", {} },
+        { "abientry", {} },
+        { "callconv", { "c", "win64", "stdcall" }}
+    }, // FuncDef
+    {
+        { "extern", {} },
+        { "abientry", {} }
+    }  // Global Variables
 };
 
-static std::unordered_set<std::string> supported_callconvs {
-    "c", "win64", "stdcall"
-};
-
-void Checker::checkFuncMetadata(AstFuncDef& fd) {
+void Checker::checkMetadata(AstDef* def) {
+    auto& special_meta = special_metadata_table[def->kind];
     bool expect_body = true;
+    for (auto& tag : def->metadata) {
+        auto it = special_meta.find(tag.name);
+        if (it != special_meta.end()) {
+            auto& expected_values = it->second;
 
-    for (auto& pair : fd.metadata) {
-        auto& tag = pair.second;
-
-        auto it = special_func_metadata.find(tag.name);
-        if (it != special_func_metadata.end()) {
-            if (it->second) {
-                if (tag.value.size() == 0 && it->second) {
-                    error(tag.name_span, "metadata tag {} expects a value", tag.name);
-                    continue;
+            if (expected_values.size() == 0) {
+                if (tag.value.size() != 0) {
+                    error(tag.value_span, "special metadata tag {} does not accept a value", tag.name);
                 }
-
-                if (tag.name == "callconv") {
-                    if (!supported_callconvs.contains(tag.value)) {
-                        error(tag.value_span, "unsupported calling convention: {}", tag.value);
-                    }
+            } else {
+                if (tag.value.size() == 0) {
+                    error(tag.value_span, "special metadata tag {} requires a value", tag.name);
+                } else if (!expected_values.contains(tag.value)) {
+                    error(tag.value_span, "invalid value {} for special metadata tag {}", tag.value, tag.name);
                 }
-            } else if (tag.value.size() > 0 && !it->second) {
-                error(tag.value_span, "metadata tag {} does not expect a value", tag.name);
-            }
-
-            if (tag.name == "extern") {
-                expect_body = false;
             }
         }
     }
 
-    if (expect_body && fd.body == nullptr) {
-        error(fd.span, "function {} must have a body", fd.symbol->name);
-    } else if (!expect_body && fd.body != nullptr) {
-        error(fd.span, "function {} is externally defined and can't have a body", fd.symbol->name);
-    }
+    if (def->kind == AST_FUNC) {
+        if (expect_body && def->an_Func.body == nullptr) {
+            error(def->span, "function {} must have a body", def->an_Func.symbol->name);
+        } else if (!expect_body && def->an_Func.body != nullptr) {
+            error(def->span, "function {} is externally defined and can't have a body", def->an_Func.symbol->name);
+        }
+    } else if (def->kind == AST_GLOBAL_VAR) {
+        if (!expect_body && def->an_GlobalVar.init != nullptr) {
+            error(def->span, "external global variable {} cannot have an initializer", def->an_GlobalVar.symbol->name);
+        }
+    }    
 }
 
-void Checker::Visit(AstFuncDef& node) {
-    checkFuncMetadata(node);
-    
+/* -------------------------------------------------------------------------- */
+
+void Checker::checkFuncDef(AstDef* node) {    
     pushScope();
 
-    for (auto* param : node.params) {
+    for (auto* param : node->an_Func.params) {
         declareLocal(param);
     }
 
-    if (node.body != nullptr) {
-        enclosing_return_type = node.return_type;
-        visitNode(node.body);
+    auto& fd = node->an_Func;
+    if (fd.body != nullptr) {
+        enclosing_return_type = fd.return_type;
+        bool always_returns = checkStmt(fd.body);
         enclosing_return_type = nullptr;
 
-        if (node.return_type->GetKind() != TYPE_UNIT && !node.body->always_returns) {
-            error(node.body->span, "function must return a value");
+        if (fd.return_type->kind != TYPE_UNIT && !always_returns) {
+            error(fd.body->span, "function must return a value");
         }
     }
 
 
     popScope();
-}   
+}
 
-/* -------------------------------------------------------------------------- */
+void Checker::checkGlobalVar(AstDef* node) {
+    auto& gv = node->an_GlobalVar;
 
-void Checker::Visit(AstGlobalVarDef& node) {
-    // TODO: check metadata attrs (not right now boys)
+    if (gv.init) {
+        checkExpr(gv.init);
 
-    if (node.var_def->init) {
-        visitNode(node.var_def->init);
-
-        mustSubType(node.var_def->init->span, node.var_def->init->type, node.var_def->symbol->type);
+        mustSubType(gv.init->span, gv.init->type, gv.symbol->type);
 
         finishExpr();
     }

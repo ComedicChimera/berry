@@ -1,172 +1,228 @@
 #include "checker.hpp"
 
-void Checker::Visit(AstCast& node) {
-    visitNode(node.src);
+void Checker::checkExpr(AstExpr* node) {
+    switch (node->kind) {
+    case AST_CAST:
+        checkExpr(node->an_Cast.src);
+        mustCast(node->an_Cast.src->span, node->an_Cast.src->type, node->type);
+        break;
+    case AST_BINOP:
+        checkExpr(node->an_Binop.lhs);
+        checkExpr(node->an_Binop.rhs);
 
-    mustCast(node.src->span, node.src->type, node.type);
+        node->type = mustApplyBinaryOp(
+            node->span, 
+            node->an_Binop.op, 
+            node->an_Binop.lhs->type, 
+            node->an_Binop.rhs->type
+        );
+        break;
+    case AST_UNOP:
+        checkExpr(node->an_Unop.operand);
+
+        node->type = mustApplyUnaryOp(node->span, node->an_Unop.op, node->an_Unop.operand->type);
+        break;
+    case AST_ADDR:
+        checkExpr(node->an_Addr.elem);
+
+        node->type = AllocType(arena, TYPE_PTR);
+        node->type->ty_Ptr.elem_type = node->an_Addr.elem->type;
+        break;
+    case AST_DEREF:
+        checkDeref(node);
+        break;
+    case AST_CALL:
+        checkCall(node);
+        break;
+    case AST_INDEX:
+        checkIndex(node);
+        break;
+    case AST_SLICE:
+        checkSlice(node);
+        break;
+    case AST_FIELD:
+
+    case AST_ARRAY:
+    
+    case AST_NEW: 
+        checkNewExpr(node);
+        break;
+    case AST_IDENT: {
+        auto* symbol = lookup(node->an_Ident.temp_name, node->span);
+        node->an_Ident.symbol = symbol;
+        node->type = symbol->type;
+        node->immut = symbol->immut;
+    } break;   
+    case AST_INT:
+        if (node->type == nullptr) {
+            node->type = newUntyped(UK_NUM);
+        }
+        break;
+    case AST_FLOAT:
+        node->type = newUntyped(UK_FLOAT);
+        break;
+    case AST_STR:
+    case AST_BOOL:
+        // Nothing to do :)
+        break;
+    case AST_NULL:
+        Panic("null outside of function call");
+        break;
+    default:
+        Panic("checking not implemented for stmt {}", (int)node->kind);
+    }
+
 }
 
-void Checker::Visit(AstBinaryOp& node) {
-    visitNode(node.lhs);
-    visitNode(node.rhs);
+/* -------------------------------------------------------------------------- */
 
-    node.type = mustApplyBinaryOp(node.span, node.op_kind, node.lhs->type, node.rhs->type);
-}
+void Checker::checkDeref(AstExpr* node) {
+    auto* ptr = node->an_Deref.ptr;
+    checkExpr(ptr);
 
-void Checker::Visit(AstUnaryOp& node) {
-    visitNode(node.operand);
+    auto* ptr_type = ptr->type->Inner();
+    if (ptr_type->Inner()->kind == TYPE_PTR) {
+        node->type = ptr_type->ty_Ptr.elem_type;
 
-    node.type = mustApplyUnaryOp(node.span, node.op_kind, node.operand->type);
-}
-
-void Checker::Visit(AstAddrOf& node) {
-    visitNode(node.elem);
-
-    node.type = arena.New<PointerType>(node.elem->type, node.is_const);
-}
-
-void Checker::Visit(AstDeref& node) {
-    visitNode(node.ptr);
-
-    if (node.ptr->type->Inner()->GetKind() == TYPE_PTR) {
-        auto* ptr_type = dynamic_cast<PointerType*>(node.ptr->type->Inner());
-
-        node.type = ptr_type->elem_type;
-        node.immut = ptr_type->immut;
+        // TODO: pointer constancy
+        node->immut = ptr->immut;
     } else {
-        fatal(node.ptr->span, "expected a pointer type but got {}", node.ptr->type->ToString());
+        fatal(ptr->span, "expected a pointer type but got {}", ptr->type->ToString());
     }
 }
 
-void Checker::Visit(AstCall& node) {
-    visitNode(node.func);
+void Checker::checkCall(AstExpr* node) {
+    auto& call = node->an_Call;
 
-    if (node.func->type->Inner()->GetKind() != TYPE_FUNC) {
-        fatal(node.func->span, "expected a function type but got {}", node.func->type->ToString());
+    checkExpr(call.func);
+
+    auto* func_type = call.func->type->Inner();
+    if (func_type->kind != TYPE_FUNC) {
+        fatal(call.func->span, "expected a function type but got {}", call.func->type->ToString());
     }
 
-    auto* func_type = dynamic_cast<FuncType*>(node.func->type->Inner());
-
-    if (node.args.size() != func_type->param_types.size()) {
-        fatal(node.span, "function expects {} arguments but got {}", func_type->param_types.size(), node.args.size());
+    if (call.args.size() != func_type->ty_Func.param_types.size()) {
+        fatal(node->span, "function expects {} arguments but got {}", func_type->ty_Func.param_types.size(), call.args.size());
     }
 
-    for (int i = 0; i < node.args.size(); i++) {
-        if (node.args[i]->GetFlags() & ASTF_NULL) {
-            node.args[i]->type = func_type->param_types[i];
+    for (int i = 0; i < call.args.size(); i++) {
+        if (call.args[i]->kind == AST_NULL) {
+            call.args[i]->type = func_type->ty_Func.param_types[i];
         } else {
-            visitNode(node.args[i]);
-            mustSubType(node.args[i]->span, node.args[i]->type, func_type->param_types[i]);
+            checkExpr(call.args[i]);
+            mustSubType(call.args[i]->span, call.args[i]->type, func_type->ty_Func.param_types[i]);
         }
     }
 
-   node.type = func_type->return_type;
+    node->type = func_type->ty_Func.return_type;
 }
 
-void Checker::Visit(AstSlice& node) {
-    visitNode(node.array);
+void Checker::checkIndex(AstExpr* node) {
+    auto& index = node->an_Index;
+    checkExpr(index.array);
+    checkExpr(index.index);
 
-    if (node.start_index)
-        visitNode(node.start_index);
+    auto* array_type = index.array->type->Inner();
+    if (array_type->kind == TYPE_ARRAY) {
+        mustIntType(index.index->span, index.index->type);
 
-    if (node.end_index)
-        visitNode(node.end_index);
+        node->type = array_type->ty_Array.elem_type;
 
-    auto* inner_type = node.array->type->Inner();
-    if (inner_type->GetKind() == TYPE_ARRAY) {
-        if (node.start_index)
-            mustIntType(node.start_index->span, node.start_index->type);
-
-        if (node.end_index)
-            mustIntType(node.end_index->span, node.end_index->type);
-
-        node.type = inner_type;
-
-        auto* array_type = dynamic_cast<ArrayType*>(inner_type);
-        node.immut = array_type->immut || node.array->immut;
+        // TODO: array constancy
+        node->immut = index.array->immut;
     } else {
-        fatal(node.array->span, "{} is not array type", node.array->type->ToString());
+        fatal(index.array->span, "{} is not array type", index.array->type->ToString());
     }
 }
 
-void Checker::Visit(AstIndex& node) {
-    visitNode(node.array);
-    visitNode(node.index);
+void Checker::checkSlice(AstExpr* node) {
+    auto& slice = node->an_Slice;
 
-    auto* inner_type = node.array->type->Inner();
-    if (inner_type->GetKind() == TYPE_ARRAY) {
-        mustIntType(node.index->span, node.index->type);
+    checkExpr(slice.array);
 
-        auto* array_type = dynamic_cast<ArrayType*>(inner_type);
-        node.type = array_type->elem_type;
-        node.immut = array_type->immut || node.array->immut;
+    if (slice.start_index)
+        checkExpr(slice.start_index);
+
+    if (slice.end_index)
+        checkExpr(slice.end_index);
+
+    auto* inner_type = slice.array->type->Inner();
+    if (inner_type->kind == TYPE_ARRAY) {
+        if (slice.start_index)
+            mustIntType(slice.start_index->span, slice.start_index->type);
+
+        if (slice.end_index)
+            mustIntType(slice.end_index->span, slice.end_index->type);
+
+        node->type = inner_type;
+
+        // TODO: array constancy
+        node->immut = slice.array->immut;
     } else {
-        fatal(node.array->span, "{} is not array type", node.array->type->ToString());
+        fatal(slice.array->span, "{} is not array type", slice.array->type->ToString());
     }
 }
 
-void Checker::Visit(AstFieldAccess& node) {
-    visitNode(node.root);
 
-    auto root_inner_type = node.root->type->Inner();
-    if (root_inner_type->GetKind() == TYPE_ARRAY) {
-        if (node.field_name == "_ptr") {
-            auto* array_type = dynamic_cast<ArrayType*>(root_inner_type);
-            node.type = arena.New<PointerType>(array_type->elem_type);
-        } else if (node.field_name == "_len") {
+void Checker::checkField(AstExpr* node) {
+    auto& fld = node->an_Field;
+    checkExpr(fld.root);
+
+    auto root_type = fld.root->type->Inner();
+    if (root_type->kind == TYPE_ARRAY) {
+        if (fld.field_name == "_ptr") {
+            node->type = AllocType(arena, TYPE_PTR);
+            node->type->ty_Ptr.elem_type = root_type->ty_Array.elem_type;
+        } else if (fld.field_name == "_len") {
             // TODO: platform sizes?
-            node.type = &prim_i64_type;
+            node->type = &prim_i64_type;
         } else {
-            fatal(node.span, "{} has no field named {}", node.root->type->ToString(), node.field_name);
+            fatal(node->span, "{} has no field named {}", fld.root->type->ToString(), fld.field_name);
         }
     } else {
-        fatal(node.root->span, "{} is not array type", node.root->type->ToString());
+        fatal(fld.root->span, "{} is not array type", fld.root->type->ToString());
     }
 }
 
-void Checker::Visit(AstArrayLit& node) {
-    for (auto& elem : node.elements) {
-        visitNode(elem);
+/* -------------------------------------------------------------------------- */
+
+void Checker::checkArray(AstExpr* node) {
+    auto& arr = node->an_Array;
+    Assert(arr.elems.size() > 0, "empty array literal are not implemented yet");
+
+    for (auto& elem : arr.elems) {
+        checkExpr(elem);
     }
 
-    auto* first_type = node.elements[0]->type;
-    for (int i = 1; i < node.elements.size(); i++) {
-        mustEqual(node.elements[i]->span, first_type, node.elements[i]->type);
+    auto* first_type = arr.elems[0]->type;
+    for (int i = 1; i < arr.elems.size(); i++) {
+        mustEqual(arr.elems[i]->span, first_type, arr.elems[i]->type);
     }
 
-    node.type = arena.New<ArrayType>(first_type);
+    node->type = AllocType(arena, TYPE_ARRAY);
+    node->type->ty_Array.elem_type = first_type;
 
     // Move array literal to global memory if necessary.
     if (enclosing_return_type == nullptr) {
-        node.alloc_mode = AST_ALLOC_GLOBAL;
+        arr.alloc_mode = A_ALLOC_GLOBAL;
     }
 }
 
-void Checker::Visit(AstIdent& node) {
-    node.symbol = lookup(node.temp_name, node.span);
-    node.type = node.symbol->type;
-    node.temp_name.clear();
-    node.immut = node.symbol->immut;
-}
+void Checker::checkNewExpr(AstExpr* node) {
+    auto* size_expr = node->an_New.size_expr;
+    if (size_expr) {
+        checkExpr(size_expr);
+        mustIntType(size_expr->span, size_expr->type);
 
-void Checker::Visit(AstIntLit& node) {
-    if (node.type == nullptr) {
-        node.type = newUntyped(UK_NUM);
+        node->type = AllocType(arena, TYPE_ARRAY);
+        node->type->ty_Array.elem_type = node->an_New.elem_type;
+    } else {
+        node->type = AllocType(arena, TYPE_PTR);
+        node->type->ty_Ptr.elem_type = node->an_New.elem_type;
     }
-}
 
-void Checker::Visit(AstFloatLit& node) {
-    node.type = newUntyped(UK_FLOAT);
-}
-
-void Checker::Visit(AstBoolLit& node) {
-    // Nothing to do :)
-}
-
-void Checker::Visit(AstStringLit& node) {
-    // Nothing to do :)
-}
-
-void Checker::Visit(AstNullLit& node) {
-    Panic("unexpected call to check null");
+    if (enclosing_return_type == nullptr) {
+        // TODO: check for non-comptime sizes 
+        node->an_New.alloc_mode = A_ALLOC_GLOBAL;
+    }
 }
