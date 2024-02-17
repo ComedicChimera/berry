@@ -29,7 +29,7 @@ func _panic() {
 
 // Buffered IO example
 let stdout: *u8 = GetStdHandle(-11 as u32);
-let out_buff: [1024]u8;
+let out_buff: []u8 = new u8[1024];
 let out_cursor: i64;
 
 func write(b: []u8) {
@@ -62,7 +62,7 @@ func putRune(c: i32) {
 }
 
 func putInt(n: i64) {
-    let digit_buff: [20]u8;
+    let digit_buff = new u8[20];
 
     let i = 19; 
     do {

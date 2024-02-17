@@ -387,17 +387,42 @@ AstExpr* Parser::parseAtom() {
     } break;
     case TOK_LBRACKET: 
         return parseArrayLit();
+    case TOK_NEW:
+        return parseNewExpr();
     default:
         reject("expected expression");
         return nullptr;
     }
 }
 
+AstExpr* Parser::parseNewExpr() {
+    next();
+    auto start_span = prev.span;
+
+    auto* type = parseTypeLabel();
+    AstExpr* size_expr { nullptr };
+    if (has(TOK_LBRACKET)) {
+        next();
+
+        size_expr = parseExpr();
+
+        want(TOK_RBRACKET);
+    }
+
+    auto* anew = allocExpr(AST_NEW, SpanOver(start_span, prev.span));
+    anew->an_New.elem_type = type;
+    anew->an_New.size_expr = size_expr;
+    return anew;
+}
+
 AstExpr* Parser::parseArrayLit() {
     next();
     auto start_span = prev.span;
 
-    auto elems = parseExprList();
+    std::span<AstExpr*> elems;
+    if (!has(TOK_RBRACKET)) {
+        elems = parseExprList();
+    }
 
     want(TOK_RBRACKET);
 

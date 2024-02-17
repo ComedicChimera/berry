@@ -66,6 +66,7 @@ private:
     AstExpr* parseFuncCall(AstExpr* root);
     AstExpr* parseIndexOrSlice(AstExpr* root);
     AstExpr* parseAtom();
+    AstExpr* parseNewExpr();
     AstExpr* parseArrayLit();
 
     /* ---------------------------------------------------------------------- */

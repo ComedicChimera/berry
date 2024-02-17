@@ -145,6 +145,7 @@ static std::unordered_map<std::string, TokenKind> keyword_patterns {
     { "break", TOK_BREAK },
     { "continue", TOK_CONTINUE },
     { "return", TOK_RETURN },
+    { "new", TOK_NEW },
     { "as", TOK_AS },
     { "null", TOK_NULL },
     { "i8", TOK_I8 },

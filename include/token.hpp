@@ -19,6 +19,7 @@ enum TokenKind {
     TOK_CONTINUE,
     TOK_RETURN,
 
+    TOK_NEW,
     TOK_AS,
     TOK_NULL,
 

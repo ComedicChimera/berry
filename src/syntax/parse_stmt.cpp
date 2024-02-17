@@ -122,7 +122,7 @@ AstStmt* Parser::parseDoWhileLoop() {
     want(TOK_WHILE);
     auto cond_expr = parseExpr();
 
-    AstStmt* else_block;
+    AstStmt* else_block { nullptr };
     TextSpan end_span;
     if (has(TOK_ELSE)) {
         next();

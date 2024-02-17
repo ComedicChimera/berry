@@ -91,6 +91,7 @@ enum AstKind {
     AST_SLICE,
     AST_FIELD,
     AST_ARRAY,
+    AST_NEW,
     AST_IDENT,
     AST_INT,
     AST_FLOAT,
@@ -153,6 +154,10 @@ struct AstExpr : public AstNode {
             std::span<AstExpr*> elems;
             AstAllocMode alloc_mode;
         } an_Array;
+        struct {
+            Type* elem_type;
+            AstExpr* size_expr;
+        } an_New;
 
         struct {
             std::string_view temp_name;

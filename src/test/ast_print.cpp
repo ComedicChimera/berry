@@ -249,6 +249,16 @@ static void printExpr(AstExpr* node) {
     case AST_ARRAY:
         printArrayLit(node);
         break;
+    case AST_NEW:
+        std::cout << std::format(
+            "New(span={}, type={}, elem_type={}, size_expr=",
+            spanToStr(node->span),
+            typeToStr(node->type),
+            typeToStr(node->an_New.elem_type)
+        );
+        printExpr(node->an_New.size_expr);
+        std::cout << ')';
+        break;
     case AST_IDENT:
         std::cout << std::format(
             "Identifier(span={}, type={}, name={})",
