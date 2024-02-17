@@ -8,7 +8,7 @@ AstExpr* Parser::parseExpr() {
 
         auto dest_type = parseTypeLabel();
 
-        auto* cast = allocExpr(AST_CALL, SpanOver(bin_op->span, prev.span));
+        auto* cast = allocExpr(AST_CAST, SpanOver(bin_op->span, prev.span));
         cast->type = dest_type;
         cast->an_Cast.src = bin_op;
         return cast;
@@ -145,6 +145,7 @@ AstExpr* Parser::parseAtomExpr() {
             auto* node = allocExpr(AST_FIELD, SpanOver(root->span, field_name_tok.span));
             node->an_Field.root = root;
             node->an_Field.field_name = arena.MoveStr(std::move(field_name_tok.value));
+            root = node;
         } break;
         default:
             return root;
@@ -367,6 +368,7 @@ AstExpr* Parser::parseAtom() {
 
         auto* astr = allocExpr(AST_STR, prev.span);
         astr->an_String.value = arena.MoveStr(std::move(prev.value));
+        astr->type = &prim_string_type;
         return astr;
     } break;
     case TOK_IDENT: {

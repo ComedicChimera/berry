@@ -1,89 +1,119 @@
 #include "checker.hpp"
 
-bool Checker::checkStmt(AstStmt* stmt) {
+bool Checker::checkStmt(AstStmt* node) {
+    switch (node->kind) {
+    case AST_BLOCK:
+        return checkBlock(node);
+    case AST_IF:
+        return checkIf(node);
+    case AST_WHILE:
+        checkWhile(node);
+        break;
+    case AST_FOR:
+        checkFor(node);
+        break;
+    case AST_LOCAL_VAR:
+        checkLocalVar(node);
+        break;
+    case AST_ASSIGN:
+        checkAssign(node);
+        break;
+    case AST_INCDEC:
+        checkIncDec(node);
+        break;
+    case AST_EXPR_STMT:
+        checkExpr(node->an_ExprStmt.expr);
+        finishExpr();
+        break;
+    case AST_RETURN:
+        checkReturn(node);
+        return true;
+    case AST_BREAK:
+        if (loop_depth == 0) {
+            error(node->span, "break statement occurs outside of loop");
+        }
+        break;
+    case AST_CONTINUE:
+        if (loop_depth == 0) {
+            error(node->span, "continue statement occurs outside of loop");
+        }
+        break;
+    default:
+        Panic("checking not implemented for stmt {}", (int)node->kind);
+    }
+
     return false;
 }
 
 /* -------------------------------------------------------------------------- */
 
-void Checker::Visit(AstBlock& node) {
+bool Checker::checkBlock(AstStmt* node) {
     pushScope();
 
-    for (auto& stmt : node.stmts) {
-        visitNode(stmt);
-
-        if (stmt->GetFlags() & ASTF_EXPR) {
-            finishExpr();    
-        }
-
-        node.always_returns = node.always_returns || stmt->always_returns;
+    bool always_returns = false;
+    for (auto& stmt : node->an_Block.stmts) {
+        always_returns = checkStmt(stmt) || always_returns;
     }
 
     popScope();
+    return always_returns;
 }
 
-/* -------------------------------------------------------------------------- */
-
-void Checker::Visit(AstCondBranch& node) {
-    visitNode(node.cond_expr);
-    mustEqual(node.cond_expr->span, node.cond_expr->type, &prim_bool_type);
-
-    visitNode(node.body);
-
-    node.always_returns = node.body->always_returns;
-}
-
-void Checker::Visit(AstIfTree& node) {
+bool Checker::checkIf(AstStmt* node) {
     bool always_returns = true;
 
-    for (auto& branch : node.branches) {
-        Visit(branch);
+    for (auto& branch : node->an_If.branches) {
+        checkExpr(branch.cond_expr);
+        mustEqual(branch.cond_expr->span, branch.cond_expr->type, &prim_bool_type);
 
-        always_returns = always_returns && branch.always_returns;
+        always_returns = checkStmt(branch.body) && always_returns;
     }
 
-    if (node.else_body) {
-        visitNode(node.else_body);
+    if (node->an_If.else_block) {
+        always_returns = checkStmt(node->an_If.else_block) && always_returns;
     } else {
         always_returns = false;
     }
 
-    node.always_returns = always_returns;
+    return always_returns;
 }
 
-void Checker::Visit(AstWhileLoop& node) {
-    visitNode(node.cond_expr);
-    mustEqual(node.cond_expr->span, node.cond_expr->type, &prim_bool_type);
+void Checker::checkWhile(AstStmt* node) {
+    auto& awhile = node->an_While;
+
+    checkExpr(awhile.cond_expr);
+    mustEqual(awhile.cond_expr->span, awhile.cond_expr->type, &prim_bool_type);
 
     loop_depth++;
-    visitNode(node.body);
+    checkStmt(awhile.body);
     loop_depth--;
 
-    if (node.else_clause) {
-        visitNode(node.else_clause);
+    if (awhile.else_block) {
+        checkStmt(awhile.else_block);
     }
 }
 
-void Checker::Visit(AstForLoop& node) {
+void Checker::checkFor(AstStmt* node) {
     pushScope();
+    auto& afor = node->an_For;
 
-    if (node.var_def)
-        Visit(*node.var_def);
+    if (afor.var_def)
+        checkStmt(afor.var_def);
 
-    if (node.cond_expr) {
-        visitNode(node.cond_expr);
-        mustEqual(node.cond_expr->span, node.cond_expr->type, &prim_bool_type);
+    if (afor.cond_expr) {
+        checkExpr(afor.cond_expr);
+        mustEqual(afor.cond_expr->span, afor.cond_expr->type, &prim_bool_type);
     }
 
-    if (node.update_stmt)
-        visitNode(node.update_stmt);
+    if (afor.update_stmt)
+        checkStmt(afor.update_stmt);
 
     loop_depth++;
-    visitNode(node.body);
+    checkStmt(afor.body);
     loop_depth--;
 
-    if (node.else_clause) {
-        visitNode(node.else_clause);
+    if (afor.else_block) {
+        checkStmt(afor.else_block);
     }
 
     popScope();
@@ -91,50 +121,25 @@ void Checker::Visit(AstForLoop& node) {
 
 /* -------------------------------------------------------------------------- */
 
-void Checker::Visit(AstReturn& node) {
-    if (enclosing_return_type == nullptr) {
-        error(node.span, "return statement out of enclosing function");
-    }
+void Checker::checkLocalVar(AstStmt* node) {
+    auto& alocal = node->an_LocalVar;
 
-    if (node.value) {
-        visitNode(node.value);
-        mustSubType(node.value->span, node.value->type, enclosing_return_type);
-    } else if (enclosing_return_type->GetKind() != TYPE_UNIT) {
-        error(node.span, "enclosing function expects a return value of type {}", enclosing_return_type->ToString());
-    }
-}
+    if (alocal.init != nullptr) {
+        checkExpr(alocal.init); 
 
-void Checker::Visit(AstBreak& node) {
-    if (loop_depth == 0) {
-        error(node.span, "break statement occurs outside of loop");
-    }
-}
-
-void Checker::Visit(AstContinue& node) {
-    if (loop_depth == 0) {
-        error(node.span, "continue statement occurs outside of loop");
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
-void Checker::Visit(AstLocalVarDef& node) {
-    if (node.init != nullptr) {
-        visitNode(node.init); 
-
-        if (node.symbol->type == nullptr) {
-            node.symbol->type = node.init->type;
+        if (alocal.symbol->type == nullptr) {
+            alocal.symbol->type = alocal.init->type;
         } else {
-            mustSubType(node.init->span, node.init->type, node.symbol->type);
+            mustSubType(alocal.init->span, alocal.init->type, alocal.symbol->type);
         }
 
         finishExpr();
     }
 
-    declareLocal(node.symbol);
+    declareLocal(alocal.symbol);
 }
 
-void Checker::mustBeAssignable(std::unique_ptr<AstExpr>& expr) {
+void Checker::mustBeAssignable(AstExpr* expr) {
     if (!expr->IsLValue()) {
         error(expr->span, "cannot assign to an r-value");
     }
@@ -144,26 +149,46 @@ void Checker::mustBeAssignable(std::unique_ptr<AstExpr>& expr) {
     }
 }
 
-void Checker::Visit(AstAssign& node) {
-    visitNode(node.lhs);
+void Checker::checkAssign(AstStmt* node) {
+    auto& aassign = node->an_Assign;
 
-    mustBeAssignable(node.lhs);
+    checkExpr(aassign.lhs);
 
-    visitNode(node.rhs);
+    mustBeAssignable(aassign.lhs);
 
-    if (node.assign_op_kind == AOP_NONE) {
-        mustSubType(node.span, node.rhs->type, node.lhs->type);
+    checkExpr(aassign.rhs);
+
+    if (aassign.assign_op == AOP_NONE) {
+        mustSubType(node->span, aassign.rhs->type, aassign.lhs->type);
     } else {
-        Type* result_type = mustApplyBinaryOp(node.span, node.assign_op_kind, node.lhs->type, node.rhs->type);
-        mustSubType(node.span, result_type, node.lhs->type);
+        Type* result_type = mustApplyBinaryOp(node->span, aassign.assign_op, aassign.lhs->type, aassign.rhs->type);
+        mustSubType(node->span, result_type, aassign.lhs->type);
     }
 }
 
-void Checker::Visit(AstIncDec& node) {
-    visitNode(node.lhs);
+void Checker::checkIncDec(AstStmt* node) {
+    auto* lhs = node->an_IncDec.lhs;
 
-    mustBeAssignable(node.lhs);
+    checkExpr(lhs);
+
+    mustBeAssignable(lhs);
     
-    Type* result_type = mustApplyBinaryOp(node.span, node.op_kind, node.lhs->type, node.lhs->type);
-    mustSubType(node.span, result_type, node.lhs->type);
+    Type* result_type = mustApplyBinaryOp(node->span, node->an_IncDec.op, lhs->type, lhs->type);
+    mustSubType(node->span, result_type, lhs->type);
+}
+
+/* -------------------------------------------------------------------------- */
+
+void Checker::checkReturn(AstStmt* node) {
+    if (enclosing_return_type == nullptr) {
+        error(node->span, "return statement out of enclosing function");
+    }
+
+    auto* ret_value = node->an_Return.value;
+    if (ret_value) {
+        checkExpr(ret_value);
+        mustSubType(ret_value->span, ret_value->type, enclosing_return_type);
+    } else if (enclosing_return_type->kind != TYPE_UNIT) {
+        error(node->span, "enclosing function expects a return value of type {}", enclosing_return_type->ToString());
+    }
 }

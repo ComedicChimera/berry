@@ -12,7 +12,7 @@
 // #include "llvm/IR/LegacyPassManager.h"
 
 #include "parser.hpp"
-// #include "checker.hpp"
+#include "checker.hpp"
 // #include "codegen.hpp"
 #include "linker.hpp"
 
@@ -27,14 +27,14 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
         return false;
     }
 
-    // Checker c(arena, src_file); 
-    // for (auto& def : src_file.defs) {
-    //     // def->Accept(&c);
-    // }
+    Checker c(arena, src_file); 
+    for (auto* def : src_file.defs) {
+        c.CheckDef(def);
+    }
 
-    // if (ErrorCount() > 0) {
-    //     return false;
-    // }
+    if (ErrorCount() > 0) {
+        return false;
+    }
 
     PrintAst(src_file);
     return true;

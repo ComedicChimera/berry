@@ -50,6 +50,14 @@ private:
     /* ---------------------------------------------------------------------- */
 
     bool checkStmt(AstStmt* stmt);
+    bool checkBlock(AstStmt* node);
+    bool checkIf(AstStmt* node);
+    void checkWhile(AstStmt* node);
+    void checkFor(AstStmt* node);
+    void checkLocalVar(AstStmt *node);
+    void checkAssign(AstStmt *node);
+    void checkIncDec(AstStmt *node);
+    void checkReturn(AstStmt *node);
 
     /* ---------------------------------------------------------------------- */
 
@@ -79,7 +87,7 @@ private:
 
     Type* mustApplyUnaryOp(const TextSpan &span, AstOpKind aop, Type* operand_type);
 
-    void mustBeAssignable(std::unique_ptr<AstExpr>& expr);
+    void mustBeAssignable(AstExpr* expr);
 
     // newUntyped creates a new untyped of kind kind.
     Type* newUntyped(UntypedKind kind);

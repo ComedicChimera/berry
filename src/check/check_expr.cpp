@@ -41,9 +41,11 @@ void Checker::checkExpr(AstExpr* node) {
         checkSlice(node);
         break;
     case AST_FIELD:
-
+        checkField(node);
+        break;
     case AST_ARRAY:
-    
+        checkArray(node);
+        break;
     case AST_NEW: 
         checkNewExpr(node);
         break;
@@ -69,7 +71,7 @@ void Checker::checkExpr(AstExpr* node) {
         Panic("null outside of function call");
         break;
     default:
-        Panic("checking not implemented for stmt {}", (int)node->kind);
+        Panic("checking not implemented for expr {}", (int)node->kind);
     }
 
 }

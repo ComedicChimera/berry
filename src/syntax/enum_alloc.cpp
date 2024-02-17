@@ -56,6 +56,7 @@ AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, MetadataMap&& meta_
     int n = 0;
     for (auto& pair : meta_map) {
         metadata[n] = pair.second;
+        n++;
     }
     def->metadata = std::span<MetadataTag>(metadata, meta_map.size());
     meta_map.clear();

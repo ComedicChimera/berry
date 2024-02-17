@@ -13,21 +13,27 @@ void Checker::CheckDef(AstDef* def) {
         checkGlobalVar(def);
         break;
     default:
-        Panic("checking is not implemented for {}", (int)def->kind);
+        Panic("checking is not implemented for def {}", (int)def->kind);
     }
 }
 
 /* -------------------------------------------------------------------------- */
 
-static std::unordered_map<std::string_view, std::unordered_set<std::string_view>> special_metadata_table[] = {
+struct SpecialMetadataInfo {
+    std::unordered_set<std::string_view> expected_values;
+    bool check_values;
+    bool expect_body;
+};
+
+static std::unordered_map<std::string_view, SpecialMetadataInfo> special_metadata_table[] = {
     {
-        { "extern", {} },
-        { "abientry", {} },
-        { "callconv", { "c", "win64", "stdcall" }}
+        { "extern", { {}, false, false } },
+        { "abientry", { {}, false, true } },
+        { "callconv", { { "c", "win64", "stdcall" }, true, true }}
     }, // FuncDef
     {
-        { "extern", {} },
-        { "abientry", {} }
+        { "extern", { {}, false, false } },
+        { "abientry", { {}, false, true } }
     }  // Global Variables
 };
 
@@ -37,19 +43,21 @@ void Checker::checkMetadata(AstDef* def) {
     for (auto& tag : def->metadata) {
         auto it = special_meta.find(tag.name);
         if (it != special_meta.end()) {
-            auto& expected_values = it->second;
+            auto& meta_info = it->second;
 
-            if (expected_values.size() == 0) {
+            if (meta_info.expected_values.size() == 0) {
                 if (tag.value.size() != 0) {
                     error(tag.value_span, "special metadata tag {} does not accept a value", tag.name);
                 }
             } else {
                 if (tag.value.size() == 0) {
                     error(tag.value_span, "special metadata tag {} requires a value", tag.name);
-                } else if (!expected_values.contains(tag.value)) {
+                } else if (meta_info.check_values && !meta_info.expected_values.contains(tag.value)) {
                     error(tag.value_span, "invalid value {} for special metadata tag {}", tag.value, tag.name);
                 }
             }
+
+            expect_body = expect_body && meta_info.expect_body;
         }
     }
 
