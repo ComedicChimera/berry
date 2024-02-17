@@ -207,6 +207,8 @@ void Checker::checkArray(AstExpr* node) {
     // Move array literal to global memory if necessary.
     if (enclosing_return_type == nullptr) {
         arr.alloc_mode = A_ALLOC_GLOBAL;
+    } else {
+        arr.alloc_mode = A_ALLOC_STACK;
     }
 }
 
@@ -226,5 +228,7 @@ void Checker::checkNewExpr(AstExpr* node) {
     if (enclosing_return_type == nullptr) {
         // TODO: check for non-comptime sizes 
         node->an_New.alloc_mode = A_ALLOC_GLOBAL;
+    } else {
+        node->an_New.alloc_mode = A_ALLOC_STACK;
     }
 }

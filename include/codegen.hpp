@@ -152,11 +152,16 @@ private:
     /* ---------------------------------------------------------------------- */
 
     void genStmt(AstStmt* stmt);
-    // TODO: stmts
+    void genIfTree(AstStmt* node);
+    void genWhileLoop(AstStmt* node);
+    void genForLoop(AstStmt* node);
+    void genLocalVar(AstStmt* node);
+    void genAssign(AstStmt* node);
+    void genIncDec(AstStmt* node);
 
     /* ---------------------------------------------------------------------- */
 
-    llvm::Value* genExpr(AstExpr* expr);
+    llvm::Value* genExpr(AstExpr* expr, bool expect_addr=false, llvm::Value* alloc_loc=nullptr);
     // TODO: exprs
 
     /* ---------------------------------------------------------------------- */

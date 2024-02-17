@@ -167,5 +167,5 @@ void CodeGenerator::genGlobalVarInit(AstDef* node) {
 /* -------------------------------------------------------------------------- */
 
 std::string CodeGenerator::mangleName(std::string_view name) {
-    return std::format("bry{}.{}.{}", bry_mod.id, bry_mod.name, name);
+    return std::format("_br7${}.{}.{}", bry_mod.id, bry_mod.name, name);
 }

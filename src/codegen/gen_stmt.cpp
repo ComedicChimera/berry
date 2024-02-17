@@ -1,48 +1,87 @@
 #include "codegen.hpp"
 
-void CodeGenerator::Visit(AstBlock& node) {
-    for (auto& stmt : node.stmts) {
-        visitNode(stmt);
+void CodeGenerator::genStmt(AstStmt* node) {
+    debug.SetDebugLocation(node->span);
 
-        if (currentHasTerminator()) {
-            break;
+    switch (node->kind) {
+    case AST_BLOCK:
+        for (auto& stmt : node->an_Block.stmts) {
+            genStmt(stmt);
+
+            if (currentHasTerminator()) {
+                return;
+            }
         }
+        break;
+    case AST_IF:
+        genIfTree(node);
+        break;
+    case AST_WHILE:
+        genWhileLoop(node);
+        break;
+    case AST_FOR:
+        genForLoop(node);
+        break;
+    case AST_LOCAL_VAR:
+        genLocalVar(node);
+        break;
+    case AST_ASSIGN:
+        genAssign(node);
+        break;
+    case AST_INCDEC:
+        genIncDec(node);
+        break;
+    case AST_EXPR_STMT:
+        genExpr(node->an_ExprStmt.expr);
+        break;
+    case AST_RETURN:
+        if (node->an_Return.value) {
+            irb.CreateRet(genExpr(node->an_Return.value));
+        } else {
+            irb.CreateRetVoid();
+        }
+        break;
+    case AST_BREAK:
+        irb.CreateBr(getLoopCtx().break_block);
+        break;
+    case AST_CONTINUE:
+        irb.CreateBr(getLoopCtx().continue_block);
+        break;
+    default:
+        Panic("stmt codegen not implemented for {}", (int)node->kind);
     }
 }
 
-void CodeGenerator::Visit(AstCondBranch& node) {
-    Panic("cond branch visited explicitly in codegen");
-}
+/* -------------------------------------------------------------------------- */
 
-void CodeGenerator::Visit(AstIfTree& node) {
+void CodeGenerator::genIfTree(AstStmt* node) {
     auto* exit_block = appendBlock();
 
     llvm::BasicBlock* else_block;
-    for (auto& branch : node.branches) {
-        visitNode(branch.cond_expr);
-
+    for (auto& branch : node->an_If.branches) {
         auto* then_block = appendBlock();
         else_block = appendBlock();
-        builder.CreateCondBr(branch.cond_expr->llvm_value, then_block, else_block);
+
+        irb.CreateCondBr(genExpr(branch.cond_expr), then_block, else_block);
 
         setCurrentBlock(then_block);
-        visitNode(branch.body);
+        genStmt(branch.body);
 
         if (!currentHasTerminator()) {
-            builder.CreateBr(exit_block);
+            irb.CreateBr(exit_block);
         }
 
         setCurrentBlock(else_block);
     }
 
-    if (node.else_body) {
-        visitNode(node.else_body);
+    if (node->an_If.else_block) {
+        genStmt(node->an_If.else_block);
 
         if (!currentHasTerminator()) {
-            builder.CreateBr(exit_block);
+            irb.CreateBr(exit_block);
         }
     } else {
-        builder.CreateBr(exit_block);
+        irb.CreateBr(exit_block);
     }
 
     setCurrentBlock(exit_block);
@@ -53,61 +92,58 @@ void CodeGenerator::Visit(AstIfTree& node) {
     }
 }
 
-void CodeGenerator::Visit(AstWhileLoop& node) {
+void CodeGenerator::genWhileLoop(AstStmt* node) {
+    auto& awhile = node->an_While;
+
     auto* exit_block = appendBlock();
 
     auto* else_block = exit_block;
-    if (node.else_clause) {
+    if (awhile.else_block) {
         else_block = appendBlock();
 
         auto* curr_block = getCurrentBlock();
         setCurrentBlock(else_block);
-        visitNode(node.else_clause);
+        genStmt(awhile.else_block);
 
         if (!currentHasTerminator()) {
-            builder.CreateBr(exit_block);
+            irb.CreateBr(exit_block);
         }
 
         setCurrentBlock(curr_block);
     }
 
-    if (node.is_do_while) {
+    if (awhile.is_do_while) {
         auto* body_block = appendBlock();
         auto* closer_block = appendBlock();
 
-        builder.CreateBr(body_block);
+        irb.CreateBr(body_block);
 
         pushLoopContext(exit_block, closer_block);
         setCurrentBlock(body_block);
-        visitNode(node.body);
+        genStmt(awhile.body);
         popLoopContext();
 
         if (!currentHasTerminator()) {
-            builder.CreateBr(closer_block);
+            irb.CreateBr(closer_block);
         }
 
         setCurrentBlock(closer_block);
-
-        visitNode(node.cond_expr);
-        builder.CreateCondBr(node.cond_expr->llvm_value, body_block, else_block);
+        irb.CreateCondBr(genExpr(awhile.cond_expr), body_block, else_block);
     } else {
         auto* header_block = appendBlock();
-        builder.CreateBr(header_block);
+        irb.CreateBr(header_block);
         
         setCurrentBlock(header_block);
-
-        pushLoopContext(exit_block, header_block);
-        visitNode(node.cond_expr);
-        popLoopContext();
-
         auto* body_block = appendBlock();
-        builder.CreateCondBr(node.cond_expr->llvm_value, body_block, else_block);
+        irb.CreateCondBr(genExpr(awhile.cond_expr), body_block, else_block);
 
         setCurrentBlock(body_block);
-        visitNode(node.body);
+        pushLoopContext(exit_block, header_block);
+        genStmt(awhile.body);
+        popLoopContext();
 
         if (!currentHasTerminator()) {
-            builder.CreateBr(header_block);
+            irb.CreateBr(header_block);
         }
     }
 
@@ -119,22 +155,24 @@ void CodeGenerator::Visit(AstWhileLoop& node) {
     }
 }
 
-void CodeGenerator::Visit(AstForLoop& node) {
-    if (node.var_def) {
-        Visit(*node.var_def);
+void CodeGenerator::genForLoop(AstStmt* node) {
+    auto afor = node->an_For;
+
+    if (afor.var_def) {
+        genStmt(afor.var_def);
     }
 
     auto* exit_block = appendBlock();
     auto* else_block = exit_block;
-    if (node.else_clause) {
+    if (afor.else_block) {
         else_block = appendBlock();
 
         auto* curr_block = getCurrentBlock();
         setCurrentBlock(else_block);
-        visitNode(node.else_clause);
+        genStmt(afor.else_block);
 
         if (!currentHasTerminator()) {
-            builder.CreateBr(exit_block);
+            irb.CreateBr(exit_block);
         }
 
         setCurrentBlock(curr_block);
@@ -142,27 +180,25 @@ void CodeGenerator::Visit(AstForLoop& node) {
 
     llvm::BasicBlock* header_block;
     llvm::BasicBlock* body_block;
-    if (node.cond_expr) {
+    if (afor.cond_expr) {
         header_block = appendBlock();
-        builder.CreateBr(header_block);
+        irb.CreateBr(header_block);
         setCurrentBlock(header_block);
 
-        visitNode(node.cond_expr);
-
         body_block = appendBlock();
-        builder.CreateCondBr(node.cond_expr->llvm_value, body_block, else_block);
+        irb.CreateCondBr(genExpr(afor.cond_expr), body_block, else_block);
     } else {
         body_block = appendBlock();
         header_block = body_block;
     }
 
     llvm::BasicBlock* update_block;
-    if (node.update_stmt) {
+    if (afor.update_stmt) {
         update_block = appendBlock();
 
         setCurrentBlock(update_block);
-        visitNode(node.update_stmt);
-        builder.CreateBr(header_block);
+        genStmt(afor.update_stmt);
+        irb.CreateBr(header_block);
     } else {
         update_block = header_block;
     }
@@ -170,11 +206,11 @@ void CodeGenerator::Visit(AstForLoop& node) {
     setCurrentBlock(body_block);
 
     pushLoopContext(exit_block, update_block);
-    visitNode(node.body);
+    genStmt(afor.body);
     popLoopContext();
 
     if (!currentHasTerminator()) {
-        builder.CreateBr(update_block);
+        irb.CreateBr(update_block);
     }
 
     setCurrentBlock(exit_block);
@@ -186,78 +222,66 @@ void CodeGenerator::Visit(AstForLoop& node) {
 
 /* -------------------------------------------------------------------------- */
 
-void CodeGenerator::Visit(AstLocalVarDef& node) {
+void CodeGenerator::genLocalVar(AstStmt* node) {
     auto* prev_pos = getCurrentBlock();
 
     setCurrentBlock(var_block);
-    auto* ll_var = builder.CreateAlloca(genType(node.symbol->type));
-    node.symbol->llvm_value = ll_var;
+    auto* ll_var = irb.CreateAlloca(genType(node->an_LocalVar.symbol->type));
+    node->an_LocalVar.symbol->llvm_value = ll_var;
     setCurrentBlock(prev_pos);
 
     debug.EmitLocalVariableInfo(node, ll_var);
 
-    if (node.array_size > 0) {
-        // TODO
-    }
-
-    if (node.init != nullptr) {
-        visitNode(node.init);
-
-        builder.CreateStore(node.init->llvm_value, ll_var);
+    if (node->an_LocalVar.init != nullptr) {
+        auto* rhs_val = genExpr(node->an_LocalVar.init, false, ll_var);
+        if (rhs_val) {
+            irb.CreateStore(rhs_val, ll_var);
+        }
     }
 }
 
-void CodeGenerator::Visit(AstAssign& node) {
-    visitNode(node.rhs);
+void CodeGenerator::genAssign(AstStmt* node) {
+    auto* lhs_addr = genExpr(node->an_Assign.lhs, true);
 
-    pushValueMode(false);
-    visitNode(node.lhs);
-    popValueMode();
-
-    if (node.assign_op_kind == AOP_NONE) {
-        builder.CreateStore(node.rhs->llvm_value, node.lhs->llvm_value);
+    if (node->an_Assign.assign_op == AOP_NONE) {
+        auto* rhs_val = genExpr(node->an_Assign.rhs, false, lhs_addr);
+        if (rhs_val) {
+            irb.CreateStore(rhs_val, lhs_addr);
+        }
     } else {
-        auto* ll_lhs_addr_val = node.lhs->llvm_value;
+        AstExpr binop { };
+        binop.span = node->span;
+        binop.kind = AST_BINOP;
+        binop.type = node->an_Assign.lhs->type;
+        binop.an_Binop.op = node->an_Assign.assign_op;
+        binop.an_Binop.lhs = node->an_Assign.lhs;
+        binop.an_Binop.rhs = node->an_Assign.rhs;
+        auto* rhs_val = genExpr(&binop);
 
-        AstBinaryOp binop(TextSpan{}, node.assign_op_kind, std::move(node.lhs), std::move(node.rhs));
-        Visit(binop);
-
-        builder.CreateStore(binop.llvm_value, ll_lhs_addr_val);
+        irb.CreateStore(rhs_val, lhs_addr);
     }
 
     // TODO: debug value instrinsic
 }
 
-void CodeGenerator::Visit(AstIncDec& node) {
-    pushValueMode(false);
-    visitNode(node.lhs);
-    popValueMode();
+void CodeGenerator::genIncDec(AstStmt* node) {
+    auto* lhs_addr = genExpr(node->an_IncDec.lhs, true);
 
-    auto* ll_lhs_addr_val = node.lhs->llvm_value;
+    AstExpr one_val {};
+    one_val.kind = AST_INT;
+    one_val.span = node->span;
+    one_val.type = node->an_IncDec.lhs->type;
+    one_val.an_Int.value = 1;
 
-    auto one_val = std::make_unique<AstIntLit>(TextSpan{}, node.lhs->type, 1);
-    AstBinaryOp binop(TextSpan{}, node.op_kind, std::move(node.lhs), std::move(one_val));
-    Visit(binop);
-
-    builder.CreateStore(binop.llvm_value, ll_lhs_addr_val);
+    AstExpr binop {};
+    binop.kind = AST_BINOP;
+    binop.span = node->span;
+    binop.type = node->an_IncDec.lhs->type;
+    binop.an_Binop.lhs = node->an_IncDec.lhs;
+    binop.an_Binop.rhs = &one_val;
+    binop.an_Binop.op = node->an_IncDec.op;
+    
+    irb.CreateStore(genExpr(&binop), lhs_addr);
 
     // TODO: debug value intrinsic
 }
-
-void CodeGenerator::Visit(AstReturn& node) {
-    if (node.value) {
-        visitNode(node.value);
-        builder.CreateRet(node.value->llvm_value);
-    } else {
-        builder.CreateRetVoid();
-    }
-}
-
-void CodeGenerator::Visit(AstBreak& node) {
-    builder.CreateBr(getLoopCtx().break_block);
-}
-
-void CodeGenerator::Visit(AstContinue& node) {
-    builder.CreateBr(getLoopCtx().continue_block);
-}
-
