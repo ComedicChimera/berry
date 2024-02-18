@@ -553,7 +553,12 @@ llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
             setCurrentBlock(var_block);
 
             addr_val = irb.CreateAlloca(ll_elem_type, array_len);
-            // TODO: zero out array
+            irb.CreateMemSet(
+                addr_val,
+                getInt8Const(0),
+                array_len_val * mod.getDataLayout().getTypeAllocSize(ll_elem_type),
+                llvm::MaybeAlign(mod.getDataLayout().getPrefTypeAlign(ll_elem_type))
+            );
 
             setCurrentBlock(curr_block);
         } 
@@ -726,6 +731,11 @@ llvm::Constant* CodeGenerator::getNullValue(llvm::Type* ll_type) {
 llvm::Constant* CodeGenerator::getInt32Const(uint32_t value) {
     llvm::APInt ap_int(32, (uint64_t)value, false);
     return llvm::Constant::getIntegerValue(llvm::Type::getInt32Ty(ctx), ap_int);
+}
+
+llvm::Constant* CodeGenerator::getInt8Const(uint8_t value) {
+    llvm::APInt ap_int(8, (uint64_t)value, false);
+    return llvm::Constant::getIntegerValue(llvm::Type::getInt8Ty(ctx), ap_int);
 }
 
 llvm::Constant* CodeGenerator::getPlatformIntConst(uint64_t value) {

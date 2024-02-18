@@ -39,23 +39,6 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
     // PrintAst(src_file);
     // return true;
 
-    llvm::LLVMContext ll_ctx;
-    llvm::Module ll_mod(mod.name, ll_ctx);
-    CodeGenerator cg(ll_ctx, ll_mod, mod);
-    cg.GenerateModule();
-
-    std::error_code err_code;
-
-    // // DEBUG: Print module.
-    // llvm::raw_fd_ostream p_out_file("out.ll", err_code);
-    // if (err_code) {
-    //     std::cerr << "error: creating output fd stream for module printing: " << err_code.message() << '\n';
-    //     return false;
-    // }
-    // ll_mod.print(p_out_file, nullptr);
-    // p_out_file.close();
-    // return true;
-
     auto native_target_triple = llvm::sys::getDefaultTargetTriple();
 
     llvm::InitializeNativeTarget();
@@ -72,8 +55,25 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
     llvm::TargetOptions target_opt;
     auto* target_machine = target->createTargetMachine(native_target_triple, "generic", "", target_opt, llvm::Reloc::PIC_);
 
+    llvm::LLVMContext ll_ctx;
+    llvm::Module ll_mod(mod.name, ll_ctx);
     ll_mod.setDataLayout(target_machine->createDataLayout());
     ll_mod.setTargetTriple(native_target_triple);
+
+    CodeGenerator cg(ll_ctx, ll_mod, mod);
+    cg.GenerateModule();
+
+    std::error_code err_code;
+
+    // // DEBUG: Print module.
+    // llvm::raw_fd_ostream p_out_file("out.ll", err_code);
+    // if (err_code) {
+    //     std::cerr << "error: creating output fd stream for module printing: " << err_code.message() << '\n';
+    //     return false;
+    // }
+    // ll_mod.print(p_out_file, nullptr);
+    // p_out_file.close();
+    // return true;
 
     llvm::raw_fd_ostream out_file("out.o", err_code, llvm::sys::fs::OF_None);
     if (err_code) {

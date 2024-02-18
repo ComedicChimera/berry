@@ -206,6 +206,7 @@ private:
     llvm::Constant *getNullValue(Type *type);
     llvm::Constant* getNullValue(llvm::Type* ll_type);
     llvm::Constant* getInt32Const(uint32_t value);
+    llvm::Constant* getInt8Const(uint8_t value);
     llvm::Constant* getPlatformIntConst(uint64_t value);
     llvm::Value* makeLLVMIntLit(Type *int_type, uint64_t value);
     llvm::Value* makeLLVMFloatLit(Type *float_type, double value);

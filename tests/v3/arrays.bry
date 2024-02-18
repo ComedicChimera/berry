@@ -153,4 +153,7 @@ func main() {
 
     putInt(-1024);
     putRune('\n');
+
+    let arr2 = new i64[10];
+    printArray(arr2);
 }
