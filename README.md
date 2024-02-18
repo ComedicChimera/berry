@@ -10,6 +10,7 @@ Flags:
     -d, --debug     Generate debug information
     -v, --verbose   Print out compilation steps, list modules compiled
     -V, --version   Print the compiler version and exit
+    -q, --quiet     Compile silently, no command line output
 
 Arguments:
     -o, --outpath   Specify the output path (default = out[.exe])
@@ -19,6 +20,9 @@ Arguments:
                     :: native (default), gdb, msvc
     -L, --libpath   Specify additional linker include directories
     -l, --lib       Specify additional static libraries, shared libraries, or objects
+    -W, --warn      Enable specific warnings
+    -w, --nowarn    Disable specific warnings
+    -O, --opt       Set optimization level (default = 1)
 ```
 
 Example: Output linked LLVM to `out.ll` with debug info:
