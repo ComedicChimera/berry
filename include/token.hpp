@@ -55,6 +55,7 @@ enum TokenKind {
     TOK_AMP,
     TOK_PIPE,
     TOK_CARRET,
+    TOK_TILDE,
 
     TOK_NOT,
     TOK_AND,

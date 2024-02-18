@@ -26,6 +26,7 @@ enum AstOpKind {
     AOP_BWAND,
     AOP_BWOR,
     AOP_BWXOR,
+    AOP_BWNEG,
 
     AOP_LGAND,
     AOP_LGOR,

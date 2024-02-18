@@ -45,6 +45,7 @@ std::string kindNames[TOKENS_COUNT] = {
     "&",
     "|",
     "^",
+    "~",
     "!",
     "&&",
     "||",

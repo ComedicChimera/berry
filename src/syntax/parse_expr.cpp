@@ -119,6 +119,15 @@ AstExpr* Parser::parseUnaryOp() {
         node->an_Unop.op = AOP_NOT;
         return node;
     } break;
+    case TOK_TILDE: {
+        next();
+
+        auto atom_expr = parseAtomExpr();
+        auto* node = allocExpr(AST_UNOP, SpanOver(start_span, atom_expr->span));
+        node->an_Unop.operand = atom_expr;
+        node->an_Unop.op = AOP_BWNEG;
+        return node;
+    } break;
     default:
         return parseAtomExpr();
     }

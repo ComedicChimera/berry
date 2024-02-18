@@ -21,6 +21,7 @@ std::unordered_map<AstOpKind, std::string> ast_op_kind_to_name {
     { AOP_LGOR, "||" },
     { AOP_NEG, "-" },
     { AOP_NOT, "!" },
+    { AOP_BWNEG, "~" }
 };
 
 
@@ -90,6 +91,11 @@ Type* Checker::mustApplyUnaryOp(const TextSpan& span, AstOpKind aop, Type* opera
         break;
     case AOP_NEG:
         if (tctx.IsNumberType(operand_type)) {
+            return_type = operand_type;
+        }
+        break;
+    case AOP_BWNEG:
+        if (tctx.IsIntType(operand_type)) {
             return_type = operand_type;
         }
         break;

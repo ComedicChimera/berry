@@ -76,6 +76,9 @@ void Lexer::NextToken(Token& tok) {
         case '^':
             lexSingleOrAssign(tok, TOK_CARRET, TOK_CARRET_ASSIGN);
             return;
+        case '~':
+            lexSingle(tok, TOK_TILDE);
+            return;
         case '!':
             lexSingleOrAssign(tok, TOK_NOT, TOK_NE);
             return;

@@ -23,6 +23,8 @@ func __LibBerry_Start() {
 
 @abientry
 func __LibBerry_Panic() {
+    let msg = "panic!\n";
+    WriteConsoleA(stdout, msg._ptr, msg._len as i32, null, null);
     ExitProcess(1);
 }
 
@@ -39,9 +41,9 @@ func write(b: []u8) {
             flush();
         }
     
-        out_buff[i + out_cursor] = b[i];
+        out_buff[out_cursor] = b[i];
         out_cursor++;
-    
+
         let curr_rune = b[i] as i32;
         if curr_rune == '\n' || curr_rune == '\r' {
             flush();
@@ -64,6 +66,12 @@ func putRune(c: i32) {
 func putInt(n: i64) {
     let digit_buff = new u8[20];
 
+    let is_neg = false;
+    if n < 0 {
+        is_neg = true;
+        n = -n;
+    }
+
     let i = 19; 
     do {
         let digit = n % 10 as i32;
@@ -71,10 +79,14 @@ func putInt(n: i64) {
 
         n /= 10;
         i--;
-    } while (n > 0 && i >= 0);
+    } while (n > 0 && i >= 1);
 
-    digit_buff = digit_buff[i+1:];
-    write(digit_buff);
+    if is_neg {
+        digit_buff[i] = '-' as u8;
+        i--;
+    }
+
+    write(digit_buff[i+1:]);
 }
 
 // ------------------------------------------------------------------------- //
@@ -88,11 +100,13 @@ func swap(arr: []i64, i, j: i64) {
 func partition(arr: []i64, lo, hi: i64) i64 {
     let p = hi - 1;
 
-    for let i = 0; i < p; i++ {
+    for let i = 0; i < p; {
         if arr[i] > arr[p] {
             swap(arr, i, p);
             p--;
             swap(arr, i, p);
+        } else {
+            i++;
         }
     }
 
@@ -117,43 +131,26 @@ func printArray(arr: []i64) {
     putRune('[');
 
     for let i = 0; i < arr._len; i++ {
+        if i > 0 {
+            write(", ");    
+        }
+
         putInt(arr[i]);
-        write(", ");    
     }
 
     write("]\n");
 }
 
-func rule110() {
-    let board: i64 = 1;
-
-    let table = [0, 2, 2, 2, 0, 2, 2, 0];
-    for let k = 0; k < 10; k++ {
-        for let i = 0; i < 62; i++ {
-            let cell = (board >> i) & 0b111;
-
-            board &= table[cell] << i;
-        }
-
-        for let i = 0; i < 64; i++ {
-            if (board >> i & 1) == 0 {
-                putRune(' ');
-            } else {
-                putRune('*');
-            }
-        }
-    }
-}
-
 func main() {
     write("Hello, world!\n");
-
-    rule110();
     
-    let arr = [6, 8, 1, 4, 3, 2, 9, 7, 6, 5];
+    let arr = [8, 6, 1, 4, 3, 2, 9, 7, 6, 5];
     quickSort(arr);
     printArray(arr);
 
     write("Big man"[1:5]);
+    putRune('\n');
+
+    putInt(-1024);
     putRune('\n');
 }

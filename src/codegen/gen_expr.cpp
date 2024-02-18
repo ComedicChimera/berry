@@ -327,6 +327,9 @@ llvm::Value* CodeGenerator::genUnop(AstExpr* node) {
     case AOP_NOT:
         Assert(operand_type->kind == TYPE_BOOL, "invalid type for NOT in codegen");
         return irb.CreateNot(operand_val);
+    case AOP_BWNEG:
+        Assert(operand_type->kind == TYPE_INT, "invalid type for BWNEG in codegen");
+        return irb.CreateNot(operand_val);
     }
 
     Panic("unsupported unary operator in codegen: {}", (int)node->an_Unop.op);
@@ -421,7 +424,7 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
 
     auto* ll_elem_type = genType(node->type->ty_Array.elem_type);
 
-    auto* new_arr_data = irb.CreateGEP(llvm::ArrayType::get(ll_elem_type, 0), getArrayData(array_val), start_ndx_val);
+    auto* new_arr_data = irb.CreateGEP(llvm::ArrayType::get(ll_elem_type, 0), getArrayData(array_val), { getInt32Const(0), start_ndx_val });
     auto* new_arr_len = irb.CreateSub(end_ndx_val, start_ndx_val);
 
     if (alloc_loc) {
@@ -550,6 +553,7 @@ llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
             setCurrentBlock(var_block);
 
             addr_val = irb.CreateAlloca(ll_elem_type, array_len);
+            // TODO: zero out array
 
             setCurrentBlock(curr_block);
         } 
@@ -665,9 +669,7 @@ llvm::Value* CodeGenerator::genStrLit(AstExpr* node, llvm::Value* alloc_loc) {
         );
         gv_str->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
-        llvm::Value* str_array = getNullValue(ll_array_type);
-        str_array = irb.CreateInsertValue(str_array, gv_str, 0);
-        return irb.CreateInsertValue(str_array, len_const, 1);
+        return irb.CreateLoad(ll_array_type, gv_str);
     }
 }
 

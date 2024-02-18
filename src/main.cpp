@@ -46,13 +46,14 @@ bool compileFile(Module& mod, SourceFile& src_file, std::ifstream& file) {
 
     std::error_code err_code;
 
-    // DEBUG: Print module.
-    llvm::raw_fd_ostream p_out_file("out.ll", err_code);
-    if (err_code) {
-        std::cerr << "error: creating output fd stream for module printing: " << err_code.message() << '\n';
-        return false;
-    }
-    ll_mod.print(p_out_file, nullptr);
+    // // DEBUG: Print module.
+    // llvm::raw_fd_ostream p_out_file("out.ll", err_code);
+    // if (err_code) {
+    //     std::cerr << "error: creating output fd stream for module printing: " << err_code.message() << '\n';
+    //     return false;
+    // }
+    // ll_mod.print(p_out_file, nullptr);
+    // p_out_file.close();
     // return true;
 
     auto native_target_triple = llvm::sys::getDefaultTargetTriple();
