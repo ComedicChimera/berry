@@ -162,11 +162,21 @@ private:
     /* ---------------------------------------------------------------------- */
 
     llvm::Value* genExpr(AstExpr* expr, bool expect_addr=false, llvm::Value* alloc_loc=nullptr);
-    // TODO: exprs
+    llvm::Value* genCast(AstExpr* node);
+    llvm::Value* genBinop(AstExpr* node);
+    llvm::Value* genUnop(AstExpr* node);
+    llvm::Value* genCall(AstExpr *node, llvm::Value* alloc_loc);
+    llvm::Value* genIndexExpr(AstExpr *node, bool expect_addr);
+    llvm::Value* genSliceExpr(AstExpr *node, llvm::Value *alloc_loc);
+    llvm::Value* genFieldExpr(AstExpr *node, bool expect_addr);
+    llvm::Value* genArrayLit(AstExpr *node, llvm::Value *alloc_loc);
+    llvm::Value* genNewExpr(AstExpr *node, llvm::Value *alloc_loc);
+    llvm::Value* genStrLit(AstExpr *node, llvm::Value *alloc_loc);
 
     /* ---------------------------------------------------------------------- */
 
     void createBuiltinGlobals();
+    void getBuiltinFuncs();
     void finishModule();
 
     /* ---------------------------------------------------------------------- */
@@ -185,10 +195,20 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    llvm::Value* getArrayPtr(llvm::Value* array);
-    llvm::Value *getArrayLen(llvm::Value *array);
+    llvm::Value* getArrayData(llvm::Value* array);
+    llvm::Value* getArrayLen(llvm::Value *array);
+    llvm::Value* getArrayDataPtr(llvm::Value* array_ptr);
+    llvm::Value *getArrayLenPtr(llvm::Value* array_ptr);
     void genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len = false);
-    llvm::Value *makeLLVMFloatLit(Type* float_type, double value);
+
+    /* ---------------------------------------------------------------------- */
+
+    llvm::Constant *getNullValue(Type *type);
+    llvm::Constant* getNullValue(llvm::Type* ll_type);
+    llvm::Constant* getInt32Const(uint32_t value);
+    llvm::Constant* getPlatformIntConst(uint64_t value);
+    llvm::Value* makeLLVMIntLit(Type *int_type, uint64_t value);
+    llvm::Value* makeLLVMFloatLit(Type *float_type, double value);
 
     /* ---------------------------------------------------------------------- */
 

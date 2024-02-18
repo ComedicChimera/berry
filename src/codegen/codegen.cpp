@@ -16,8 +16,7 @@ void CodeGenerator::GenerateModule() {
         }
     }
 
-    ll_panic_func = mod.getFunction("_panic");
-    Assert(ll_panic_func != nullptr, "missing _panic");
+    getBuiltinFuncs();
 
     for (auto& file : bry_mod.files) {
         debug.SetCurrentFile(file);
@@ -50,12 +49,18 @@ void CodeGenerator::createBuiltinGlobals() {
         { llvm::PointerType::get(ctx, 0), llvm::Type::getInt64Ty(ctx) }, 
         "_array"
     );
+}
 
+void CodeGenerator::getBuiltinFuncs() {
     // Generate the module's init function signature.
     ll_init_func = mod.getFunction("__LibBerry_Init");
     Assert(ll_init_func != nullptr, "missing __LibBerry_Init");
 
     llvm::BasicBlock::Create(ctx, "entry", ll_init_func);
+
+    // Find the panic function for bounds checking.
+    ll_panic_func = mod.getFunction("__LibBerry_Panic");
+    Assert(ll_panic_func != nullptr, "missing __LibBerry_Panic");
 }
 
 void CodeGenerator::finishModule() {

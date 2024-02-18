@@ -190,7 +190,7 @@ void Checker::checkField(AstExpr* node) {
 
 void Checker::checkArray(AstExpr* node) {
     auto& arr = node->an_Array;
-    Assert(arr.elems.size() > 0, "empty array literal are not implemented yet");
+    Assert(arr.elems.size() > 0, "empty array literals are not implemented yet");
 
     for (auto& elem : arr.elems) {
         checkExpr(elem);

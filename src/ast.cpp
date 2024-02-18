@@ -5,7 +5,6 @@ bool AstExpr::IsLValue() const {
     case AST_IDENT:
     case AST_DEREF:
     case AST_INDEX:
-    case AST_SLICE:
         return true;
     }
 

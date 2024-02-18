@@ -1,0 +1,70 @@
+// Useful API Functions
+@[extern, callconv("win64")]
+func ExitProcess(exit_code: u32);
+
+@[extern, callconv("win64")]
+func GetStdHandle(n_handle: u32) *u8;
+
+@[extern, callconv("win64")]
+func WriteConsoleA(h: *u8, buff: *u8, n_to_write: i32, n_written: *i32, reserved: *u8) bool;
+
+// Berry Runtime
+@extern
+func __LibBerry_Init();
+
+@abientry
+func __LibBerry_Start() {
+    __LibBerry_Init();
+
+    main();
+
+    ExitProcess(0);
+}
+
+@abientry
+func __LibBerry_Panic() {
+    ExitProcess(1);
+}
+
+let stdout: *u8 = GetStdHandle(-11 as u32);
+
+// User Code
+func putc(c: i32) {
+    let b = c as u8;
+    WriteConsoleA(stdout, &b, 1, null, null);
+}
+
+// ------------------------------------------------------------------------- //
+
+func puti(n: i64) {
+    if n == 0 {
+        putc('0');
+    } elif n < 0 {
+        putc('-');
+        n = -n;
+    }
+
+    let place = 1_000_000_000_000_000_000;
+    let hit_nonzero = false;
+    while place > 0 {
+        let digit = (n / place) % 10;
+
+        if digit > 0 || hit_nonzero {
+            putc('0' + (digit as i32));
+            hit_nonzero = true;
+        }
+
+        place /= 10;
+    }
+}
+
+func write(b: []u8) {
+    WriteConsoleA(stdout, b._ptr, b._len as i32, null, null);
+}
+
+func main() {
+    let arr = ['H' as u8, 'e' as u8, '!' as u8, '\n' as u8];
+    write(arr);
+
+    write("Hello, world!\n");
+}

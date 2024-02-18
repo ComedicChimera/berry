@@ -238,7 +238,9 @@ llvm::DIType* DebugGenerator::GetDIType(Type* type, uint call_conv) {
             call_conv
         );
     }
-    // TODO: arrays
+    case TYPE_ARRAY:
+        // TODO: dwarf arrays are weird...
+        return prim_type_table[1];
     }
 
     Panic("unsupported type");

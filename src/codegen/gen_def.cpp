@@ -149,6 +149,10 @@ void CodeGenerator::genGlobalVarDecl(AstDef* node) {
 }
 
 void CodeGenerator::genGlobalVarInit(AstDef* node) {
+    if (!node->an_GlobalVar.init) {
+        return;
+    }
+
     // No debug info for global variable expressions.
     debug.PushDisable();
 

@@ -360,6 +360,7 @@ AstExpr* Parser::parseAtom() {
         next();
 
         auto* abool = allocExpr(AST_BOOL, prev.span);
+        abool->type = &prim_bool_type;
         abool->an_Bool.value = prev.value == "true";
         return abool;
     } break;
@@ -367,8 +368,8 @@ AstExpr* Parser::parseAtom() {
         next();
 
         auto* astr = allocExpr(AST_STR, prev.span);
-        astr->an_String.value = arena.MoveStr(std::move(prev.value));
         astr->type = &prim_string_type;
+        astr->an_String.value = arena.MoveStr(std::move(prev.value));
         return astr;
     } break;
     case TOK_IDENT: {
@@ -376,6 +377,7 @@ AstExpr* Parser::parseAtom() {
 
         auto* ident = allocExpr(AST_IDENT, prev.span);
         ident->an_Ident.temp_name = arena.MoveStr(std::move(prev.value));
+        ident->an_Ident.symbol = nullptr;
         return ident;
     } break;
     case TOK_LPAREN: {
