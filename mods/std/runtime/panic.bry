@@ -1,0 +1,20 @@
+module runtime;
+
+@[extern, callconv("win64")]
+func GetStdHandle(n_handle: u32) *u8;
+
+@[extern, callconv("win64")]
+func WriteConsoleA(h: *u8, buff: *u8, n_to_write: i32, n_written: *i32, reserved: *u8) bool;
+
+pub let _stdout: *u8 = GetStdHandle(-11 as u32);
+
+func rputs(s: []u8) {
+    WriteConsoleA(_stdout, s._ptr, s._len as i32, null, null);
+}
+
+@abientry
+func _Panic() {
+    rputs("panic!\n");
+
+    ExitProcess(1);
+}

@@ -1,0 +1,16 @@
+import io.std;
+
+let nums = [1, 2, 3, 4, 5];
+
+func printArray(arr) {
+    for let i = 0; i < arr._len; i++ {
+        std.PutInt(arr[i]);
+    }
+}
+
+func main() {
+    std.PutStr("Hello, world!\n");
+    printArray(nums);
+
+    std.PutInt(abs(-20));
+}

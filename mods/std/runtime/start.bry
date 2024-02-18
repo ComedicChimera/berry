@@ -1,0 +1,17 @@
+module runtime;
+
+@[extern, callconv("win64")]
+func ExitProcess(exit_code: u32);
+
+@extern
+func __LibBerry_Main();
+
+@abientry
+func __LibBerry_Start() {
+    __LibBerry_Init();
+
+    __LibBerry_Main();
+
+    ExitProcess(0);
+}
+
