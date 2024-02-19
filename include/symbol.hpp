@@ -27,7 +27,7 @@ struct Symbol {
     std::string_view name;
 
     // file_id the unique ID of the file defining the symbol/
-    int64_t file_id;
+    uint64_t file_id;
 
     // span is the source location of the symbol definition.
     TextSpan span;
@@ -52,7 +52,7 @@ struct SourceFile;
 // Module represents a Berry module.
 struct Module {
     // id is the module's unique ID.
-    int64_t id;
+    uint64_t id;
 
     // name is the identifying name or path of the module (ex: "main", "io.std")
     std::string name;
@@ -69,7 +69,7 @@ struct AstDef;
 // SourceFile represents a single source file in a Berry module.
 struct SourceFile {
     // id the file's unique ID.
-    int64_t id;
+    uint64_t id;
 
     // parent is the module the file is apart of.
     Module* parent;

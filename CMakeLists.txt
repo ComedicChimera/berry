@@ -12,6 +12,7 @@ set(SRCS
     "report.cpp" 
     "arena.cpp" 
     "ast.cpp"
+    "driver.cpp"
        
     "syntax/token.cpp"
     "syntax/lexer.cpp" 

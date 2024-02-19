@@ -31,9 +31,9 @@ static void handleWindowsError(const std::string& base_msg) {
         (LPTSTR)(&buff),
         0, nullptr  
     )) {
-        std::cout << "error: " << base_msg << "\n\n";
+        std::cerr << "error: " << base_msg << "\n\n";
     } else {
-        std::cout << "error: " << base_msg << ": " << buff << "\n\n";
+        std::cerr << "error: " << base_msg << ": " << buff << "\n\n";
         LocalFree(buff);
     }
 }
@@ -152,7 +152,7 @@ static bool runWindowsLinker(LinkConfig& cfg, Find_Result& win_data) {
 
     // If there is an error, print the linker's stdout.
     if (exit_code != 0) {
-        std::cout << "error: unresolved link errors:\n\n";
+        std::cerr << "error: unresolved link errors:\n\n";
 
         DWORD n_read;
         char buff[512];
@@ -162,10 +162,10 @@ static bool runWindowsLinker(LinkConfig& cfg, Find_Result& win_data) {
             }
 
             std::string data(buff, n_read);
-            std::cout << data;
+            std::cerr << data;
         } while(n_read > 0);
 
-        std::cout << "\n\n";
+        std::cerr << "\n\n";
     }
 
     CloseHandle(in_pipe);

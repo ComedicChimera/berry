@@ -1,41 +1,5 @@
 # The Berry Programming Language
 
-## CLI Info
-
-```
-Usage: berry [options] <filename>
-
-Flags:
-    -h, --help      Print usage message and exit
-    -d, --debug     Generate debug information
-    -v, --verbose   Print out compilation steps, list modules compiled
-    -V, --version   Print the compiler version and exit
-    -q, --quiet     Compile silently, no command line output
-
-Arguments:
-    -o, --outpath   Specify the output path (default = out[.exe])
-    -E, --emit      Specify the output format
-                    :: exe (default), static, shared, obj, asm, llvm, astdump
-    -g, --gendebug  Specify the debug format, automatically enables debug info
-                    :: native (default), gdb, msvc
-    -L, --libpath   Specify additional linker include directories
-    -l, --lib       Specify additional static libraries, shared libraries, or objects
-    -W, --warn      Enable specific warnings
-    -w, --nowarn    Disable specific warnings
-    -O, --opt       Set optimization level (default = 1)
-```
-
-Example: Output linked LLVM to `out.ll` with debug info:
-
-    berry -d -Ellvm -o out.ll mod.bry
-
-    // Equivalently:
-    berry --debug --emit=llvm --outpath out.ll mod.bry
-
-For single tac options, you can specify values with a space, an `=`, or directly
-after the option name. For double tac options, you can specify values with a
-space or with an `=`.  All option parsing is Unix style.
-
 ## Notes
 
 TODO: move to a more appropriate location.

@@ -18,6 +18,34 @@ typedef unsigned int uint;
 
 /* -------------------------------------------------------------------------- */
 
+// Panic prints a fatal error and exits the process.  This is only meant to be
+// used for unreachable states in the compiler (asserts, etc.).
+template<typename... Args>
+[[ noreturn ]] 
+inline void Panic(const std::string& fmt, Args&&... args) {
+    void impl_Panic(const std::string& msg);
+
+    impl_Panic(std::format(fmt, args...));
+}
+
+// Assert panics if cond is false with the given formatted message.
+template<typename... Args>
+inline void Assert(bool cond, const std::string& fmt, Args&&... args) {
+    if (!cond) {
+        Panic(fmt, args...);
+    }
+}
+
+// ReportFatal reports a fatal error during compilation.
+template<typename... Args>
+inline void ReportFatal(const std::string& fmt, Args&&... args) {
+    void impl_Fatal(const std::string& msg);
+
+    impl_Fatal(std::format(fmt, args...));
+}
+
+/* -------------------------------------------------------------------------- */
+
 // TextSpan is the location of a range of source text.
 struct TextSpan {
     // The line and column of the start of the range.
@@ -36,24 +64,6 @@ inline TextSpan SpanOver(const TextSpan& start, const TextSpan& end) {
 // thrower should report all appropriate information before throwing.
 struct CompileError : public std::exception {
 };
-
-// Panic prints a fatal error and exits the process.  This is only meant to be
-// used for unreachable states in the compiler (asserts, etc.).
-template<typename... Args>
-[[ noreturn ]] 
-inline void Panic(const std::string& fmt, Args&&... args) {
-    void impl_Panic(const std::string& msg);
-
-    impl_Panic(std::format(fmt, args...));
-}
-
-// Assert panics if cond is false with the given formatted message.
-template<typename... Args>
-inline void Assert(bool cond, const std::string& fmt, Args&&... args) {
-    if (!cond) {
-        Panic(fmt, args...);
-    }
-}
 
 // ReportCompileError reports a compile error to the console.
 template<typename... Args>
