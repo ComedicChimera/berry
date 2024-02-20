@@ -64,13 +64,13 @@ static std::string relPath(const std::string& base, const std::string& path) {
 class Compiler {
     Arena arena;
 
-    const CompilerConfig& cfg;
+    const BuildConfig& cfg;
 
     std::unordered_map<uint64_t, Module> mods;
     std::vector<std::string> temp_obj_files;
 
 public:
-    Compiler(const CompilerConfig& cfg)
+    Compiler(const BuildConfig& cfg)
     : cfg(cfg)
     {}
 
@@ -254,7 +254,7 @@ private:
     }
 };
 
-void RunCompiler(const CompilerConfig& cfg) {
+void BryCompile(const BuildConfig& cfg) {
     Compiler c(cfg);
     c.Compile();
 }

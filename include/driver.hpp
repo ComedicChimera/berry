@@ -25,7 +25,7 @@ enum DebugInfoFormat {
     DBGIS_COUNT
 };
 
-struct CompilerConfig {
+struct BuildConfig {
     std::string input_path;
 
     std::string out_path;
@@ -39,7 +39,7 @@ struct CompilerConfig {
 
     int opt_level;
 
-    CompilerConfig()
+    BuildConfig()
     // TODO: set output path based on target
     : out_path("out.exe")
     , out_fmt(OUTFMT_EXE)
@@ -49,6 +49,6 @@ struct CompilerConfig {
     {}
 };
 
-void RunCompiler(const CompilerConfig& cfg);
+void BryCompile(const BuildConfig& cfg);
 
 #endif

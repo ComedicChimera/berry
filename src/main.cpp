@@ -189,7 +189,7 @@ std::unordered_map<std::string_view, DebugInfoFormat> dbg_fmt_names {
     { "msvc", DBGI_CODEVIEW }
 };
 
-static void parseArgs(CompilerConfig& cfg, int argc, char* argv[]) {
+static void parseArgs(BuildConfig& cfg, int argc, char* argv[]) {
     Arg arg;
     while (getArg(arg, argc, argv)) {
         switch (arg.name) {
@@ -271,9 +271,9 @@ static void parseArgs(CompilerConfig& cfg, int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-    CompilerConfig cfg;
+    BuildConfig cfg;
 
     parseArgs(cfg, argc, argv);
 
-    RunCompiler(cfg);
+    BryCompile(cfg);
 }
