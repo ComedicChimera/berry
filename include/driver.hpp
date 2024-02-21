@@ -27,6 +27,7 @@ enum DebugInfoFormat {
 
 struct BuildConfig {
     std::string input_path;
+    std::vector<std::string> import_paths;
 
     std::string out_path;
     OutputFormat out_fmt;

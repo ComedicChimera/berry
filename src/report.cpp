@@ -11,7 +11,6 @@ int ErrorCount() {
 /* -------------------------------------------------------------------------- */
 
 void impl_ReportCompileError(
-    const std::string& mod_name, 
     const std::string& display_path, 
     const TextSpan& span,
     const std::string& message
@@ -19,8 +18,8 @@ void impl_ReportCompileError(
     err_count++;
 
     fprintf(
-        stderr, "error: [%s] %s:%zu:%zu: %s\n\n", 
-        mod_name.c_str(), display_path.c_str(), 
+        stderr, "error: %s:%zu:%zu: %s\n\n", 
+        display_path.c_str(), 
         span.start_line, span.start_col, 
         message.c_str()
     );

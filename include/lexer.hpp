@@ -153,7 +153,7 @@ private:
     // fatal reports a compile error and throws a CompileError to abort lexing.
     template<typename... Args>
     inline void fatal(const std::string& msg, Args&&... args) {
-        ReportCompileError(src_file.parent->name, src_file.display_path, getSpan(), msg, args...);
+        ReportCompileError(src_file.display_path, getSpan(), msg, args...);
         throw CompileError{};
     }
 

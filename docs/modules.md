@@ -32,10 +32,6 @@ valid name.  For enforce uniformity and fast lookups, files and directories
 composing module paths *must* have names which are valid Berry identifiers. That
 is, they must match the regex: `[a-zA-Z_][a-zA-Z0-9_]*`.  
 
-All error reporting is done with respect to import paths. So, to report an error
-in `src/a/b.bry`, the file will be pointed to as `[src] a/b.ry` where `src` is
-the name of bottom-most directory of the import path.
-
 If it happens that both a directory and a file match the specified name, then
 the file is given precedence.  For example, in directory structure:
 

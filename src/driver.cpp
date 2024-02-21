@@ -64,17 +64,19 @@ static std::string relPath(const std::string& base, const std::string& path) {
 class Compiler {
     Arena arena;
 
-    const BuildConfig& cfg;
+    BuildConfig& cfg;
 
     std::unordered_map<uint64_t, Module> mods;
     std::vector<std::string> temp_obj_files;
 
 public:
-    Compiler(const BuildConfig& cfg)
+    Compiler(BuildConfig& cfg)
     : cfg(cfg)
     {}
 
     void Compile() {
+        addDefaultImportPaths();        
+
         loadModule(cfg.input_path);
         check();
 
@@ -194,6 +196,16 @@ private:
         return id;
     }
 
+    void addDefaultImportPaths() {
+        auto input_stem = fs::path(cfg.input_path).stem().string();
+        cfg.import_paths.emplace(
+            cfg.import_paths.begin(), 
+            std::move(input_stem)
+        );
+
+        // TODO: locate `mods` directory
+    }
+
     /* ---------------------------------------------------------------------- */
 
     void initTargets() {
@@ -254,7 +266,7 @@ private:
     }
 };
 
-void BryCompile(const BuildConfig& cfg) {
+void BryCompile(BuildConfig& cfg) {
     Compiler c(cfg);
     c.Compile();
 }

@@ -52,6 +52,7 @@ enum OptName {
     OPT_WARN,
     OPT_NOWARN,
     OPT_OPTLEVEL,
+    OPT_IMPORT,
 
     OPTIONS_COUNT
 };
@@ -76,6 +77,7 @@ bool opt_requires_value[OPTIONS_COUNT] = {
     true,   // OPT_WARN
     true,   // OPT_NOWARN
     true,   // OPT_OPTLEVEL
+    true,   // OPT_IMPORT
 };
 
 std::unordered_map<char, OptName> opt_shortnames {
@@ -91,7 +93,8 @@ std::unordered_map<char, OptName> opt_shortnames {
     { 'l', OPT_LIB },
     { 'W', OPT_WARN },
     { 'w', OPT_NOWARN },
-    { 'O', OPT_OPTLEVEL }
+    { 'O', OPT_OPTLEVEL },
+    { 'I', OPT_IMPORT }
 };
 
 std::unordered_map<std::string_view, OptName> opt_longnames {
@@ -108,6 +111,7 @@ std::unordered_map<std::string_view, OptName> opt_longnames {
     { "warn", OPT_WARN },
     { "nowarn", OPT_NOWARN },
     { "optlevel", OPT_OPTLEVEL },
+    { "import", OPT_IMPORT }
 };
 
 static bool getArg(Arg& data, int& argc, char**& argv) {
@@ -262,6 +266,9 @@ static void parseArgs(BuildConfig& cfg, int argc, char* argv[]) {
                 usageError("optlevel must be between 0 and 3");
             }
         } break;
+        case OPT_IMPORT:
+            cfg.import_paths.emplace_back(arg.value);
+            break;
         }
     }
 

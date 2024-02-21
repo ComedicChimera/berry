@@ -67,21 +67,19 @@ struct CompileError : public std::exception {
 
 // ReportCompileError reports a compile error to the console.
 template<typename... Args>
-inline void ReportCompileError(
-    const std::string& mod_name, 
+inline void ReportCompileError( 
     const std::string& display_path, 
     const TextSpan& span,
     const std::string& message,
     Args&&... args
 ) {
     void impl_ReportCompileError(
-        const std::string& mod_name, 
         const std::string& display_path, 
         const TextSpan& span,
         const std::string& message
     );
 
-    impl_ReportCompileError(mod_name, display_path, span, std::format(message, args...));
+    impl_ReportCompileError(display_path, span, std::format(message, args...));
 }
 
 // ErrorCount returns the number of errors that have been reported.
