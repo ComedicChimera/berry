@@ -6,165 +6,78 @@ standalone file or many files in the same directory.
 
 **Table of Contents**:
 
-- [Module Construction](#mod-cons)
-- [File Naming](#naming)
 - [Import Resolution](#import-res)
 - [Import Statements](#import-stmts)
+- [Module Declarations](#mod-decl)
 - [Initialization Functions](#init-funcs)
 
-## <a name="mod-cons"/> Module Construction
+## <a name="import-res"/> Import Resolution
 
-Module names and paths must correspond to their enclosing directory structure.
-The module a particular file belongs to is communicated through an (optional)
-**module declaration**:
+Imports are resolved via absolute paths relative to well-defined import
+directories.  There is no notion of a "relative import" in Berry.
 
-```berry
-module mod_name;
-```
+To refer to a module's location, one uses a **module path** which is
+dot-separated sequence of identifiers:
 
-If a file doesn't have a module declaration, it becomes a single-file module where
-its name is determined directly from its file name (see [File Naming](#naming)).
+    a.b.c
 
-If a file does have a module declaration, then that declaration can take the
-form of either a single name (indicating a module at the top of its hierarchy)
-or a module path (which places the module as a submodule in a module hierarchy).
-The last name in a module's path is called its **leaf name** and the rest of the
-path is called its **stem**.
-
-A module's leaf name must either correspond to the name of the file or the name
-of the enclosing directory.  The former indicates that the module is a
-single-file module, and the latter indicates that the module is a part of a
-multi-file module spanning the current directory.
-
-The stem of the module path, if present, must correspond directly to the
-directory tree enclosing the current file.  For example, consider a file with
-the module declaration:
-
-```berry
-module a.b.c;
-```
-
-If this file is to be a single-file module, then it must have the path
-`a/b/c.bry` If this file is to be a multi-file (directory) module, then it must
-be enclosed in the path `a/b/c`.  In terms of naming requirements, `a`, `b`, and
-`c` must be meet the requirements in [File Naming](#naming).  Importantly, for
-directory modules, file names do not need to satisfy these requirements
-(although, we recommend that they should).
-
-Note that under this scheme, it is possible for single-file modules and
-multi-file modules to coexist in the same directory.  For example, if we had the
-directory layout:
-
-    foo/
-        a.bry
-        b.bry
-        c.bry
-        d.bry
-        bar/
-            e.bry
-
-It would be perfectly legal for `a.bry`, `b.bry`, and `c.bry` to all be apart of
-the module `foo` and for `d.bry` to be a standalone module named either `d` or
-`foo.d`.  Furthermore, the file `e.bry` could have any of the following module
-paths:
-
-    e
-    bar.e
-    foo.bar.e
-    bar
-    foo.bar
-
-## <a name="naming"/> File Naming
+Module paths are always computed absolutely with respect to the import path. For
+example, if the import path is `src/`, then the path `a.b.c` resolves to either
+`src/a/b/c.bry` or `src/a/b/c` depending on whether `c` is a single-file or
+multi-file module.
 
 Since module names are inferred from the names of files and directories, any
 file or directory which is intended to compose part of a module path must have a
 valid name.  For enforce uniformity and fast lookups, files and directories
-composing module paths *must* have names which are valid Berry identifiers.
-That is, they must match the regex: `[a-zA-Z_][a-zA-Z0-9_]*`.  
+composing module paths *must* have names which are valid Berry identifiers. That
+is, they must match the regex: `[a-zA-Z_][a-zA-Z0-9_]*`.  
 
-## <a name="import-res"/> Import Resolution
+All error reporting is done with respect to import paths. So, to report an error
+in `src/a/b.bry`, the file will be pointed to as `[src] a/b.ry` where `src` is
+the name of bottom-most directory of the import path.
 
-Import resolution happens via two primary mechanisms:
+If it happens that both a directory and a file match the specified name, then
+the file is given precedence.  For example, in directory structure:
 
-1. Relative Search
-2. Absolute Search
+    src/
+        a.bry
+        b.bry
+        b/
+            c.bry
+            d.bry
 
-**Relative search** is the default resolution mechanism.  It finds modules by
-using the local directory structure and module hierarchy.  The general approach
-can be stated as: *search from the parent down*.  In essence, any module can
-import any other module which is adjacent to or below its parent in the module
-hierarchy. For instance, consider the modules:
+The module path `a.b` will always resolve first to `b.bry`.  If `b.bry` is part
+of a multi-file module, then import resolution will try to load the multi-file
+module in `b`.
 
-    foo/
-        a.bry [foo]
-        b.bry [foo.b]
-        c.bry [c]
-        bar/
-            d.bry [bar.d]
-            e.bry [foo.bar.e]
-            f.bry [f]
-    baz/
-        g.bry [baz.g]
-        h.bry [h]
+To prevent these kinds of conflicts, we strongly recommend that you do not give
+the same name to adjacent files and directories.
 
-The module `foo` can import every other module including the nested modules `f`
-and `h` as could the module `foo.b` since its parent is also `foo`.  But, the
-module `c` can only import `foo`, `foo.b`, and the modules in `bar/`.  It cannot
-see anything outside of `foo`. Finally, the module `f`, can only see the module
-`bar.d` despite being a peer to `foo.bar.e` because the parent hierarchy of `e`
-is `foo` which is one directory level above the root of the hierarchy for `f`.
+Importantly, single-file and multi-file modules can co-exist in the same
+directory.  For example, the directory structure:
 
-We recommend that you do not organize your modules this way due to the weird
-behavior shown above.  The idiomatic way to organize this hierarchy would be:
+    src/
+        a.bry [module a]
+        b.bry [module b]
+        c/
+            d.bry [module c]
 
-    foo/
-        a.bry [foo]
-        b.bry [foo.b]
-        c.bry [foo.c]
-        bar/
-            d.bry [foo.bar.d]
-            e.bry [foo.bar.e]
-            f.bry [foo.bar.f]
-    baz/
-        g.bry [baz.g]
-        h.bry [baz.h]
+is a perfectly acceptable project organization.  
 
-As a final note, modules can shadow each other meaning that if you have a
-situation like:
+Note that multi-file modules always be constructed in sub-directories of the
+import paths.  For example, it would not be acceptable for `a` and `b` to form a
+multi-file module named `src` because it would then be impossible to import said
+module from within the project.
 
-    a.bry [a]
-    b.bry [b]
-    foo/
-        b.bry [b]
+Users can specify import paths via the command-line interface to the compiler; however,
 
-The module `a` will only be able to import the module `b` that is outside of
-`foo/`.  Again, we recommend against structuring your project's this way.
 
-If relative search fails to locate a matching module, then **absolute search**
-is invoked.  This system works based off of a series of **import paths** which
-are either part of the compiler or specified explicitly.  All compilations
-automatically have the import paths `mods/std` (standard library) and `mods/pub`
-(global installed modules) added by default.  
-
-Absolute search finds modules by simply exploring the top most level of the
-import path to find any directories or files matching the desired module path.
-Unlike relative search which works recursively starting from the module root,
-absolute search does not explore recursively except in the case when the module
-path has multiple components.
-
-For example, the module path `io` is resolved absolutely by searching all import
-paths for an directory named `io` or a file named `io.bry` *at the top level* of
-the import path.  That is, if the import path is `mods/std`, then it will look
-for a `mods/std/io.bry` and `mods/std/io` only.
-
-Conversely, the module path `io.std` is resolved by looking for a file or
-directory named `std` which is in the `io` subdirectory of the important path.
-For example, if the import path is `mods/std`, then it will only check for
-`mods/std/io/std` and `mods/std/io/std.bry`.
-
-Absolute resolution is a more primitive fallback for imports to global
-resources that don't require the level of sophisticated import semantics that
-may be needed within a specific project.
+TODO: just use Haskell's system (`a.b.c` resolves to either `src/a/b/c.bry` for
+single-file modules or `src/a/b/c` for multi-file modules).  The same system
+works for global and std imports.  All error reporting is done wrt the root
+directory (just use that as your relative path).  Make sure to comment on the
+notion of a module path and link to naming requirements (discussed in
+#mod-decl).  Single-file modules and multi-file modules can coexist.
 
 ## <a name="import-stmts"/> Import Statements
 
@@ -200,6 +113,25 @@ One can rename imports using `as` clauses for each import.
         threads,
         fs.path as fpath
     );
+
+## <a name="mod-decl"/> Module Declarations
+
+Modules can be defined via a **module declaration** which specifies the module's
+name. Module declarations must occur as the first statement in a file. The
+module name must either be the same as the file name or the same as the
+directory name. In the former case, the module is a single-file module.  In the
+latter case, the module is a multi-file module.  If no module declaration is
+included, then the module is assumed to be a single file module.
+
+Module declarations use the syntax:
+
+```berry
+module mod_name;
+```
+
+Although module declarations are not required, we recommend that all module's in
+a project include one to make explicit where and how they fit in the module
+hierarchy.
 
 ## <a name="init-funcs"/> Initialization Functions
 
