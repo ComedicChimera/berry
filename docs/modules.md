@@ -69,15 +69,18 @@ import paths.  For example, it would not be acceptable for `a` and `b` to form a
 multi-file module named `src` because it would then be impossible to import said
 module from within the project.
 
-Users can specify import paths via the command-line interface to the compiler; however,
+Users can specify import paths via the command-line interface to the compiler;
+however, several import paths are added by default:
 
+1. The input directory passed to the compiler.  If a file was specified as
+   compiler input, then this would be the directory containing that file.
+2. The global public modules directory `$BERRY_PATH$/mods/pub`
+3. The standard library modules directory `$BERRY_PATH$/mods/std`.
 
-TODO: just use Haskell's system (`a.b.c` resolves to either `src/a/b/c.bry` for
-single-file modules or `src/a/b/c` for multi-file modules).  The same system
-works for global and std imports.  All error reporting is done wrt the root
-directory (just use that as your relative path).  Make sure to comment on the
-notion of a module path and link to naming requirements (discussed in
-#mod-decl).  Single-file modules and multi-file modules can coexist.
+Import paths are search in order with the input directory *always* being the
+first. Additional import paths specified via the `-I` command line option will
+be search after the input directory and before the global public modules
+directory.
 
 ## <a name="import-stmts"/> Import Statements
 
