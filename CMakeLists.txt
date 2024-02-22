@@ -13,7 +13,7 @@ set(SRCS
     "arena.cpp" 
     "ast.cpp"
     "driver.cpp"
-    "mtable.cpp"
+    "loader.cpp"
        
     "syntax/token.cpp"
     "syntax/lexer.cpp" 

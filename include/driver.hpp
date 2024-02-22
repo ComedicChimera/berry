@@ -50,6 +50,6 @@ struct BuildConfig {
     {}
 };
 
-void BryCompile(const BuildConfig& cfg);
+void Compile(const BuildConfig& cfg);
 
 #endif

@@ -282,5 +282,5 @@ int main(int argc, char* argv[]) {
 
     parseArgs(cfg, argc, argv);
 
-    BryCompile(cfg);
+    Compile(cfg);
 }

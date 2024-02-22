@@ -70,7 +70,7 @@ however, several import paths are added by default:
 
 1. The input directory passed to the compiler.  If a file was specified as
    compiler input, then this would be the directory containing that file.
-2. The global public modules directory `$BERRY_PATH$/mods/pub`
+2. ~~The global public modules directory `$BERRY_PATH$/mods/pub`.~~
 3. The standard library modules directory `$BERRY_PATH$/mods/std`.
 
 Import paths are search in order with the input directory *always* being the
