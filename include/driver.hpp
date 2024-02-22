@@ -42,7 +42,7 @@ struct BuildConfig {
     int opt_level;
 
     BuildConfig()
-    : out_path("out")
+    : out_path("berry-out")
     , out_fmt(OUTFMT_DEFAULT)
     , should_emit_debug(false)
     , debug_fmt(DBGI_NATIVE)
