@@ -32,5 +32,12 @@ void impl_Panic(const std::string& msg) {
 
 void impl_Fatal(const std::string& msg) {
     fprintf(stderr, "fatal: %s\n\n", msg.c_str());
-    exit(1);
+    
+    throw CompileError{};
+}
+
+void impl_Error(const std::string& msg) {
+    err_count++;
+    
+    fprintf(stderr, "error: %s\n\n", msg.c_str());
 }

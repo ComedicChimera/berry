@@ -44,6 +44,14 @@ inline void ReportFatal(const std::string& fmt, Args&&... args) {
     impl_Fatal(std::format(fmt, args...));
 }
 
+// ReportError reports a non-fatal error during compilation.
+template<typename... Args>
+inline void ReportError(const std::string& fmt, Args&&... args) {
+    void impl_Error(const std::string& msg);
+
+    impl_Error(std::format(fmt, args...));
+}
+
 /* -------------------------------------------------------------------------- */
 
 // TextSpan is the location of a range of source text.

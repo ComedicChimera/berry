@@ -9,6 +9,5 @@ struct LinkConfig {
 };
 
 bool RunLinker(LinkConfig& cfg);
-void RemoveObjFile(const std::string& fpath);
 
 #endif

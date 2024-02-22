@@ -183,11 +183,3 @@ bool RunLinker(LinkConfig& cfg) {
     free_resources(&win_data);
     return result;
 }
-
-/* -------------------------------------------------------------------------- */
-
-void RemoveObjFile(const std::string& fpath) {
-    if (!DeleteFileA(fpath.c_str())) {
-        handleWindowsError("deleting object file " + fpath);
-    }
-}

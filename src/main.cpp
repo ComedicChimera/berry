@@ -1,8 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
+#include <filesystem>
 
 #include "driver.hpp"
+
+namespace fs = std::filesystem;
 
 std::string usage_str = 
     "Usage: berry [options] <filename>\n"
@@ -194,6 +197,9 @@ std::unordered_map<std::string_view, DebugInfoFormat> dbg_fmt_names {
 };
 
 static void parseArgs(BuildConfig& cfg, int argc, char* argv[]) {
+    // Shift off the process name argument.
+    argv++;
+
     Arg arg;
     while (getArg(arg, argc, argv)) {
         switch (arg.name) {
@@ -282,5 +288,28 @@ int main(int argc, char* argv[]) {
 
     parseArgs(cfg, argc, argv);
 
-    Compile(cfg);
+    // Determine output format by extension.
+    if (cfg.out_fmt == OUTFMT_DEFAULT) {
+        auto out_path_fs = fs::path(cfg.out_path);
+        if (out_path_fs.has_extension()) {
+            auto ext = out_path_fs.extension();
+
+            // TODO: should this be platform dependent?
+            if (ext == ".lib" || ext == ".a") {
+                cfg.out_fmt = OUTFMT_STATIC;
+            } else if (ext == ".dll" || ext == ".so") {
+                cfg.out_fmt = OUTFMT_SHARED;
+            } else {
+                cfg.out_fmt = OUTFMT_EXE;
+            }
+        } else {
+            cfg.out_fmt = OUTFMT_EXE;
+        }
+    }
+
+    if (!Compile(cfg)) {
+        return 1;
+    }
+
+    return 0;
 }

@@ -14,6 +14,7 @@ set(SRCS
     "ast.cpp"
     "driver.cpp"
     "loader.cpp"
+    "linker.cpp"
        
     "syntax/token.cpp"
     "syntax/lexer.cpp" 
@@ -41,8 +42,6 @@ set(SRCS
     "codegen/gen_expr.cpp"
     "codegen/gen_stmt.cpp"
     "codegen/gen_debug.cpp"
-
-    "link/linker.cpp"
 
     "test/arena_test.cpp"
     "test/ast_print.cpp"

@@ -14,6 +14,7 @@ enum OutputFormat {
     OUTFMT_LLVM,
     OUTFMT_DUMPAST,
 
+    OUTFMT_DEFAULT,
     OUTFMTS_COUNT
 };
 
@@ -41,15 +42,14 @@ struct BuildConfig {
     int opt_level;
 
     BuildConfig()
-    // TODO: set output path based on target
-    : out_path("out.exe")
-    , out_fmt(OUTFMT_EXE)
+    : out_path("out")
+    , out_fmt(OUTFMT_DEFAULT)
     , should_emit_debug(false)
     , debug_fmt(DBGI_NATIVE)
     , opt_level(1)
     {}
 };
 
-void Compile(const BuildConfig& cfg);
+bool Compile(const BuildConfig& cfg);
 
 #endif
