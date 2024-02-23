@@ -5,6 +5,8 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#include "parser.hpp"
+
 #if OS_WINDOWS
     #define WIN32_LEAN_AND_MEAN 1
 	#define WIN32_MEAN_AND_LEAN 1
@@ -77,5 +79,74 @@ void Loader::LoadDefaults() {
 }
 
 void Loader::LoadAll(const std::string& root_mod) {
-    
+    auto root_path = fs::path(root_mod);
+    // TODO: check to see whether root_mod is directory module.
+
+    local_path = root_path.stem().string();
+    loadModule(local_path, root_mod);
+}
+
+/* -------------------------------------------------------------------------- */
+
+void Loader::loadModule(const std::string& import_path, const std::string& mod_path) {
+    std::error_code ec;
+    auto mod_abs_path_fs = fs::absolute(mod_path, ec);
+    if (ec) {
+        ReportFatal("computing absolute path to module: {}", ec.message());
+    }
+
+    auto mod_abs_path = mod_abs_path_fs.string();
+    auto& mod = mod_table.emplace(mod_abs_path, Module{
+        getUniqueId(),
+        mod_abs_path_fs.filename().string()
+    }).first->second;
+
+    if (fs::is_regular_file(mod_abs_path_fs)) {
+        try {
+            auto display_path = fs::relative(mod_abs_path_fs, import_path, ec);
+            if (ec) {
+                ReportFatal("computing file display path: {}", ec.message());
+            }
+
+            auto& src_file = mod.files.emplace_back(SourceFile{
+                getUniqueId(),
+                &mod,
+                mod_abs_path,
+                display_path.string()
+            });
+
+            std::ifstream file(mod_abs_path);
+            if (!file) {
+                ReportFatal("opening source file: {}", strerror(errno));
+            }
+            Parser p(arena, file, src_file);
+            p.ParseFile();
+        } catch (CompileError&) {
+            // Stop parse error bubbling
+        }
+    } else if (fs::is_directory(mod_abs_path_fs)) {
+        // TODO: directory modules
+    } else {
+        ReportFatal("module must be a file or directory");
+    }
+
+    // TODO: add modules to load queue
+}
+
+// #define FNV_OFFSET_BASIS 0xcbf29ce484222325
+// #define FNV_PRIME 0x100000001b3
+
+// static uint64_t fnvHash(const std::string& name) {
+//     uint64_t h = FNV_OFFSET_BASIS;
+
+//     for (auto& c : name) {
+//         h ^= c;
+//         h *= FNV_PRIME;
+//     }
+
+//     return h;
+// }
+
+uint64_t Loader::getUniqueId() {
+    return id_counter++;
 }

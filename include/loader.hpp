@@ -4,12 +4,14 @@
 #include "symbol.hpp"    
 
 class Loader {
-    using ModuleTable = std::unordered_map<std::string_view, Module>;
+    using ModuleTable = std::unordered_map<std::string, Module>;
 
     Arena& arena;
     ModuleTable mod_table;
     std::vector<std::string> import_paths;
     std::string local_path;
+
+    uint64_t id_counter;
 
 public:
     class ModuleIterator {
@@ -42,8 +44,10 @@ public:
 
     inline ModuleIterator begin() { return ModuleIterator(mod_table.begin()); }
     inline ModuleIterator end() { return ModuleIterator(mod_table.end()); }
+
+private:
+    void loadModule(const std::string& import_path, const std::string& mod_path);
+    uint64_t getUniqueId();
 };
-
-
 
 #endif

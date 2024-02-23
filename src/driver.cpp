@@ -22,40 +22,6 @@ namespace fs = std::filesystem;
 
 #include "test/ast_print.hpp"
 
-#define FNV_OFFSET_BASIS 0xcbf29ce484222325
-#define FNV_PRIME 0x100000001b3
-
-static uint64_t fnvHash(const std::string& name) {
-    uint64_t h = FNV_OFFSET_BASIS;
-
-    for (auto& c : name) {
-        h ^= c;
-        h *= FNV_PRIME;
-    }
-
-    return h;
-}
-
-static std::string absPath(const std::string& rel_path) {
-    std::error_code err_code;
-    auto abs_path = fs::absolute(rel_path, err_code);
-    if (err_code) {
-        ReportFatal("computing absolute path: {}", err_code.message());
-    }
-
-    return abs_path.string();
-}
-
-static std::string relPath(const std::string& base, const std::string& path) {
-    std::error_code err_code;
-    auto rel_path = fs::relative(path, base, err_code);
-    if (err_code) {
-        ReportFatal("computing relative path: {}", err_code.message());
-    }
-
-    return rel_path.string();
-}
-
 /* -------------------------------------------------------------------------- */
 
 #define FULL_LINE "/* ------------------------------------------------------- */\n"
