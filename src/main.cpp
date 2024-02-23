@@ -27,7 +27,8 @@ std::string usage_str =
     "    -l, --lib       Specify additional static libraries, shared libraries, or objects\n"
     "    -W, --warn      Enable specific warnings\n"
     "    -w, --nowarn    Disable specific warnings\n"
-    "    -O, --optlevel  Set optimization level (default = 1)\n\n";
+    "    -O, --optlevel  Set optimization level (default = 1)\n"
+    "    -I, --import    Specify additional import path\n\n";
 
 template<typename ...Args>
 static void usageError(const std::string fmt, Args&&... args) {
@@ -124,7 +125,7 @@ static bool getArg(Arg& data, int& argc, char**& argv) {
     std::string_view saved_opt_name { "" };
     while (argc > 0) {
         std::string_view arg = argv[0];
-        argv = argv + 1;
+        argv++;
         argc--;
 
         if (arg.size() == 0) {
@@ -199,6 +200,7 @@ std::unordered_map<std::string_view, DebugInfoFormat> dbg_fmt_names {
 static void parseArgs(BuildConfig& cfg, int argc, char* argv[]) {
     // Shift off the process name argument.
     argv++;
+    argc--;
 
     Arg arg;
     while (getArg(arg, argc, argv)) {

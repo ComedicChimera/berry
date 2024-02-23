@@ -98,7 +98,7 @@ void Loader::loadModule(const std::string& import_path, const std::string& mod_p
     auto mod_abs_path = mod_abs_path_fs.string();
     auto& mod = mod_table.emplace(mod_abs_path, Module{
         getUniqueId(),
-        mod_abs_path_fs.filename().string()
+        mod_abs_path_fs.filename().replace_extension().string()
     }).first->second;
 
     if (fs::is_regular_file(mod_abs_path_fs)) {

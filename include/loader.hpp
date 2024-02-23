@@ -11,7 +11,7 @@ class Loader {
     std::vector<std::string> import_paths;
     std::string local_path;
 
-    uint64_t id_counter;
+    uint64_t id_counter { 0 };
 
 public:
     class ModuleIterator {

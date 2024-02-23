@@ -123,9 +123,9 @@ class CodeGenerator {
 
 public:
     // Creates a new code generator using ctx and outputting to mod.
-    CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& bry_mod)
+    CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& bry_mod, bool debug)
     : ctx(ctx), mod(mod), irb(ctx)
-    , debug(true, mod, irb)
+    , debug(debug, mod, irb)
     , bry_mod(bry_mod)
     , ll_enclosing_func(nullptr)
     , var_block(nullptr)

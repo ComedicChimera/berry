@@ -48,7 +48,9 @@ static bool runWindowsLinker(LinkConfig& cfg, Find_Result& win_data) {
     command.append(cfg.out_path);
 
     // Generate debug info.
-    command.append(" /debug:full");
+    if (cfg.should_emit_debug) {
+        command.append(" /debug:full");
+    }
 
     // Add Windows library paths
     command.append(" /libpath:");

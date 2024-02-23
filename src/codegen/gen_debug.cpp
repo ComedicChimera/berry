@@ -23,8 +23,7 @@ void DebugGenerator::PopDisable() {
 
 /* -------------------------------------------------------------------------- */
 
-void DebugGenerator::EmitFileInfo(SourceFile &src_file)
-{
+void DebugGenerator::EmitFileInfo(SourceFile &src_file) {
     if (no_emit) {
         return;
     }
@@ -64,7 +63,9 @@ void DebugGenerator::SetCurrentFile(SourceFile& src_file) {
 }
 
 void DebugGenerator::FinishModule() {
-    db.finalize();
+    if (!no_emit) {
+        db.finalize();
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -191,6 +192,10 @@ void DebugGenerator::ClearDebugLocation() {
 }
 
 llvm::DILocation* DebugGenerator::GetDebugLoc(llvm::DIScope* scope, const TextSpan& span) {
+    if (no_emit) {
+        return nullptr;
+    }
+
     return llvm::DILocation::get(
         scope->getContext(),
         span.start_line,
@@ -202,6 +207,10 @@ llvm::DILocation* DebugGenerator::GetDebugLoc(llvm::DIScope* scope, const TextSp
 /* -------------------------------------------------------------------------- */
 
 llvm::DIType* DebugGenerator::GetDIType(Type* type, uint call_conv) {
+    if (no_emit) {
+        return nullptr;
+    }
+
     type = type->Inner();
 
     switch (type->kind) {
@@ -248,6 +257,10 @@ llvm::DIType* DebugGenerator::GetDIType(Type* type, uint call_conv) {
 }
 
 void DebugGenerator::buildTypeTable() {
+    if (no_emit) {
+        return;
+    }
+
     prim_type_table[0] = db.createBasicType("unit", 1, llvm::dwarf::DW_ATE_boolean);
     prim_type_table[11] = db.createBasicType("bool", 1, llvm::dwarf::DW_ATE_boolean);
 

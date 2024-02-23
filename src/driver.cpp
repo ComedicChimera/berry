@@ -110,28 +110,34 @@ private:
 
         auto* tm = createTargetMachine();
 
+        // The modules in this vector have to be unique pointers because it
+        // seems like for whatever reason, the LLVM api deletes both the copy
+        // and the move constructor of llvm::Module, so it is impossible to
+        // store them directly in a vector.  This is my hypothesis anyway; at
+        // any rate, any version of this code that stores the LLVM modules as
+        // values won't compile (results a slurry of C++ template errors).
         llvm::LLVMContext ll_ctx;
-        std::vector<llvm::Module&> ll_mods;
+        std::vector<std::unique_ptr<llvm::Module>> ll_mods;
         for (auto& mod : loader) {
-            auto& ll_mod = ll_mods.emplace_back(llvm::Module(std::format("m{}-{}.ll", mod.id, mod.name), ll_ctx));
-            ll_mod.setDataLayout(tm->createDataLayout());
-            ll_mod.setTargetTriple(tm->getTargetTriple().str());
+            auto& ll_mod = ll_mods.emplace_back(std::make_unique<llvm::Module>(std::format("m{}-{}", mod.id, mod.name), ll_ctx));
+            ll_mod->setDataLayout(tm->createDataLayout());
+            ll_mod->setTargetTriple(tm->getTargetTriple().str());
 
-            CodeGenerator cg(ll_ctx, ll_mod, mod);
+            CodeGenerator cg(ll_ctx, *ll_mod, mod, cfg.should_emit_debug);
             cg.GenerateModule();
         }
 
         std::error_code ec;
         if (cfg.out_fmt == OUTFMT_LLVM) {
             for (auto& ll_mod : ll_mods) {
-                auto out_path = (fs::path(out_dir) / fs::path(ll_mod.getModuleIdentifier() + ".ll")).string();
+                auto out_path = (fs::path(out_dir) / fs::path(ll_mod->getModuleIdentifier() + ".ll")).string();
 
                 llvm::raw_fd_ostream out_file(out_path, ec, llvm::sys::fs::OF_None);
                 if (ec) {
                     ReportFatal("error: opening output file: {}", ec.message());
                 }
 
-                ll_mod.print(out_file, nullptr);
+                ll_mod->print(out_file, nullptr);
 
                 out_file.flush();
                 out_file.close();
@@ -154,29 +160,15 @@ private:
         }
 
         for (auto& ll_mod : ll_mods) {
-            auto out_path = (fs::path(out_dir) / fs::path(ll_mod.getModuleIdentifier() + file_ext)).string();
+            auto out_path = (fs::path(out_dir) / fs::path(ll_mod->getModuleIdentifier() + file_ext)).string();
                 
-            llvm::raw_fd_ostream out_file(out_path, ec, llvm::sys::fs::OF_None);
-            if (ec) {
-                ReportFatal("error: opening output file: {}", ec.message());
-            }
-
-            llvm::legacy::PassManager pass;
-            auto file_type = is_asm ? llvm::CodeGenFileType::CGFT_AssemblyFile : llvm::CodeGenFileType::CGFT_ObjectFile;
-            if (tm->addPassesToEmitFile(pass, out_file, nullptr, file_type)) {
-                ReportFatal("target machine was unable to generate output file\n");
-            }
-
-            pass.run(ll_mod);
-            out_file.flush();
-            out_file.close();  
+            emitModuleToFile(tm, ll_mod, out_path, is_asm);
 
             if (!is_asm) {
                 obj_files.push_back(out_path);
             }
         }
     }
-
 
     void link() {
         auto out_path_fs = fs::path(cfg.out_path);
@@ -206,7 +198,7 @@ private:
         }
 
         // TODO: different output formats (lib, dll)
-        LinkConfig lconfig { out_path_fs.string(), obj_files };
+        LinkConfig lconfig { out_path_fs.string(), obj_files, cfg.should_emit_debug };
         lconfig.obj_files.insert(lconfig.obj_files.end(), cfg.libs.begin(), cfg.libs.end()); 
 
         RunLinker(lconfig);
@@ -237,6 +229,29 @@ private:
             target_opt, 
             llvm::Reloc::PIC_
         );
+    }
+
+    void emitModuleToFile(llvm::TargetMachine* tm, std::unique_ptr<llvm::Module>& ll_mod, const std::string& out_path, bool is_asm) {
+        std::error_code ec;
+        llvm::raw_fd_ostream out_file(out_path, ec, llvm::sys::fs::OF_None);
+        if (ec) {
+            ReportFatal("error: opening output file: {}", ec.message());
+        }
+
+        llvm::legacy::PassManager pass;
+        auto file_type = is_asm ? llvm::CodeGenFileType::CGFT_AssemblyFile : llvm::CodeGenFileType::CGFT_ObjectFile;
+        if (tm->addPassesToEmitFile(pass, out_file, nullptr, file_type)) {
+            ReportFatal("target machine was unable to generate output file\n");
+        }
+
+        pass.run(*ll_mod);
+        out_file.flush();
+
+        // LLVM wants to do this automatically and throws a random assertion
+        // error if you try to do it yourself.  This is why this has to be
+        // factored out into its own function: the pass manager and out_file has
+        // to go out of scope at the same time, or LLVM throws a fit.
+        // out_file.close();  
     }
 
     /* ---------------------------------------------------------------------- */

@@ -6,6 +6,7 @@
 struct LinkConfig {
     std::string out_path;
     std::vector<std::string> obj_files;
+    bool should_emit_debug { false };
 };
 
 bool RunLinker(LinkConfig& cfg);
