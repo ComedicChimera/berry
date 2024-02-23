@@ -3,6 +3,14 @@
 void Parser::ParseFile() {
     next();
 
+    // Skip the module declaration if it is present: it should already have been
+    // checked/parsed by the loader before this call was made.
+    if (has(TOK_MODULE)) {
+        next();  // module
+        next();  // IDENT
+        next();  // SEMI
+    }
+
     MetadataMap meta;
     while (!has(TOK_EOF)) {
         if (has(TOK_ATSIGN)) {
@@ -11,6 +19,20 @@ void Parser::ParseFile() {
 
         parseDef(std::move(meta));
     }
+}
+
+Token Parser::ParseModuleName() {
+    if (has(TOK_MODULE)) {
+        next();
+
+        auto name = wantAndGet(TOK_IDENT);
+        want(TOK_SEMI);
+
+        return name;
+    }
+
+    // No name specified.
+    return { TOK_EOF };
 }
 
 /* -------------------------------------------------------------------------- */

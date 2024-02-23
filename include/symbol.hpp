@@ -85,6 +85,23 @@ struct SourceFile {
 
     // llvm_di_file is the debug info scope associated with this file.
     llvm::DIFile* llvm_di_file { nullptr };
+
+    SourceFile(uint64_t id_, Module* parent_, std::string&& abs_path_, std::string&& display_path_)
+    : id(id_)
+    , parent(parent_)
+    , abs_path(std::move(abs_path_))
+    , display_path(std::move(display_path_))
+    , llvm_di_file(nullptr)
+    {}
+
+    SourceFile(SourceFile&& src_file)
+    : id(src_file.id)
+    , parent(src_file.parent)
+    , abs_path(std::move(src_file.abs_path))
+    , display_path(std::move(src_file.display_path))
+    , defs(std::move(src_file.defs))
+    , llvm_di_file(src_file.llvm_di_file)
+    {}
 };
 
 #endif

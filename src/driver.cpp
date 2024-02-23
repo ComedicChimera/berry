@@ -46,7 +46,15 @@ public:
         loader.LoadDefaults();
         loader.LoadAll(cfg.input_path);
 
+        if (ErrorCount() > 0) {
+            return;
+        }
+
         check();
+
+        if (ErrorCount() > 0) {
+            return;
+        }
 
         switch (cfg.out_fmt) {
         case OUTFMT_EXE:

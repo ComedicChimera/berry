@@ -36,6 +36,9 @@ enum TokenKind {
     TOK_BOOL,
     TOK_UNIT,
 
+    TOK_MODULE,
+    TOK_IMPORT,
+
     TOK_PLUS,
     TOK_MINUS,
     TOK_STAR,

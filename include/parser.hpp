@@ -33,6 +33,7 @@ public:
     
     // ParseFile runs the parser on the parser's file.
     void ParseFile();
+    Token ParseModuleName();
 
 private:
     void parseMetadata(MetadataMap &meta);

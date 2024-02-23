@@ -163,6 +163,8 @@ static std::unordered_map<std::string, TokenKind> keyword_patterns {
     { "f64", TOK_F64 },
     { "bool", TOK_BOOL },
     { "unit", TOK_UNIT },
+    { "module", TOK_MODULE },
+    { "import", TOK_IMPORT },
     { "true", TOK_BOOLLIT },
     { "false", TOK_BOOLLIT }
 };

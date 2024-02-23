@@ -1,15 +1,20 @@
 #ifndef LOADER_H_INC
 #define LOADER_H_INC
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 #include "symbol.hpp"    
+
+#define BERRY_FILE_EXT ".bry"
 
 class Loader {
     using ModuleTable = std::unordered_map<std::string, Module>;
 
     Arena& arena;
     ModuleTable mod_table;
-    std::vector<std::string> import_paths;
-    std::string local_path;
+    std::vector<fs::path> import_paths;
+    fs::path local_path;
 
     uint64_t id_counter { 0 };
 
@@ -38,7 +43,7 @@ public:
         friend bool operator!=(const ModuleIterator& a, const ModuleIterator& b) { return a.it != b.it; }
     };
 
-    Loader(Arena& arena, const std::vector<std::string>& import_paths) : arena(arena), import_paths(import_paths) {}
+    Loader(Arena& arena, const std::vector<std::string>& import_paths);
     void LoadDefaults();
     void LoadAll(const std::string& root_mod);
 
@@ -46,7 +51,16 @@ public:
     inline ModuleIterator end() { return ModuleIterator(mod_table.end()); }
 
 private:
-    void loadModule(const std::string& import_path, const std::string& mod_path);
+    void loadRootModule(fs::path& root_mod_abs_path);
+    void loadModule(const fs::path& import_path, const fs::path& mod_abs_path);
+    Module& initModule(const fs::path& import_path, const fs::path& mod_abs_path);
+    void parseModule(Module& mod);
+    void resolveImports(Module& mod);
+
+    /* ---------------------------------------------------------------------- */
+
+    Module& addModule(const fs::path& mod_abs_path, const std::string &mod_name);
+    std::string getModuleName(SourceFile &src_file);
     uint64_t getUniqueId();
 };
 

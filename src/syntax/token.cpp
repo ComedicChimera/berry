@@ -29,6 +29,8 @@ std::string kindNames[TOKENS_COUNT] = {
     "f64",
     "bool",
     "unit",
+    "module",
+    "import",
     "+",
     "-",
     "*",
