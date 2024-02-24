@@ -116,7 +116,13 @@ void Loader::LoadAll(const std::string& root_mod) {
         auto entry = load_queue.front();
         load_queue.pop();
 
-        entry.dep.mod = &loadModule(entry.local_path, entry.mod_path);
+        auto it = mod_table.find(entry.mod_path.string());
+        if (it != mod_table.end()) {
+            entry.dep.mod = &it->second;
+        } else {
+            entry.dep.mod = &loadModule(entry.local_path, entry.mod_path);
+        }
+
     }
 }
 
