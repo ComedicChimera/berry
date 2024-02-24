@@ -36,6 +36,10 @@ public:
     Token ParseModuleName();
 
 private:
+    void parseImportStmt();
+    void parseModulePath();
+    size_t findOrAddModuleDep(const std::vector<Token>& tok_mod_path);
+
     void parseMetadata(MetadataMap &meta);
     void parseMetaTag(MetadataMap &meta);
 

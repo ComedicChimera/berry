@@ -111,7 +111,7 @@ struct SourceFile {
     std::vector<AstDef*> defs;
 
     // import_table stores the package's imports.
-    std::unordered_map<std::string_view, uint> import_table;
+    std::unordered_map<std::string_view, size_t> import_table;
 
     // llvm_di_file is the debug info scope associated with this file.
     llvm::DIFile* llvm_di_file { nullptr };
