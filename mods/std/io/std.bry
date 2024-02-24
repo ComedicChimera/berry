@@ -8,7 +8,7 @@ func WriteConsoleA(h: *u8, buff: *u8, n_to_write: i32, n_written: *i32, reserved
 /* ------------------------------------------------------------------------- */
 
 let stdout: *u8 = runtime._stdout;
-let out_buff: []u8 = new u8[2048];
+let out_buff: []u8 = new u8[4096];
 let out_cursor: i64;
 
 func write(b: []u8) {

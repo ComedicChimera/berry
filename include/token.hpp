@@ -38,6 +38,7 @@ enum TokenKind {
 
     TOK_MODULE,
     TOK_IMPORT,
+    TOK_PUB,
 
     TOK_PLUS,
     TOK_MINUS,

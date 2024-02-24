@@ -145,6 +145,9 @@ struct AstExpr : public AstNode {
         struct {
             AstExpr* root;
             std::string_view field_name;
+
+            // This will be nullptr if this is not a static get.
+            Symbol* imported_sym { nullptr };
         } an_Field;
         struct {
             AstExpr* func;

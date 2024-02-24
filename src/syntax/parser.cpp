@@ -11,17 +11,25 @@ void Parser::ParseFile() {
         next();  // SEMI
     }
 
-    while (TOK_IMPORT) {
+    while (has(TOK_IMPORT)) {
         parseImportStmt();
     }
 
     MetadataMap meta;
+    bool exported = false;
     while (!has(TOK_EOF)) {
         if (has(TOK_ATSIGN)) {
             parseMetadata(meta);
         }
 
-        parseDef(std::move(meta));
+        if (has(TOK_PUB)) {
+            next();
+            exported = true;
+        } else {
+            exported = false;
+        }
+
+        parseDef(std::move(meta), exported);
     }
 }
 

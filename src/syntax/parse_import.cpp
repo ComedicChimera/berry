@@ -1,6 +1,8 @@
 #include "parser.hpp"
 
 Token Parser::ParseModuleName() {
+    next();
+
     if (has(TOK_MODULE)) {
         next();
 
@@ -55,7 +57,7 @@ void Parser::parseModulePath() {
         auto dep_id = findOrAddModuleDep(mod_path);
 
         auto imported_name = arena.MoveStr(std::move(imported_name_tok.value));
-        src_file.import_table[imported_name] = dep_id;
+        src_file.import_table.emplace(imported_name, SourceFile::ImportEntry{ dep_id });
     } else {
         error(imported_name_tok.span, "multiple imports with name {}", imported_name_tok.value);
     }
@@ -90,6 +92,5 @@ size_t Parser::findOrAddModuleDep(const std::vector<Token>& tok_mod_path) {
     }
 
     auto& dep = src_file.parent->deps.emplace_back(std::move(mod_path), std::move(import_loc));
-    dep.import_locs.push_back(import_loc);
     return src_file.parent->deps.size() - 1;
 }

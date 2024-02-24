@@ -165,6 +165,7 @@ static std::unordered_map<std::string, TokenKind> keyword_patterns {
     { "unit", TOK_UNIT },
     { "module", TOK_MODULE },
     { "import", TOK_IMPORT },
+    { "pub", TOK_PUB },
     { "true", TOK_BOOLLIT },
     { "false", TOK_BOOLLIT }
 };

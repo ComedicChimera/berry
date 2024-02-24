@@ -48,25 +48,6 @@ Type* Checker::newUntyped(UntypedKind kind) {
 
 /* -------------------------------------------------------------------------- */
 
-Symbol* Checker::lookup(std::string_view name, const TextSpan &span) {
-    for (int i = scope_stack.size() - 1; i >= 0; i--) {
-        auto& scope = scope_stack[i];
-
-        auto it = scope.find(name);
-        if (it != scope.end()) {
-            return it->second;
-        }
-    }
-
-    auto it = src_file.parent->symbol_table.find(name);
-    if (it != src_file.parent->symbol_table.end()) {
-        return it->second;
-    }
-
-    fatal(span, "undefined symbol: {}", name);
-    return nullptr;
-}
-
 void Checker::declareLocal(Symbol* sym) {
     Assert(scope_stack.size() > 0, "declare local on empty scope stack");
 

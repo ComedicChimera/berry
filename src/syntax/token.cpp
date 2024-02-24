@@ -31,6 +31,7 @@ std::string kindNames[TOKENS_COUNT] = {
     "unit",
     "module",
     "import",
+    "pub",
     "+",
     "-",
     "*",

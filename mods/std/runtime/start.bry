@@ -8,8 +8,6 @@ func __LibBerry_Main();
 
 @abientry
 func __LibBerry_Start() {
-    __LibBerry_Init();
-
     __LibBerry_Main();
 
     ExitProcess(0);

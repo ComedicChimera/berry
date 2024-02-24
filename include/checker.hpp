@@ -67,7 +67,8 @@ private:
     void checkIndex(AstExpr* node);
     void checkSlice(AstExpr* node);
     void checkField(AstExpr* node);
-    void checkArray(AstExpr* node);
+    SourceFile::ImportEntry* checkIdentOrGetImport(AstExpr *node);
+    void checkArray(AstExpr *node);
     void checkNewExpr(AstExpr *node);
 
     /* ---------------------------------------------------------------------- */
@@ -99,7 +100,6 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    Symbol* lookup(std::string_view name, const TextSpan& span);
     void declareLocal(Symbol* sym);
     void pushScope();
     void popScope();

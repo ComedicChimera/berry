@@ -47,13 +47,13 @@ void Parser::parseMetaTag(MetadataMap& meta) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseDef(MetadataMap&& meta) {
+void Parser::parseDef(MetadataMap&& meta, bool exported) {
     switch (tok.kind) {
     case TOK_FUNC:
-        parseFuncDef(std::move(meta));
+        parseFuncDef(std::move(meta), exported);
         break;
     case TOK_LET:
-        parseGlobalVarDef(std::move(meta));
+        parseGlobalVarDef(std::move(meta), exported);
         break;
     default:
         reject("expected global definition");
@@ -63,7 +63,7 @@ void Parser::parseDef(MetadataMap&& meta) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseFuncDef(MetadataMap&& meta) {
+void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
     auto start_span = tok.span;
     want(TOK_FUNC);
 
@@ -117,7 +117,8 @@ void Parser::parseFuncDef(MetadataMap&& meta) {
         name_tok.span,
         SYM_FUNC,
         func_type,
-        true
+        true,
+        exported
     );
 
     defineGlobal(symbol);
@@ -159,7 +160,7 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseGlobalVarDef(MetadataMap&& meta) {
+void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
     auto start_span = tok.span;
     next();
 
@@ -185,7 +186,8 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta) {
         name_tok.span,
         SYM_VARIABLE,
         type,
-        false
+        false,
+        exported
     );
 
     defineGlobal(symbol);

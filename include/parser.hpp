@@ -43,10 +43,10 @@ private:
     void parseMetadata(MetadataMap &meta);
     void parseMetaTag(MetadataMap &meta);
 
-    void parseDef(MetadataMap &&meta);
-    void parseFuncDef(MetadataMap &&meta);
+    void parseDef(MetadataMap &&meta, bool exported);
+    void parseFuncDef(MetadataMap &&meta, bool exported);
     void parseFuncParams(std::vector<Symbol *> &params);
-    void parseGlobalVarDef(MetadataMap &&meta);
+    void parseGlobalVarDef(MetadataMap &&meta, bool exported);
 
     /* ---------------------------------------------------------------------- */
 

@@ -38,18 +38,17 @@ static fs::path findBerryPath() {
 
     fs::path berry_path;
     if (bp_env_var == nullptr) {
-        auto exe_path = getExePath();
-        exe_path.remove_filename();
+        auto exe_path = getExePath().parent_path();
 
         if (exe_path.filename() == "Debug" || exe_path.filename() == "Release") {
-            exe_path.remove_filename();
+            exe_path = exe_path.parent_path();
         }
 
         if (exe_path.filename() == "bin" || exe_path.filename() == "out" || exe_path.filename() == "build") {
-            exe_path.remove_filename();
+            exe_path = exe_path.parent_path();
         }
 
-        if (fs::exists(berry_path / "mods" / "std")) {
+        if (fs::exists(exe_path / "mods" / "std")) {
             return exe_path;
         } else {
             berry_path = fs::current_path();
@@ -92,7 +91,7 @@ void Loader::LoadDefaults() {
     auto berry_path = findBerryPath();
 
     auto std_path = (berry_path / "mods" / "std").string();
-    import_paths.push_back(std_path);
+    import_paths.emplace_back(std::move(std_path));
 
     // TODO: load runtime and core
 }
@@ -122,14 +121,13 @@ void Loader::LoadAll(const std::string& root_mod) {
         } else {
             entry.dep.mod = &loadModule(entry.local_path, entry.mod_path);
         }
-
     }
 }
 
 /* -------------------------------------------------------------------------- */
 
 void Loader::loadRootModule(fs::path& root_mod_abs_path) {
-    auto local_path = root_mod_abs_path.stem();
+    auto local_path = root_mod_abs_path.parent_path();
 
     if (fs::is_directory(root_mod_abs_path)) {
         loadModule(local_path, root_mod_abs_path);
@@ -158,7 +156,7 @@ void Loader::loadRootModule(fs::path& root_mod_abs_path) {
         } else {
             // Module is a directory.
             local_path.remove_filename();
-            loadModule(local_path, root_mod_abs_path.stem());
+            loadModule(local_path, root_mod_abs_path.parent_path());
         }
     } else {
         ReportFatal("input path must be a file or directory");
@@ -323,7 +321,7 @@ std::string Loader::getModuleName(SourceFile& src_file) {
         if (mod_tok.kind == TOK_EOF) {
             return trimmed_fname;
         } else if (mod_tok.value != trimmed_fname) {
-            auto dir_name = fs::path(src_file.abs_path).stem().filename().string();
+            auto dir_name = fs::path(src_file.abs_path).parent_path().filename().string();
 
             if (mod_tok.value != dir_name) {
                 ReportCompileError(
