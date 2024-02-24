@@ -62,6 +62,33 @@ struct Module {
 
     // symbol_table is the module's global symbol table.
     std::unordered_map<std::string_view, Symbol*> symbol_table;
+
+    struct ImportLoc {
+        SourceFile& src_file;
+        TextSpan span;        
+    };
+
+    // Dependency represents a module dependency.
+    struct Dependency {
+        // mod is depended upon module.  This will be nullptr until the
+        // dependency is resolved by the loader.
+        Module* mod { nullptr };
+
+        // mod_path is the Berry path to the module: each dot separated element
+        // is its own entry in the mod_path vector.
+        std::vector<std::string> mod_path;
+
+        // import_spans lists the source locations where the dependency is used.
+        std::vector<ImportLoc> import_locs;
+
+        Dependency(std::vector<std::string>&& mod_path_, ImportLoc&& loc)
+        : mod_path(std::move(mod_path_))
+        , import_locs({std::move(loc)})
+        {}
+    };
+
+    // deps stores the module's dependencies.
+    std::vector<Dependency> deps;
 };
 
 struct AstDef;
@@ -82,6 +109,9 @@ struct SourceFile {
 
     // defs is the definition ASTs comprising the file.
     std::vector<AstDef*> defs;
+
+    // import_table stores the package's imports.
+    std::unordered_map<std::string_view, uint> import_table;
 
     // llvm_di_file is the debug info scope associated with this file.
     llvm::DIFile* llvm_di_file { nullptr };

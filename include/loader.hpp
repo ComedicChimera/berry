@@ -1,6 +1,8 @@
 #ifndef LOADER_H_INC
 #define LOADER_H_INC
 
+#include <queue>
+#include <optional>
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -14,9 +16,18 @@ class Loader {
     Arena& arena;
     ModuleTable mod_table;
     std::vector<fs::path> import_paths;
-    fs::path local_path;
-
+    
     uint64_t id_counter { 0 };
+
+    struct LoadEntry {
+        fs::path local_path;
+        fs::path mod_path;
+
+        Module::Dependency& dep;
+    };
+
+    std::queue<LoadEntry> load_queue;
+
 
 public:
     class ModuleIterator {
@@ -52,10 +63,12 @@ public:
 
 private:
     void loadRootModule(fs::path& root_mod_abs_path);
-    void loadModule(const fs::path& import_path, const fs::path& mod_abs_path);
-    Module& initModule(const fs::path& import_path, const fs::path& mod_abs_path);
+    Module& loadModule(const fs::path& local_path, const fs::path& mod_abs_path);
+    Module& initModule(const fs::path& local_path, const fs::path& mod_abs_path);
     void parseModule(Module& mod);
-    void resolveImports(Module& mod);
+    void resolveImports(const fs::path& local_path, Module& mod);
+
+    std::optional<fs::path> findModule(const fs::path& search_path, const std::vector<std::string>& mod_path);
 
     /* ---------------------------------------------------------------------- */
 

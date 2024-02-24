@@ -67,6 +67,18 @@ static fs::path findBerryPath() {
 
 /* -------------------------------------------------------------------------- */
 
+static std::string createDisplayPath(const fs::path& local_path, const fs::path& abs_path) {
+    std::error_code ec;
+    auto display_path = local_path.filename() / fs::relative(abs_path, local_path, ec);
+    if (ec) {
+        ReportFatal("computing display path for source file: {}", ec.message());
+    }
+
+    return display_path.string();
+}
+
+/* -------------------------------------------------------------------------- */
+
 Loader::Loader(Arena& arena, const std::vector<std::string>& import_paths_) 
 : arena(arena)
 {
@@ -100,13 +112,18 @@ void Loader::LoadAll(const std::string& root_mod) {
 
     loadRootModule(root_path);
 
-    // TODO: load remaining modules
+    while (load_queue.size() > 0) {
+        auto entry = load_queue.front();
+        load_queue.pop();
+
+        entry.dep.mod = &loadModule(entry.local_path, entry.mod_path);
+    }
 }
 
 /* -------------------------------------------------------------------------- */
 
 void Loader::loadRootModule(fs::path& root_mod_abs_path) {
-    local_path = root_mod_abs_path.stem();
+    auto local_path = root_mod_abs_path.stem();
 
     if (fs::is_directory(root_mod_abs_path)) {
         loadModule(local_path, root_mod_abs_path);
@@ -131,7 +148,7 @@ void Loader::loadRootModule(fs::path& root_mod_abs_path) {
             mod.files.emplace_back(std::move(src_file));
 
             parseModule(mod);
-            resolveImports(mod);
+            resolveImports(local_path, mod);
         } else {
             // Module is a directory.
             local_path.remove_filename();
@@ -142,13 +159,14 @@ void Loader::loadRootModule(fs::path& root_mod_abs_path) {
     }
 }
 
-void Loader::loadModule(const fs::path& import_path, const fs::path& mod_abs_path) {
-    auto& mod = initModule(import_path, mod_abs_path);
+Module& Loader::loadModule(const fs::path& local_path, const fs::path& mod_abs_path) {
+    auto& mod = initModule(local_path, mod_abs_path);
     parseModule(mod);
-    resolveImports(mod);
+    resolveImports(local_path, mod);
+    return mod;
 }
 
-Module& Loader::initModule(const fs::path& import_path, const fs::path& mod_abs_path) {
+Module& Loader::initModule(const fs::path& local_path, const fs::path& mod_abs_path) {
     auto& mod = addModule(mod_abs_path, mod_abs_path.filename().replace_extension().string());
 
     if (fs::is_directory(mod_abs_path)) {
@@ -156,17 +174,11 @@ Module& Loader::initModule(const fs::path& import_path, const fs::path& mod_abs_
             if (entry.is_regular_file() && entry.path().extension() == BERRY_FILE_EXT) {
                 auto abs_path = mod_abs_path / entry.path();
 
-                std::error_code ec;
-                auto display_path = import_path.filename() / fs::relative(abs_path, import_path, ec);
-                if (ec) {
-                    ReportFatal("computing display path for source file: {}", ec.message());
-                }
-
                 SourceFile src_file {
                     getUniqueId(),
                     &mod,
                     abs_path.string(),
-                    display_path.string()
+                    createDisplayPath(local_path, abs_path)
                 };
 
                 auto mod_name = getModuleName(src_file);
@@ -177,18 +189,16 @@ Module& Loader::initModule(const fs::path& import_path, const fs::path& mod_abs_
                 mod.files.emplace_back(std::move(src_file));
             }
         }
-    } else if (fs::is_regular_file(mod_abs_path)) {
-        std::error_code ec;
-        auto display_path = import_path.filename() / fs::relative(import_path, mod_abs_path, ec);
-        if (ec) {
-            ReportFatal("computing display path for source file: {}", ec.message());
-        }
 
+        if (mod.files.size() == 0) {
+            ReportFatal("module {} contains no source files: located at {}", mod.name, mod_abs_path.string());
+        }
+    } else if (fs::is_regular_file(mod_abs_path)) {
         mod.files.emplace_back(
             getUniqueId(), 
             &mod, 
             mod_abs_path.string(), 
-            display_path.string()
+            createDisplayPath(local_path, mod_abs_path)
         );
     } else {
         ReportFatal("module must be a file or directory");
@@ -213,8 +223,74 @@ void Loader::parseModule(Module& mod) {
     }
 }
 
-void Loader::resolveImports(Module& mod) {
-    // TODO
+void Loader::resolveImports(const fs::path& local_path, Module& mod) {
+    for (auto& dep : mod.deps) {
+        auto maybe_path = findModule(local_path, dep.mod_path);
+        if (maybe_path) {
+            load_queue.emplace(LoadEntry{local_path, maybe_path.value(), dep});
+            continue;
+        }
+
+        bool found_match = false;
+        for (auto& path : import_paths) {
+            maybe_path = findModule(path, dep.mod_path);
+            if (maybe_path) {
+                found_match = true;
+                load_queue.emplace(LoadEntry{path, maybe_path.value(), dep});
+                break;
+            }
+        }
+
+        if (found_match)
+            continue;
+
+        std::string fmt_mod_path;
+        int n = 0;
+        for (auto& path_elem : dep.mod_path) {
+            if (n > 0) {
+                fmt_mod_path.push_back('.');
+            }
+
+            fmt_mod_path.append(path_elem);
+            n++;
+        }
+
+        for (auto& loc : dep.import_locs) {
+            ReportCompileError(loc.src_file.display_path, loc.span, "could not find module {}", fmt_mod_path);
+        }
+    }
+}
+
+std::optional<fs::path> Loader::findModule(const fs::path& search_path, const std::vector<std::string>& mod_path) {
+    fs::path path { search_path };
+    for (auto& path_elem : mod_path) {
+        path.append(path_elem);      
+    }
+
+    path.replace_extension(BERRY_FILE_EXT);
+
+    if (fs::exists(path) && fs::is_regular_file(path)) {
+        std::ifstream file;
+        if (file) {
+            SourceFile src_file { 0, nullptr, path.string(), createDisplayPath(search_path, path)};
+            Parser p(arena, file, src_file);
+
+            auto mod_name_tok = p.ParseModuleName();
+            file.close();
+            
+            if (mod_name_tok.value == "" || mod_name_tok.value == mod_path.back()) {
+                return path;
+            }
+        }
+    }
+
+    path.replace_extension();
+
+    if (fs::exists(path) && fs::is_directory(path)) {
+        return path;
+    }
+
+    return {};
 }
 
 /* -------------------------------------------------------------------------- */
