@@ -232,8 +232,10 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node) {
             core_dep != nullptr && 
             (it = core_dep->mod->symbol_table.find(name)) != core_dep->mod->symbol_table.end()
         ) {
-            sym = it->second;
+            node->type = sym->type;
+            node->immut = sym->immut;
             core_dep->usages.insert(sym->export_num);
+            return;
         } else {
             fatal(node->span, "undefined symbol: {}", name);
         }

@@ -36,13 +36,16 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
         return genNewExpr(node, alloc_loc);
     case AST_IDENT: {
         auto* symbol = node->an_Ident.symbol;
-        Assert(symbol != nullptr, "unresolved symbol in codegen");
 
-        if (symbol->kind == SYM_VARIABLE && !expect_addr) {
+        llvm::Value* ll_value;
+        if (symbol == nullptr) {
+            // TODO: core symbols
+            Panic("unimplemented");
+        } else if (symbol->kind == SYM_VARIABLE && !expect_addr) {
             return irb.CreateLoad(genType(symbol->type), symbol->llvm_value);
-        }
-
-        return symbol->llvm_value;
+        } else {
+            return symbol->llvm_value;
+        }        
     } break;
     case AST_INT: {
         // NOTE: It is possible for an int literal to have a float type if a
@@ -444,6 +447,8 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
 llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
     auto& afield = node->an_Field;
     if (afield.export_num != UNEXPORTED) {
+        // TODO: determine if we need a load here...
+        Panic("unimplemented");
         return loaded_imports[afield.root->an_Ident.dep_id][afield.export_num];
     }
 
