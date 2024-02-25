@@ -443,6 +443,10 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
 
 llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
     auto& afield = node->an_Field;
+    if (afield.export_num != UNEXPORTED) {
+        return loaded_imports[afield.root->an_Ident.dep_id][afield.export_num];
+    }
+
     auto* root_inner_type = afield.root->type->Inner();
 
     if (expect_addr) {

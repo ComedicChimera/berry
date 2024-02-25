@@ -107,19 +107,34 @@ class CodeGenerator {
     // tctx is a utility type context for the code generator (used for comparisons).
     TypeContext tctx;
 
-    // ll_init_func is the global initialization function (where non-constant global
-    // initializers are placed).  This is called explicitly by the runtime at the
-    // start of execution.
-    llvm::Function* ll_init_func;
-
     // loop_ctx_stack is the stack of enclosing loop contexts.
     std::vector<LoopContext> loop_ctx_stack;
+
+    /* ---------------------------------------------------------------------- */
+
+    // ll_init_func is the module initialization function (where non-constant
+    // global initializers are placed).  This is indirectly called by the
+    // runtime at startup.
+    llvm::Function* ll_init_func;
 
     // ll_array_type is the LLVM type for all Berry arrays (opaque pointer POG).
     llvm::StructType* ll_array_type;
 
     // ll_panic_func is the panic function for the runtime.
     llvm::Function* ll_panic_func;
+
+    /* ---------------------------------------------------------------------- */
+
+    // loaded_imports stores the imports that are loaded.  The first index is
+    // the dependency ID and the second index is the export number.
+    std::vector<std::vector<llvm::Value*>> loaded_imports;
+
+    // cconv_name_to_id maps Berry calling convention names to their LLVM IDs.
+    std::unordered_map<std::string_view, llvm::CallingConv::ID> cconv_name_to_id {
+        { "c", llvm::CallingConv::C },
+        { "stdcall", llvm::CallingConv::X86_StdCall },
+        { "win64", llvm::CallingConv::Win64 }
+    };
 
 public:
     // Creates a new code generator using ctx and outputting to mod.
@@ -132,12 +147,17 @@ public:
     , ll_init_func(nullptr)
     , ll_array_type(nullptr)
     , ll_panic_func(nullptr)
+    , loaded_imports(bry_mod.deps.size())
     {}
 
     // GenerateModule compiles the module.
     void GenerateModule();
 
 private:
+    void genImports();
+    llvm::Value* genImportFunc(Module &imported_mod, AstDef *node);
+    llvm::Value* genImportGlobalVar(Module &imported_mod, AstDef *node);
+
     void genTopDecl(AstDef *def);
     void genPredicates(AstDef *def);
 
@@ -148,6 +168,7 @@ private:
     void genGlobalVarInit(AstDef *node);
 
     std::string mangleName(std::string_view name);
+    std::string mangleName(Module &imported_bry_mod, std::string_view name);
 
     /* ---------------------------------------------------------------------- */
 

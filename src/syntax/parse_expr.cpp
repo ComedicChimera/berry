@@ -154,6 +154,7 @@ AstExpr* Parser::parseAtomExpr() {
             auto* node = allocExpr(AST_FIELD, SpanOver(root->span, field_name_tok.span));
             node->an_Field.root = root;
             node->an_Field.field_name = arena.MoveStr(std::move(field_name_tok.value));
+            node->an_Field.export_num = UNEXPORTED; // default to UNEXPORTED
             root = node;
         } break;
         default:

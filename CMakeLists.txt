@@ -43,6 +43,7 @@ set(SRCS
     "codegen/gen_expr.cpp"
     "codegen/gen_stmt.cpp"
     "codegen/gen_debug.cpp"
+    "codegen/gen_import.cpp"
 
     "test/arena_test.cpp"
     "test/ast_print.cpp"

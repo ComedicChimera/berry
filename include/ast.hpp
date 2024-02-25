@@ -146,8 +146,8 @@ struct AstExpr : public AstNode {
             AstExpr* root;
             std::string_view field_name;
 
-            // This will be nullptr if this is not a static get.
-            Symbol* imported_sym { nullptr };
+            // This field is only used for static_get
+            size_t export_num;
         } an_Field;
         struct {
             AstExpr* func;
@@ -166,7 +166,11 @@ struct AstExpr : public AstNode {
 
         struct {
             std::string_view temp_name;
-            Symbol* symbol;
+
+            union {
+                Symbol* symbol;
+                size_t dep_id;
+            };
         } an_Ident;
         struct {
             uint64_t value;

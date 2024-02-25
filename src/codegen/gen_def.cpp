@@ -36,12 +36,6 @@ void CodeGenerator::genPredicates(AstDef* def) {
 
 /* -------------------------------------------------------------------------- */
 
-std::unordered_map<std::string_view, llvm::CallingConv::ID> cconv_name_to_id {
-    { "c", llvm::CallingConv::C },
-    { "stdcall", llvm::CallingConv::X86_StdCall },
-    { "win64", llvm::CallingConv::Win64 }
-};
-
 void CodeGenerator::genFuncProto(AstDef* node) {
     auto* symbol = node->an_Func.symbol;
 
@@ -51,7 +45,7 @@ void CodeGenerator::genFuncProto(AstDef* node) {
     auto* ll_func_type = llvm::dyn_cast<llvm::FunctionType>(ll_type);
 
     bool should_mangle = true;
-    bool exported = false;
+    bool exported = symbol->export_num != UNEXPORTED;
     llvm::CallingConv::ID cconv = llvm::CallingConv::C;
     for (auto& tag : node->metadata) {
         if (tag.name == "extern" || tag.name == "abientry") {
@@ -135,11 +129,15 @@ void CodeGenerator::genGlobalVarDecl(AstDef* node) {
 
     auto* ll_type = genType(symbol->type);
 
+    // TODO: handle metadata
+    Assert(node->metadata.size() == 0, "metadata for global variables not implemented");
+    
+    bool exported = symbol->export_num != UNEXPORTED;
     auto gv = new llvm::GlobalVariable(
         mod, 
         ll_type, 
         false, 
-        llvm::GlobalValue::PrivateLinkage, 
+        exported ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage, 
         llvm::Constant::getNullValue(ll_type), 
         mangleName(symbol->name)
     );
@@ -172,4 +170,8 @@ void CodeGenerator::genGlobalVarInit(AstDef* node) {
 
 std::string CodeGenerator::mangleName(std::string_view name) {
     return std::format("_br7${}.{}.{}", bry_mod.id, bry_mod.name, name);
+}
+
+std::string CodeGenerator::mangleName(Module& imported_bry_mod, std::string_view name) {
+    return std::format("_br7${}.{}.{}", imported_bry_mod.id, imported_bry_mod.name, name);
 }
