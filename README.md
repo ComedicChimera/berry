@@ -10,19 +10,19 @@ don't always get time (or energy) to work on it.
 
 ## Roadmap 
 
-[x] Target 1: Hello World
+- [x] Target 1: Hello World
 
-[x] Target 2: Conditionals, Loops, and Arithmetic
+- [x] Target 2: Conditionals, Loops, and Arithmetic
 
-[x] Target 3: Arrays and Strings
+- [x] Target 3: Arrays and Strings
 
-[ ] Target 4: Modules and Multi-File Projects
+- [ ] Target 4: Modules and Multi-File Projects
 
-[ ] Target 5: Structs
+- [ ] Target 5: Structs
 
-[ ] Target 6: Enums and Basic Match Statements
+- [ ] Target 6: Enums and Basic Match Statements
 
-[ ] Target 7: Meta Directives and Intrinsic Macros
+- [ ] Target 7: Meta Directives and Intrinsic Macros
 
-[ ] Target 8: Dynamic Memory
+- [ ] Target 8: Dynamic Memory
 
