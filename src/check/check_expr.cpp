@@ -174,12 +174,12 @@ void Checker::checkField(AstExpr* node) {
             auto* mod = dep->mod;
 
             auto sym_it = mod->symbol_table.find(fld.field_name);
-            if (sym_it != mod->symbol_table.end() && sym_it->second->exported) {
+            if (sym_it != mod->symbol_table.end() && sym_it->second->export_num != UNEXPORTED) {
                 fld.imported_sym = sym_it->second;
                 node->type = fld.imported_sym->type;
                 node->immut = fld.imported_sym->immut;
                 
-                dep->usages.insert(fld.imported_sym->name);
+                dep->usages.insert(fld.imported_sym->export_num);
                 return;
             } else {
                 fatal(node->span, "module {} contains no exported symbol named {}", mod->name, fld.field_name);
@@ -231,7 +231,7 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node) {
             (it = core_dep->mod->symbol_table.find(name)) != core_dep->mod->symbol_table.end()
         ) {
             sym = it->second;
-            core_dep->usages.insert(sym->name);
+            core_dep->usages.insert(sym->export_num);
         } else {
             fatal(node->span, "undefined symbol: {}", name);
         }

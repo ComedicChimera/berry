@@ -117,7 +117,7 @@ void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
         SYM_FUNC,
         func_type,
         true,
-        exported
+        exported ? src_file.parent->export_table.size() : UNEXPORTED
     );
 
     defineGlobal(symbol);
@@ -129,6 +129,10 @@ void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
     afunc->an_Func.body = body;
 
     src_file.defs.push_back(afunc);
+
+    if (exported) {
+        src_file.parent->export_table.emplace_back(afunc, 0);
+    }
 }
 
 void Parser::parseFuncParams(std::vector<Symbol*>& params) {
@@ -184,7 +188,7 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
         SYM_VARIABLE,
         type,
         false,
-        exported
+        exported ? src_file.parent->export_table.size() : UNEXPORTED
     );
 
     defineGlobal(symbol);
@@ -194,4 +198,8 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
     aglobal->an_GlobalVar.init = init;
 
     src_file.defs.push_back(aglobal);
+
+    if (exported) {
+        src_file.parent->export_table.emplace_back(aglobal, 0);
+    }
 }

@@ -22,6 +22,8 @@ enum SymbolKind {
     SYM_FUNC,       // Function
 };
 
+#define UNEXPORTED ((size_t)(-1))
+
 // Symbol represents a named symbol in a Berry module.
 struct Symbol {
     // name is the name of the symbol.
@@ -39,8 +41,9 @@ struct Symbol {
     // immut indicates whether the symbol is immutable.
     bool immut { false };
 
-    // exported indicates that symbol is exported/marked public.
-    bool exported { false };
+    // export_num stores the index of the symbol's export table entry if it has
+    // one.  If the symbol is unexported, then this will be SYM_UNEXPORTED.
+    size_t export_num { UNEXPORTED };
 
     // llvm_value contains the LLVM value bound to the symbol.
     llvm::Value* llvm_value { nullptr };
@@ -49,6 +52,7 @@ struct Symbol {
 /* -------------------------------------------------------------------------- */
 
 struct SourceFile;
+struct AstDef;
 
 // Module represents a Berry module.
 struct Module {
@@ -83,8 +87,8 @@ struct Module {
         // is its own entry in the mod_path vector.
         std::vector<std::string> mod_path;
 
-        // usages lists all the locations where this dependency is used.
-        std::unordered_set<std::string_view> usages;
+        // usages lists all the exports referred to be this dependency.
+        std::unordered_set<size_t> usages;
 
         // import_locs lists the locations where the dependency is imported.
         std::vector<ImportLoc> import_locs;
@@ -103,9 +107,20 @@ struct Module {
 
     // deps stores the module's dependencies.
     std::vector<Dependency> deps;
-};
 
-struct AstDef;
+    // ExportEntry is an entry of the module's export table.
+    struct ExportEntry {
+        // def the AST definition that is exported.
+        AstDef* def;
+
+        // symbol_num identifies the specific symbol within the definition that
+        // is being referenced.  For most definitions, this will be zero.
+        int symbol_num;
+    };
+
+    // export_table is the table of definitions exported by the module.
+    std::vector<ExportEntry> export_table;
+};
 
 // SourceFile represents a single source file in a Berry module.
 struct SourceFile {
