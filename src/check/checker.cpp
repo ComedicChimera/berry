@@ -1,5 +1,23 @@
 #include "checker.hpp"
 
+Checker::Checker(Arena& arena, SourceFile& src_file)
+: arena(arena)
+, src_file(src_file)
+, enclosing_return_type(nullptr)
+, loop_depth(0)
+{
+    if (src_file.parent->deps.size() > 0) {
+        // Core module is always the last dependency added to any module. All
+        // modules depend on it implicitly (even if they don't use any symbols
+        // from it).
+        core_dep = &src_file.parent->deps.back();
+    } else {
+        core_dep = nullptr;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 void Checker::mustEqual(const TextSpan &span, Type* a, Type* b) {
     tctx.flags |= TC_INFER;
 

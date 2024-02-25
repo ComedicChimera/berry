@@ -27,9 +27,6 @@ struct Symbol {
     // name is the name of the symbol.
     std::string_view name;
 
-    // file_id the unique ID of the file defining the symbol/
-    uint64_t file_id;
-
     // span is the source location of the symbol definition.
     TextSpan span;
 
@@ -56,7 +53,7 @@ struct SourceFile;
 // Module represents a Berry module.
 struct Module {
     // id is the module's unique ID.
-    uint64_t id;
+    size_t id;
 
     // name is the identifying name or path of the module (ex: "main", "io.std")
     std::string name;
@@ -86,12 +83,21 @@ struct Module {
         // is its own entry in the mod_path vector.
         std::vector<std::string> mod_path;
 
+        // usages lists all the locations where this dependency is used.
+        std::unordered_set<std::string_view> usages;
+
         // import_locs lists the locations where the dependency is imported.
         std::vector<ImportLoc> import_locs;
 
         Dependency(std::vector<std::string>&& mod_path_, ImportLoc&& loc)
-        : mod_path(std::move(mod_path_))
+        : mod(nullptr)
+        , mod_path(std::move(mod_path_))
         , import_locs({std::move(loc)})
+        {}
+
+        Dependency(Module* mod_)
+        : mod(mod_)
+        , mod_path({ mod_->name })
         {}
     };
 
@@ -103,9 +109,6 @@ struct AstDef;
 
 // SourceFile represents a single source file in a Berry module.
 struct SourceFile {
-    // id the file's unique ID.
-    uint64_t id;
-
     // parent is the module the file is apart of.
     Module* parent;
     
@@ -118,32 +121,21 @@ struct SourceFile {
     // defs is the definition ASTs comprising the file.
     std::vector<AstDef*> defs;
 
-    // ImportEntry is an entry in the file's import table.
-    struct ImportEntry {
-        // dep_id is the ID of the dependency.
-        size_t dep_id;
-
-        // usages lists the symbol names that are used.
-        std::unordered_set<std::string_view> usages;
-    };
-
     // import_table stores the package's imports.
-    std::unordered_map<std::string_view, ImportEntry> import_table;
+    std::unordered_map<std::string_view, size_t> import_table;
 
     // llvm_di_file is the debug info scope associated with this file.
     llvm::DIFile* llvm_di_file { nullptr };
 
-    SourceFile(uint64_t id_, Module* parent_, std::string&& abs_path_, std::string&& display_path_)
-    : id(id_)
-    , parent(parent_)
+    SourceFile(Module* parent_, std::string&& abs_path_, std::string&& display_path_)
+    : parent(parent_)
     , abs_path(std::move(abs_path_))
     , display_path(std::move(display_path_))
     , llvm_di_file(nullptr)
     {}
 
     SourceFile(SourceFile&& src_file)
-    : id(src_file.id)
-    , parent(src_file.parent)
+    : parent(src_file.parent)
     , abs_path(std::move(src_file.abs_path))
     , display_path(std::move(src_file.display_path))
     , defs(std::move(src_file.defs))

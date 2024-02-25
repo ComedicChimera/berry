@@ -50,8 +50,8 @@ void Checker::checkExpr(AstExpr* node) {
         checkNewExpr(node);
         break;
     case AST_IDENT: {
-        auto* entry = checkIdentOrGetImport(node);
-        if (entry != nullptr) {
+        auto* dep = checkIdentOrGetImport(node);
+        if (dep != nullptr) {
             fatal(node->span, "imported module cannot be used as a value");
         }
     } break;   
@@ -169,9 +169,9 @@ void Checker::checkSlice(AstExpr* node) {
 void Checker::checkField(AstExpr* node) {
     auto& fld = node->an_Field;
     if (fld.root->kind == AST_IDENT) {
-        auto* entry = checkIdentOrGetImport(fld.root);
-        if (entry != nullptr) {
-            auto* mod = src_file.parent->deps[entry->dep_id].mod;
+        auto* dep= checkIdentOrGetImport(fld.root);
+        if (dep != nullptr) {
+            auto* mod = dep->mod;
 
             auto sym_it = mod->symbol_table.find(fld.field_name);
             if (sym_it != mod->symbol_table.end() && sym_it->second->exported) {
@@ -179,7 +179,7 @@ void Checker::checkField(AstExpr* node) {
                 node->type = fld.imported_sym->type;
                 node->immut = fld.imported_sym->immut;
                 
-                entry->usages.insert(fld.imported_sym->name);
+                dep->usages.insert(fld.imported_sym->name);
                 return;
             } else {
                 fatal(node->span, "module {} contains no exported symbol named {}", mod->name, fld.field_name);
@@ -205,7 +205,7 @@ void Checker::checkField(AstExpr* node) {
     }
 }
 
-SourceFile::ImportEntry* Checker::checkIdentOrGetImport(AstExpr* node) {
+Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node) {
     auto name = node->an_Ident.temp_name;
     Symbol* sym { nullptr };
     for (int i = scope_stack.size() - 1; i >= 0; i--) {
@@ -220,12 +220,18 @@ SourceFile::ImportEntry* Checker::checkIdentOrGetImport(AstExpr* node) {
     if (sym == nullptr) {
         auto import_it = src_file.import_table.find(name);
         if (import_it != src_file.import_table.end()) {
-            return &import_it->second;
+            return &src_file.parent->deps[import_it->second];
         }
 
         auto it = src_file.parent->symbol_table.find(name);
         if (it != src_file.parent->symbol_table.end()) {
             sym = it->second;
+        } else if (
+            core_dep != nullptr && 
+            (it = core_dep->mod->symbol_table.find(name)) != core_dep->mod->symbol_table.end()
+        ) {
+            sym = it->second;
+            core_dep->usages.insert(sym->name);
         } else {
             fatal(node->span, "undefined symbol: {}", name);
         }

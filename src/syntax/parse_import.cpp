@@ -57,7 +57,7 @@ void Parser::parseModulePath() {
         auto dep_id = findOrAddModuleDep(mod_path);
 
         auto imported_name = arena.MoveStr(std::move(imported_name_tok.value));
-        src_file.import_table.emplace(imported_name, SourceFile::ImportEntry{ dep_id });
+        src_file.import_table.emplace(imported_name, dep_id);
     } else {
         error(imported_name_tok.span, "multiple imports with name {}", imported_name_tok.value);
     }
@@ -71,9 +71,8 @@ size_t Parser::findOrAddModuleDep(const std::vector<Token>& tok_mod_path) {
     
     Module::ImportLoc import_loc { src_file, SpanOver(tok_mod_path.front().span, tok_mod_path.back().span) };
     bool paths_matched = true;
-    for (size_t i = 0; i < src_file.parent->deps.size(); i++) {
-        auto& dep = src_file.parent->deps[i];
-
+    int i = 0;
+    for (auto& dep : src_file.parent->deps) {
         if (dep.mod_path.size() != mod_path.size()) {
             continue;
         }
@@ -89,8 +88,10 @@ size_t Parser::findOrAddModuleDep(const std::vector<Token>& tok_mod_path) {
             dep.import_locs.push_back(import_loc);
             return i;
         }
+
+        i++;
     }
 
-    auto& dep = src_file.parent->deps.emplace_back(std::move(mod_path), std::move(import_loc));
+    src_file.parent->deps.emplace_back(std::move(mod_path), std::move(import_loc));
     return src_file.parent->deps.size() - 1;
 }

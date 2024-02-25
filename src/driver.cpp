@@ -24,7 +24,7 @@ namespace fs = std::filesystem;
 
 /* -------------------------------------------------------------------------- */
 
-#define FULL_LINE "/* ------------------------------------------------------- */\n"
+#define FULL_LINE "-------------------------------------------------------------\n"
 
 class Compiler {
     const BuildConfig& cfg;
@@ -43,7 +43,6 @@ public:
     {}
 
     void Compile() {
-        loader.LoadDefaults();
         loader.LoadAll(cfg.input_path);
 
         if (ErrorCount() > 0) {

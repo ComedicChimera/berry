@@ -113,7 +113,6 @@ void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
 
     Symbol* symbol = arena.New<Symbol>(
         arena.MoveStr(std::move(name_tok.value)),
-        src_file.id,
         name_tok.span,
         SYM_FUNC,
         func_type,
@@ -140,7 +139,6 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
         for (auto& name_tok : name_toks) {
             Symbol* symbol = arena.New<Symbol>(
                 arena.MoveStr(std::move(name_tok.value)),
-                src_file.id,
                 name_tok.span,
                 SYM_VARIABLE,
                 type,
@@ -182,7 +180,6 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
 
     Symbol* symbol = arena.New<Symbol>(
         arena.MoveStr(std::move(name_tok.value)),
-        src_file.id,
         name_tok.span,
         SYM_VARIABLE,
         type,

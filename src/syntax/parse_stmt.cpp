@@ -215,7 +215,6 @@ AstStmt* Parser::parseLocalVarDef() {
 
     Symbol* symbol = arena.New<Symbol>(
         arena.MoveStr(std::move(name_tok.value)),
-        src_file.id,
         name_tok.span,
         SYM_VARIABLE,
         type,

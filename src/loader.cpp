@@ -87,16 +87,9 @@ Loader::Loader(Arena& arena, const std::vector<std::string>& import_paths_)
     }
 }
 
-void Loader::LoadDefaults() {
-    auto berry_path = findBerryPath();
-
-    auto std_path = (berry_path / "mods" / "std").string();
-    import_paths.emplace_back(std::move(std_path));
-
-    // TODO: load runtime and core
-}
-
 void Loader::LoadAll(const std::string& root_mod) {
+    auto& core_mod = loadDefaults();
+
     auto root_path = fs::path(root_mod);
     
     if (!fs::exists(root_path)) {
@@ -122,9 +115,30 @@ void Loader::LoadAll(const std::string& root_mod) {
             entry.dep.mod = &loadModule(entry.local_path, entry.mod_path);
         }
     }
+
+    for (auto& mod : *this) {
+        if (mod.id != core_mod.id) {
+            mod.deps.emplace_back(&core_mod);
+        }
+    }
+
+    checkForImportCycles();
 }
 
 /* -------------------------------------------------------------------------- */
+
+Module& Loader::loadDefaults() {
+    auto berry_path = findBerryPath();
+
+    auto std_path = berry_path / "mods" / "std";
+    import_paths.emplace_back(std_path);
+
+    auto& core_mod = loadModule(std_path, std_path / "core");
+    Assert(core_mod.deps.size() == 0, "core module must have no dependencies");
+
+    loadModule(std_path, std_path / "runtime");
+    return core_mod;
+}
 
 void Loader::loadRootModule(fs::path& root_mod_abs_path) {
     auto local_path = root_mod_abs_path.parent_path();
@@ -133,7 +147,6 @@ void Loader::loadRootModule(fs::path& root_mod_abs_path) {
         loadModule(local_path, root_mod_abs_path);
     } else if (fs::is_regular_file(root_mod_abs_path)) {
         SourceFile src_file { 
-            getUniqueId(), 
             nullptr,
             root_mod_abs_path.string(), 
             root_mod_abs_path.filename().string() 
@@ -170,6 +183,8 @@ Module& Loader::loadModule(const fs::path& local_path, const fs::path& mod_abs_p
     return mod;
 }
 
+/* -------------------------------------------------------------------------- */
+
 Module& Loader::initModule(const fs::path& local_path, const fs::path& mod_abs_path) {
     auto& mod = addModule(mod_abs_path, mod_abs_path.filename().replace_extension().string());
 
@@ -179,7 +194,6 @@ Module& Loader::initModule(const fs::path& local_path, const fs::path& mod_abs_p
                 auto abs_path = mod_abs_path / entry.path();
 
                 SourceFile src_file {
-                    getUniqueId(),
                     &mod,
                     abs_path.string(),
                     createDisplayPath(local_path, abs_path)
@@ -199,7 +213,6 @@ Module& Loader::initModule(const fs::path& local_path, const fs::path& mod_abs_p
         }
     } else if (fs::is_regular_file(mod_abs_path)) {
         mod.files.emplace_back(
-            getUniqueId(), 
             &mod, 
             mod_abs_path.string(), 
             createDisplayPath(local_path, mod_abs_path)
@@ -276,7 +289,7 @@ std::optional<fs::path> Loader::findModule(const fs::path& search_path, const st
     if (fs::exists(path) && fs::is_regular_file(path)) {
         std::ifstream file;
         if (file) {
-            SourceFile src_file { 0, nullptr, path.string(), createDisplayPath(search_path, path)};
+            SourceFile src_file { nullptr, path.string(), createDisplayPath(search_path, path)};
             Parser p(arena, file, src_file);
 
             auto mod_name_tok = p.ParseModuleName();
@@ -299,9 +312,101 @@ std::optional<fs::path> Loader::findModule(const fs::path& search_path, const st
 
 /* -------------------------------------------------------------------------- */
 
+enum GColor {
+    COLOR_WHITE = 0,
+    COLOR_GREY,
+    COLOR_BLACK
+};
+
+struct GCycle {
+    std::vector<Module*> nodes;
+    Module::Dependency* bad_dep { nullptr };
+    bool done { false };
+};
+
+static bool findCycle(Module& mod, std::vector<GColor>& colors, GCycle& cycle) {
+    colors[mod.id] = COLOR_GREY;
+
+    bool found_cycle = false;
+    for (auto& dep : mod.deps) {
+        auto* dep_mod = dep.mod;
+        
+        switch (colors[dep_mod->id]) {
+        case COLOR_WHITE:
+            found_cycle = findCycle(*dep_mod, colors, cycle);
+            if (found_cycle) {
+                if (!cycle.done) {
+                    cycle.nodes.push_back(&mod);
+                    if (cycle.nodes.front()->id == mod.id) {
+                        cycle.done = true;
+                    }
+                }
+
+                goto loop_exit;
+            }
+            break;
+        case COLOR_GREY:
+            found_cycle = true;
+
+            cycle.bad_dep = &dep;
+            cycle.nodes.push_back(dep_mod);
+            cycle.nodes.push_back(&mod);
+            if (mod.id == dep_mod->id) {
+                cycle.done = true;
+            }
+
+            goto loop_exit;
+        case COLOR_BLACK:
+            // Already visited, nothing to do.
+            break;
+        }
+    }
+
+loop_exit:
+    colors[mod.id] = COLOR_BLACK;
+    return found_cycle;
+}
+
+void Loader::checkForImportCycles() {
+    std::vector<GColor> colors { mod_table.size(), COLOR_WHITE };
+
+    for (auto& mod : *this) {
+        if (colors[mod.id] == COLOR_WHITE) {
+            GCycle cycle;
+            if (findCycle(mod, colors, cycle)) {
+                for (auto& loc : cycle.bad_dep->import_locs) {
+                    ReportCompileError(
+                        loc.src_file.display_path,
+                        loc.span,
+                        "import of module {} creates cycle",
+                        cycle.bad_dep->mod->name
+                    );
+                }
+
+                std::string fmt_cycle;
+                int n = 0;
+                while (!cycle.nodes.empty()) {
+                    if (n > 0) {
+                        fmt_cycle += " -> ";
+                    }
+
+                    auto back = cycle.nodes.back();
+                    cycle.nodes.pop_back();
+
+                    fmt_cycle += back->name;
+                }
+
+                ReportFatal("import cycle detected:\n\t{}", fmt_cycle);
+            }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 Module& Loader::addModule(const fs::path& mod_abs_path, const std::string& mod_name) {
     return mod_table.emplace(mod_abs_path.string(), Module{
-        getUniqueId(),
+        mod_table.size(),
         mod_name,
     }).first->second;
 }
@@ -337,8 +442,4 @@ std::string Loader::getModuleName(SourceFile& src_file) {
     } catch (CompileError& err) {
         return "";
     }
-}
-
-uint64_t Loader::getUniqueId() {
-    return id_counter++;
 }

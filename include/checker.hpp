@@ -31,14 +31,13 @@ class Checker {
     // used for break and continue checking.
     int loop_depth;
 
+    // core_dep is a pointer to the core module dependency.  This will non-null
+    // in every module except the core module itself.
+    Module::Dependency* core_dep;
+
 public:
     // Creates a new checker for src_file allocating in arena.
-    Checker(Arena& arena, SourceFile& src_file)
-    : arena(arena)
-    , src_file(src_file)
-    , enclosing_return_type(nullptr)
-    , loop_depth(0)
-    {}
+    Checker(Arena& arena, SourceFile& src_file);
 
     void CheckDef(AstDef* def);
 
@@ -67,7 +66,7 @@ private:
     void checkIndex(AstExpr* node);
     void checkSlice(AstExpr* node);
     void checkField(AstExpr* node);
-    SourceFile::ImportEntry* checkIdentOrGetImport(AstExpr *node);
+    Module::Dependency* checkIdentOrGetImport(AstExpr *node);
     void checkArray(AstExpr *node);
     void checkNewExpr(AstExpr *node);
 

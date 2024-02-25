@@ -65,6 +65,7 @@ bool Checker::checkIf(AstStmt* node) {
     for (auto& branch : node->an_If.branches) {
         checkExpr(branch.cond_expr);
         mustEqual(branch.cond_expr->span, branch.cond_expr->type, &prim_bool_type);
+        finishExpr();
 
         always_returns = checkStmt(branch.body) && always_returns;
     }
@@ -83,6 +84,7 @@ void Checker::checkWhile(AstStmt* node) {
 
     checkExpr(awhile.cond_expr);
     mustEqual(awhile.cond_expr->span, awhile.cond_expr->type, &prim_bool_type);
+    finishExpr();
 
     loop_depth++;
     checkStmt(awhile.body);
@@ -103,6 +105,7 @@ void Checker::checkFor(AstStmt* node) {
     if (afor.cond_expr) {
         checkExpr(afor.cond_expr);
         mustEqual(afor.cond_expr->span, afor.cond_expr->type, &prim_bool_type);
+        finishExpr();
     }
 
     if (afor.update_stmt)
@@ -164,6 +167,8 @@ void Checker::checkAssign(AstStmt* node) {
         Type* result_type = mustApplyBinaryOp(node->span, aassign.assign_op, aassign.lhs->type, aassign.rhs->type);
         mustSubType(node->span, result_type, aassign.lhs->type);
     }
+
+    finishExpr();
 }
 
 void Checker::checkIncDec(AstStmt* node) {
@@ -175,6 +180,8 @@ void Checker::checkIncDec(AstStmt* node) {
     
     Type* result_type = mustApplyBinaryOp(node->span, node->an_IncDec.op, lhs->type, lhs->type);
     mustSubType(node->span, result_type, lhs->type);
+
+    finishExpr();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -188,6 +195,7 @@ void Checker::checkReturn(AstStmt* node) {
     if (ret_value) {
         checkExpr(ret_value);
         mustSubType(ret_value->span, ret_value->type, enclosing_return_type);
+        finishExpr();
     } else if (enclosing_return_type->kind != TYPE_UNIT) {
         error(node->span, "enclosing function expects a return value of type {}", enclosing_return_type->ToString());
     }
