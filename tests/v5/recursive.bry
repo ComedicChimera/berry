@@ -1,0 +1,25 @@
+struct A {
+    a: *A;
+    b: B;
+}
+
+struct B {
+    a: *A;
+    b: *B;
+}
+
+struct C {
+    b: B;
+    c: *C;
+}
+
+struct D {
+    a: A;
+    b: B;
+    e: E;
+}
+
+struct E {
+    a: A;
+    d: D;
+};

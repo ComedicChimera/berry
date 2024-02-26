@@ -1,0 +1,27 @@
+import (
+    io.std,
+
+    vector
+);
+
+let u = vector.Vec3{1, 2, 3};
+
+func addVec3(a, b: vector.Vec3) vector.Vec3 {
+    return .{a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
+func printVec3(a: vector.Vec3) {
+    std.PutRune('(');
+    std.PutInt(a.x);
+    std.PutStr(", ");
+    std.PutInt(a.y);
+    std.PutStr(", ");
+    std.PutInt(a.z);
+    std.PutStr(")\n");
+}
+
+func main() {
+    let v = vector.Vec3{4, 3, 2};
+    let w = addVec3(u, v);
+    printVec3(w);
+}

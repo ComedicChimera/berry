@@ -1,0 +1,47 @@
+import io.std;
+
+struct Vec2 {
+    x, y: i64;
+};
+
+pub struct Vec3 {
+    // Export fields for external modules.
+    pub x, y, z: i64;
+}
+
+let zero_vec = Vec2{0, 0};
+
+func addVec2(a, b: Vec2) Vec2 {
+    return .{a.x + b.x, a.y + b.y};
+}
+
+func dot(a, b: Vec2) i64 {
+    return a.x * b.x + a.y * b.y;
+}
+
+func printVec(v: Vec2) {
+    std.PutStr('(');
+    std.PutInt(v.x);
+    std.PutStr(", ");
+    std.PutInt(v.y);
+    std.PutStr(')');
+}
+
+func main() {
+    let v1 = Vec2{x = 10, y = 4};
+    let v2 = Vec2{-5, 1};
+
+    let sum = addVec2(v1, v2);
+    printVec(sum);
+
+    let p = dot(v1, v2);
+    std.PutInt(p);
+    std.PutRune('\n');
+
+    if v1 == v2 {
+        std.PutStr("v1 = v2\n");
+    } else {
+        std.PutStr("v1 != v2\n");
+    }
+}
+

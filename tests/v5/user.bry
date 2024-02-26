@@ -1,0 +1,66 @@
+import io.std;
+
+struct User {
+    name, email: []u8;
+    age: i64;
+};
+
+let users = [
+    User{"John Doe", "example@gmail.com", 30},
+    User{"Jane Doe, "jane@hotmail.com", 27}
+];
+
+func printUser(u: *User) {
+    std.PutStr("{name=");
+    std.PutStr(u.name);
+    std.PutStr(", email=");
+    std.PutStr(u.email);
+    std.PutStr(", age=");
+    std.PutInt(u.age);
+    std.PutStr("}\n");
+}
+
+func printUsers() {
+    for let i = 0; i < users._len; i++ {
+        printUser(&users[i]);
+    }
+}
+
+func nomutate(u: User) {
+    u.name = "Jessie";
+    printUser(&u);
+}
+
+func mutate(u: *User) {
+    u.name = "James";
+    printUser(u);
+}
+
+func main() {
+    printUsers();
+
+    users[0].age++;
+    users[1].email = "jd@outlook.com";
+
+    printUsers();
+
+    let new_user = User{email="beans@bb.edu", name="Beans", age=69};
+    let new_user_copy = new_user;
+
+    new_user_copy.age = 420;
+
+    printUser(&new_user);
+    printUser(&new_user_copy);
+
+    nomutate(new_user);
+    printUser(&new_user);
+
+    mutate(new_user_copy);
+    printUser(&new_user_copy);
+
+    if users[0].name == users[1].name {
+        std.PutStr("users 1 and 2 have the same name\n");
+    } else {
+        std.PutStr("users 1 and 2 have different names\n");
+    }
+}

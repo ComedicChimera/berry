@@ -18,7 +18,7 @@ don't always get time (or energy) to work on it.
 
 - [x] Target 4: Modules and Multi-File Projects
 
-- [ ] Target 5: Structs
+- [ ] Target 5: Structs and Non-Numeric Equality
 
 - [ ] Target 6: Enums and Basic Match Statements
 
