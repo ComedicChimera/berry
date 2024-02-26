@@ -24,5 +24,7 @@ don't always get time (or energy) to work on it.
 
 - [ ] Target 7: Meta Directives and Intrinsic Macros
 
-- [ ] Target 8: Dynamic Memory
+- [ ] Target 8: Constants and Comptimes
+
+- [ ] Target 9: Dynamic Memory
 
