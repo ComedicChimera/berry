@@ -70,15 +70,6 @@ private:
     void buildTypeTable();
 };
 
-// LoopContext stores the jump locations for an enclosing loop.
-struct LoopContext {
-    // break_block is the jump destination of a break statement.
-    llvm::BasicBlock* break_block;
-
-    // continue_block is the jump destination of a continue statement.
-    llvm::BasicBlock* continue_block;
-};
-
 // CodeGenerator compiles a Berry module to an LLVM module.
 class CodeGenerator {
     // ctx is the LLVM context being compiled in.
@@ -107,27 +98,42 @@ class CodeGenerator {
     // tctx is a utility type context for the code generator (used for comparisons).
     TypeContext tctx;
 
+    // LoopContext stores the jump locations for an enclosing loop.
+    struct LoopContext {
+        // break_block is the jump destination of a break statement.
+        llvm::BasicBlock* break_block;
+
+        // continue_block is the jump destination of a continue statement.
+        llvm::BasicBlock* continue_block;
+    };
+
     // loop_ctx_stack is the stack of enclosing loop contexts.
     std::vector<LoopContext> loop_ctx_stack;
 
     /* ---------------------------------------------------------------------- */
 
-    // ll_init_func is the module initialization function (where non-constant
-    // global initializers are placed).  This is indirectly called by the
-    // runtime at startup.
-    llvm::Function* ll_init_func;
-
     // ll_array_type is the LLVM type for all Berry arrays (opaque pointer POG).
     llvm::StructType* ll_array_type;
 
-    // ll_panic_func is the panic function for the runtime.
-    llvm::Function* ll_panic_func;
+    // ll_init_func is the module initialization function (where non-constant
+    // global initializers are placed).  This is indirectly called by the
+    // runtime at startup through `__berry_main`.
+    llvm::Function* ll_init_func;
+
+    // ll_init_block is the current block for appending in the init func.
+    llvm::BasicBlock* ll_init_block;
+
+    // ll_panic_func is the runtime out of bounds panic function.
+    llvm::Function* ll_panic_oob_func;
+
+    // ll_panic_badslice_func is the runtime bad slice panic function.
+    llvm::Function* ll_panic_badslice_func;
 
     /* ---------------------------------------------------------------------- */
 
     // loaded_imports stores the imports that are loaded.  The first index is
     // the dependency ID and the second index is the export number.
-    std::vector<std::vector<llvm::Value*>> loaded_imports;
+    std::vector<std::unordered_map<size_t, llvm::Value*>> loaded_imports;
 
     // cconv_name_to_id maps Berry calling convention names to their LLVM IDs.
     std::unordered_map<std::string_view, llvm::CallingConv::ID> cconv_name_to_id {
@@ -144,9 +150,11 @@ public:
     , bry_mod(bry_mod)
     , ll_enclosing_func(nullptr)
     , var_block(nullptr)
-    , ll_init_func(nullptr)
     , ll_array_type(nullptr)
-    , ll_panic_func(nullptr)
+    , ll_init_func(nullptr)
+    , ll_init_block(nullptr)
+    , ll_panic_oob_func(nullptr)
+    , ll_panic_badslice_func(nullptr)
     , loaded_imports(bry_mod.deps.size())
     {}
 
@@ -193,11 +201,12 @@ private:
     llvm::Value* genArrayLit(AstExpr *node, llvm::Value *alloc_loc);
     llvm::Value* genNewExpr(AstExpr *node, llvm::Value *alloc_loc);
     llvm::Value* genStrLit(AstExpr *node, llvm::Value *alloc_loc);
+    llvm::Value* genIdent(AstExpr *node, bool expect_addr);
 
     /* ---------------------------------------------------------------------- */
 
     void createBuiltinGlobals();
-    void getBuiltinFuncs();
+    void genRuntimeStubs();
     void finishModule();
 
     /* ---------------------------------------------------------------------- */

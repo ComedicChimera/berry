@@ -7,6 +7,7 @@
 namespace fs = std::filesystem;
 
 #include "symbol.hpp"    
+#include "codegen.hpp"
 
 #define BERRY_FILE_EXT ".bry"
 
@@ -15,6 +16,7 @@ class Loader {
 
     Arena& arena;
     ModuleTable mod_table;
+    Module* root_mod { nullptr };
     std::vector<fs::path> import_paths;
 
     struct LoadEntry {
@@ -23,12 +25,17 @@ class Loader {
 
         Module::Dependency& dep;
     };
-
     std::queue<LoadEntry> load_queue;
 
 public:
     Loader(Arena& arena, const std::vector<std::string>& import_paths);
     void LoadAll(const std::string& root_mod);
+
+    // GenerateMainModule generates the main module for the project.  This
+    // function actually relies quite heavily on the internal state of the
+    // module loader (a subsystem of the compiler driver) which is why it is
+    // defined as a Loader method.  It is implemented in codegen/gen_main.cpp.
+    void GenerateMainModule(llvm::Module& main_mod, bool needs_user_main);
 
     /* ---------------------------------------------------------------------- */
 

@@ -26,6 +26,9 @@ enum SymbolKind {
 
 // Symbol represents a named symbol in a Berry module.
 struct Symbol {
+    // parent_id the ID of the symbol's parent module.
+    size_t parent_id;
+
     // name is the name of the symbol.
     std::string_view name;
 

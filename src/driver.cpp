@@ -34,7 +34,7 @@ class Compiler {
 
     std::vector<std::string> obj_files;
     std::string out_dir;
-    bool should_delete_out_dir;
+    bool should_delete_out_dir { false };
 
 public:
     Compiler(const BuildConfig& cfg)
@@ -70,7 +70,6 @@ public:
         case OUTFMT_ASM:
         case OUTFMT_LLVM:
             out_dir = cfg.out_path;
-            should_delete_out_dir = false;
             prepareOutDir();
 
             emit();
@@ -86,7 +85,9 @@ public:
             }
             return;
         }
+    }
 
+    ~Compiler() {
         if (should_delete_out_dir) {
             std::error_code ec;
             fs::remove_all(out_dir, ec);
@@ -133,6 +134,11 @@ private:
             CodeGenerator cg(ll_ctx, *ll_mod, mod, cfg.should_emit_debug);
             cg.GenerateModule();
         }
+
+        auto& main_mod = ll_mods.emplace_back(std::make_unique<llvm::Module>("_$berry_main", ll_ctx));
+        main_mod->setDataLayout(tm->createDataLayout());
+        main_mod->setTargetTriple(tm->getTargetTriple().str());
+        loader.GenerateMainModule(*main_mod, cfg.out_fmt == OUTFMT_EXE);
 
         std::error_code ec;
         if (cfg.out_fmt == OUTFMT_LLVM) {

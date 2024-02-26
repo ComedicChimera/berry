@@ -4,8 +4,14 @@ let nums: []i64 = [1, 2, 3, 4, 5];
 
 func printArray(arr: []i64) {
     for let i = 0; i < arr._len; i++ {
+        if i > 0 {
+            std.PutStr(", ");
+        }
+
         std.PutInt(arr[i]);
     }
+
+    std.PutRune('\n');
 }
 
 func main() {
@@ -13,4 +19,5 @@ func main() {
     printArray(nums);
 
     std.PutInt(abs(-20));
+    std.PutRune('\n');
 }

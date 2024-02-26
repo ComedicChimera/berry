@@ -154,14 +154,14 @@ void CodeGenerator::genGlobalVarInit(AstDef* node) {
     // No debug info for global variable expressions.
     debug.PushDisable();
 
-    auto& last_init_block = ll_init_func->back();
-    setCurrentBlock(&last_init_block);
+    setCurrentBlock(ll_init_block);
 
     ll_enclosing_func = ll_init_func;
     auto* ll_value = genExpr(node->an_GlobalVar.init);
     ll_enclosing_func = nullptr;
-    
+
     irb.CreateStore(ll_value, node->an_GlobalVar.symbol->llvm_value);
+    ll_init_block = getCurrentBlock();
 
     debug.PopDisable();
 }

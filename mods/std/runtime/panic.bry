@@ -1,8 +1,17 @@
 module runtime;
 
 @abientry
-func __LibBerry_Panic() {
-    rputs("panic!\n");
+func __berry_panic_oob() {
+    rputs("panic: index out of bounds\n");
+    dopanic();
+}
 
+@abientry
+func __berry_panic_badslice() {
+    rputs("panic: bad slice range\n");
+    dopanic();
+}
+
+func dopanic() {
     ExitProcess(1);
 }

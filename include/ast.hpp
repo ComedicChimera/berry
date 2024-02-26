@@ -147,7 +147,7 @@ struct AstExpr : public AstNode {
             std::string_view field_name;
 
             // This field is only used for static_get
-            size_t export_num;
+            Symbol* imported_sym;
         } an_Field;
         struct {
             AstExpr* func;

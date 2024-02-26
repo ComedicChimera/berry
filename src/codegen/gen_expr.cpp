@@ -34,19 +34,8 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
         return genArrayLit(node, alloc_loc);
     case AST_NEW:
         return genNewExpr(node, alloc_loc);
-    case AST_IDENT: {
-        auto* symbol = node->an_Ident.symbol;
-
-        llvm::Value* ll_value;
-        if (symbol == nullptr) {
-            // TODO: core symbols
-            Panic("unimplemented");
-        } else if (symbol->kind == SYM_VARIABLE && !expect_addr) {
-            return irb.CreateLoad(genType(symbol->type), symbol->llvm_value);
-        } else {
-            return symbol->llvm_value;
-        }        
-    } break;
+    case AST_IDENT: 
+        return genIdent(node, expect_addr);
     case AST_INT: {
         // NOTE: It is possible for an int literal to have a float type if a
         // number literal implicitly takes on a floating point value.
@@ -419,7 +408,7 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
         irb.CreateCondBr(is_good_slice, bb_is_good_slice, bb_is_bad_slice);
 
         setCurrentBlock(bb_is_bad_slice);
-        irb.CreateCall(ll_panic_func);
+        irb.CreateCall(ll_panic_badslice_func);
         irb.CreateUnreachable();
 
         setCurrentBlock(bb_is_good_slice);
@@ -446,10 +435,14 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
 
 llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
     auto& afield = node->an_Field;
-    if (afield.export_num != UNEXPORTED) {
-        // TODO: determine if we need a load here...
-        Panic("unimplemented");
-        return loaded_imports[afield.root->an_Ident.dep_id][afield.export_num];
+    if (afield.imported_sym != nullptr) {
+        auto* ll_value = loaded_imports[afield.root->an_Ident.dep_id][afield.imported_sym->export_num];
+        
+        if (!expect_addr && afield.imported_sym->kind == SYM_VARIABLE) {
+            return irb.CreateLoad(genType(node->type), ll_value);
+        }
+
+        return ll_value;
     }
 
     auto* root_inner_type = afield.root->type->Inner();
@@ -687,6 +680,26 @@ llvm::Value* CodeGenerator::genStrLit(AstExpr* node, llvm::Value* alloc_loc) {
     }
 }
 
+llvm::Value* CodeGenerator::genIdent(AstExpr* node, bool expect_addr) {
+    auto* symbol = node->an_Ident.symbol;
+    Assert(symbol != nullptr, "unresolved symbol in codegen");
+
+    llvm::Value* ll_value;
+    if (symbol->parent_id != bry_mod.id) {
+        Assert(symbol->export_num != UNEXPORTED, "unexported core symbol used in codegen");
+        
+        ll_value = loaded_imports.back()[symbol->export_num];
+    } else {
+        ll_value = symbol->llvm_value;
+    }
+    
+    if (symbol->kind == SYM_VARIABLE && !expect_addr) {
+        return irb.CreateLoad(genType(node->type), ll_value);
+    } else {
+        return ll_value;
+    }  
+}
+
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len) {
@@ -705,7 +718,7 @@ void CodeGenerator::genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool 
     irb.CreateCondBr(is_in_bounds, bb_in_bounds, bb_oob);
     
     setCurrentBlock(bb_oob);
-    irb.CreateCall(ll_panic_func);
+    irb.CreateCall(ll_panic_oob_func);
     irb.CreateUnreachable();
 
     setCurrentBlock(bb_in_bounds);

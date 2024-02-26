@@ -106,7 +106,7 @@ private:
     /* ---------------------------------------------------------------------- */
 
     template<typename ...Args>
-    inline void error(const TextSpan& span, const std::string& fmt, Args... args) {
+    inline void error(const TextSpan& span, const std::string& fmt, Args&&... args) {
         ReportCompileError(
             src_file.display_path,
             span,
@@ -116,14 +116,14 @@ private:
     }
 
     template<typename ...Args>
-    inline void fatal(const TextSpan& span, const std::string& fmt, Args... args) {
+    inline void fatal(const TextSpan& span, const std::string& fmt, Args&&... args) {
         error(span, fmt, args...);
 
         throw CompileError{};
     }
 
     template<typename ...Args>
-    inline void reject(const std::string& fmt, Args... args) {
+    inline void reject(const std::string& fmt, Args&&... args) {
         std::string message_base { std::move(std::format(fmt, args...)) };
         message_base.append(" but got ");
         message_base.append(tokKindToString(tok.kind));

@@ -7,6 +7,8 @@
 void CodeGenerator::GenerateModule() {
     createBuiltinGlobals();
 
+    genImports();
+
     for (auto& file : bry_mod.files) {
         debug.EmitFileInfo(file);
         debug.SetCurrentFile(file);
@@ -16,7 +18,7 @@ void CodeGenerator::GenerateModule() {
         }
     }
 
-    getBuiltinFuncs();
+    genRuntimeStubs();
 
     for (auto& file : bry_mod.files) {
         debug.SetCurrentFile(file);
@@ -32,17 +34,6 @@ void CodeGenerator::GenerateModule() {
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::createBuiltinGlobals() {
-    // Add _fltused global symbol.
-    auto* ll_double_type = llvm::Type::getDoubleTy(ctx);
-    auto* gv_fltused = new llvm::GlobalVariable(
-        mod,
-        ll_double_type,
-        true,
-        llvm::GlobalValue::ExternalLinkage,
-        llvm::Constant::getNullValue(ll_double_type),
-        "_fltused"
-    );
-
     // Declare the global array type.
     ll_array_type = llvm::StructType::create(
         ctx, 
@@ -51,22 +42,66 @@ void CodeGenerator::createBuiltinGlobals() {
     );
 }
 
-void CodeGenerator::getBuiltinFuncs() {
+void CodeGenerator::genRuntimeStubs() {
+    auto* rt_stub_func_type = llvm::FunctionType::get(llvm::Type::getVoidTy(ctx), false);
+
     // Generate the module's init function signature.
-    ll_init_func = mod.getFunction("__LibBerry_Init");
-    Assert(ll_init_func != nullptr, "missing __LibBerry_Init");
+    ll_init_func = llvm::Function::Create(
+        rt_stub_func_type, 
+        llvm::Function::ExternalLinkage, 
+        std::format("__berry_init_mod${}", bry_mod.id), 
+        mod
+    );
+    ll_init_block = llvm::BasicBlock::Create(ctx, "entry", ll_init_func);
 
-    llvm::BasicBlock::Create(ctx, "entry", ll_init_func);
+    // Generate the panic functions.
+    auto pfunc = mod.getFunction("__berry_panic_oob");
+    if (pfunc == nullptr) {
+        ll_panic_oob_func = llvm::Function::Create(
+            rt_stub_func_type,
+            llvm::Function::ExternalLinkage,
+            "__berry_panic_oob",
+            mod
+        );
+    } else {
+        ll_panic_oob_func = pfunc;
+    }
 
-    // Find the panic function for bounds checking.
-    ll_panic_func = mod.getFunction("__LibBerry_Panic");
-    Assert(ll_panic_func != nullptr, "missing __LibBerry_Panic");
+    pfunc = mod.getFunction("__berry_panic_badslice");
+    if (pfunc == nullptr) {
+        ll_panic_badslice_func = llvm::Function::Create(
+            rt_stub_func_type,
+            llvm::Function::ExternalLinkage,
+            "__berry_panic_badslice",
+            mod
+        );
+    } else {
+        ll_panic_badslice_func = pfunc;
+    }
 }
 
 void CodeGenerator::finishModule() {
     // Close the body the init func.
-    auto& last_block = ll_init_func->back();   
-    setCurrentBlock(&last_block);
+    setCurrentBlock(ll_init_block);
+
+    // Call user specified init function if there is any.
+    auto it = bry_mod.symbol_table.find("init");
+    if (it != bry_mod.symbol_table.end()) {
+        auto sym = it->second;
+        if (
+            sym->kind == SYM_FUNC && 
+            sym->type->kind == TYPE_FUNC &&
+            sym->type->ty_Func.param_types.size() == 0 && 
+            sym->type->ty_Func.return_type->kind == TYPE_UNIT
+        ) {
+            irb.CreateCall(
+                llvm::FunctionType::get(llvm::Type::getVoidTy(ctx), false), 
+                sym->llvm_value
+            );
+        }
+    }
+    
+    // End the init block.
     irb.CreateRetVoid();
 
     // Finalize all the debug information.
@@ -140,7 +175,7 @@ llvm::Type* CodeGenerator::genType(Type* type) {
 
 /* -------------------------------------------------------------------------- */
 
-LoopContext& CodeGenerator::getLoopCtx() {
+CodeGenerator::LoopContext& CodeGenerator::getLoopCtx() {
     Assert(loop_ctx_stack.size() > 0, "loop control statement missing loop context in codegen");
     return loop_ctx_stack.back();
 }

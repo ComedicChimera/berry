@@ -144,7 +144,7 @@ void Loader::loadRootModule(fs::path& root_mod_abs_path) {
     auto local_path = root_mod_abs_path.parent_path();
 
     if (fs::is_directory(root_mod_abs_path)) {
-        loadModule(local_path, root_mod_abs_path);
+        root_mod = &loadModule(local_path, root_mod_abs_path);
     } else if (fs::is_regular_file(root_mod_abs_path)) {
         SourceFile src_file { 
             nullptr,
@@ -166,10 +166,12 @@ void Loader::loadRootModule(fs::path& root_mod_abs_path) {
 
             parseModule(mod);
             resolveImports(local_path, mod);
+
+            root_mod = &mod;
         } else {
             // Module is a directory.
             local_path.remove_filename();
-            loadModule(local_path, root_mod_abs_path.parent_path());
+            root_mod = &loadModule(local_path, root_mod_abs_path.parent_path());
         }
     } else {
         ReportFatal("input path must be a file or directory");

@@ -8,9 +8,11 @@ void CodeGenerator::genImports() {
 
             switch (entry.def->kind) {
             case AST_FUNC:
-                loaded_imports[i].push_back(genImportFunc(*dep.mod, entry.def));
+                loaded_imports[i].emplace(export_num, genImportFunc(*dep.mod, entry.def));
+                break;
             case AST_GLOBAL_VAR:
-                loaded_imports[i].push_back(genImportGlobalVar(*dep.mod, entry.def));
+                loaded_imports[i].emplace(export_num, genImportGlobalVar(*dep.mod, entry.def));
+                break;
             }
         }
 
@@ -64,7 +66,7 @@ llvm::Value* CodeGenerator::genImportGlobalVar(Module& imported_mod, AstDef* nod
         ll_type, 
         false, 
         llvm::GlobalValue::ExternalLinkage, 
-        llvm::Constant::getNullValue(ll_type), 
+        nullptr, 
         mangleName(imported_mod, symbol->name)
     );
 }

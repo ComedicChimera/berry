@@ -4,11 +4,11 @@ module runtime;
 func ExitProcess(exit_code: u32);
 
 @extern
-func __LibBerry_Main();
+func __berry_main();
 
 @abientry
-func __LibBerry_Start() {
-    __LibBerry_Main();
+func __berry_start() {
+    __berry_main();
 
     ExitProcess(0);
 }
