@@ -2,22 +2,22 @@ import io.std;
 
 let nums: []i64 = [1, 2, 3, 4, 5];
 
-func printArray(arr: []i64) {
+func print_array(arr: []i64) {
     for let i = 0; i < arr._len; i++ {
         if i > 0 {
-            std.PutStr(", ");
+            std.puts(", ");
         }
 
-        std.PutInt(arr[i]);
+        std.putint(arr[i]);
     }
 
-    std.PutRune('\n');
+    std.putr('\n');
 }
 
 func main() {
-    std.PutStr("Hello, world!\n");
-    printArray(nums);
+    std.puts("Hello, world!\n");
+    print_array(nums);
 
-    std.PutInt(abs(-20));
-    std.PutRune('\n');
+    std.putint(abs(-20));
+    std.putr('\n');
 }

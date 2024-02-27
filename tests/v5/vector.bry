@@ -11,7 +11,7 @@ pub struct Vec3 {
 
 let zero_vec = Vec2{0, 0};
 
-func addVec2(a, b: Vec2) Vec2 {
+func add_vec2(a, b: Vec2) Vec2 {
     return .{a.x + b.x, a.y + b.y};
 }
 
@@ -19,29 +19,29 @@ func dot(a, b: Vec2) i64 {
     return a.x * b.x + a.y * b.y;
 }
 
-func printVec(v: Vec2) {
-    std.PutStr('(');
-    std.PutInt(v.x);
-    std.PutStr(", ");
-    std.PutInt(v.y);
-    std.PutStr(')');
+func print_vec(v: Vec2) {
+    std.puts('(');
+    std.putint(v.x);
+    std.puts(", ");
+    std.putint(v.y);
+    std.puts(')');
 }
 
 func main() {
     let v1 = Vec2{x = 10, y = 4};
     let v2 = Vec2{-5, 1};
 
-    let sum = addVec2(v1, v2);
-    printVec(sum);
+    let sum = add_vec2(v1, v2);
+    print_vec(sum);
 
     let p = dot(v1, v2);
-    std.PutInt(p);
-    std.PutRune('\n');
+    std.putint(p);
+    std.putr('\n');
 
     if v1 == v2 {
-        std.PutStr("v1 = v2\n");
+        std.puts("v1 = v2\n");
     } else {
-        std.PutStr("v1 != v2\n");
+        std.puts("v1 != v2\n");
     }
 }
 

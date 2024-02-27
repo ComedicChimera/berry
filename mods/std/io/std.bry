@@ -34,7 +34,7 @@ func flush() {
 
 /* ------------------------------------------------------------------------- */
 
-pub func PutInt(n: i64) {
+pub func putint(n: i64) {
     let digit_buff = new u8[20];
 
     let is_neg = false;
@@ -60,10 +60,10 @@ pub func PutInt(n: i64) {
     write(digit_buff[i+1:]);
 }
 
-pub func PutRune(r: i32) {
+pub func putr(r: i32) {
     write([r as u8]);
 }
 
-pub func PutStr(s: []u8) {
+pub func puts(s: []u8) {
     write(s);
 }

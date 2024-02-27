@@ -1,20 +1,20 @@
 import io.std;
 
-func printAnon(x: struct { a: i64, b: i64 }) {
-    std.PutInt(x.a);
-    std.PutStr(", ");
-    std.PutInt(x.b);
-    std.PutRune('\n');
+func print_anon(x: struct { a: i64, b: i64 }) {
+    std.putint(x.a);
+    std.puts(", ");
+    std.putint(x.b);
+    std.putr('\n');
 }
 
-func createAnon(s: i64) struct { a: i64, b: i64 } {
+func create_anon(s: i64) struct { a: i64, b: i64 } {
     return .{a=s, b=-s};
 }
 
 func main() {
-    let anon = createAnon();
+    let anon = create_anon();
     let anon2 = struct{a: i64, b: i64}{1, 1};
 
-    printAnon(anon);
-    printAnon(anon2);
+    print_anon(anon);
+    print_anon(anon2);
 }

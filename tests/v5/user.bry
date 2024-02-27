@@ -10,17 +10,17 @@ let users = [
     User{"Jane Doe, "jane@hotmail.com", 27}
 ];
 
-func printUser(u: *User) {
-    std.PutStr("{name=");
-    std.PutStr(u.name);
-    std.PutStr(", email=");
-    std.PutStr(u.email);
-    std.PutStr(", age=");
-    std.PutInt(u.age);
-    std.PutStr("}\n");
+func print_user(u: *User) {
+    std.puts("{name=");
+    std.puts(u.name);
+    std.puts(", email=");
+    std.puts(u.email);
+    std.puts(", age=");
+    std.putint(u.age);
+    std.puts("}\n");
 }
 
-func printUsers() {
+func print_users() {
     for let i = 0; i < users._len; i++ {
         printUser(&users[i]);
     }
@@ -37,30 +37,30 @@ func mutate(u: *User) {
 }
 
 func main() {
-    printUsers();
+    print_users();
 
     users[0].age++;
     users[1].email = "jd@outlook.com";
 
-    printUsers();
+    print_users();
 
     let new_user = User{email="beans@bb.edu", name="Beans", age=69};
     let new_user_copy = new_user;
 
     new_user_copy.age = 420;
 
-    printUser(&new_user);
-    printUser(&new_user_copy);
+    print_user(&new_user);
+    print_user(&new_user_copy);
 
     nomutate(new_user);
-    printUser(&new_user);
+    print_user(&new_user);
 
     mutate(new_user_copy);
-    printUser(&new_user_copy);
+    print_user(&new_user_copy);
 
     if users[0].name == users[1].name {
-        std.PutStr("users 1 and 2 have the same name\n");
+        std.puts("users 1 and 2 have the same name\n");
     } else {
-        std.PutStr("users 1 and 2 have different names\n");
+        std.puts("users 1 and 2 have different names\n");
     }
 }
