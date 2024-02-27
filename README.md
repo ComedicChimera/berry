@@ -26,7 +26,7 @@ don't always get time (or energy) to work on it.
 
 - [ ] Target 8: Constants and Comptimes
 
-- [ ] Target 9: Dynamic Memory and Primitive Threads
+- [ ] Target 9: Dynamic Memory, Threads, and Panicking
 
-- [ ] Target 10: Runtime Error Handling
+- [ ] Target 10: Garbage Collections and Automatic Allocation
 
