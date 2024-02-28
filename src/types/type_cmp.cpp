@@ -142,6 +142,14 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
         return false;
     }
 
+    if (dest->kind == TYPE_NAMED) {
+        if (src->kind != TYPE_NAMED) {
+            return Cast(src, dest->ty_Named.type);
+        }
+    } else if (src->kind == TYPE_NAMED) {
+        return Cast(src->ty_Named.type, dest);
+    }
+
     switch (src->kind) {
     case TYPE_INT:
         return innerIsNumberType(dest) || dest->kind == TYPE_BOOL || dest->kind == TYPE_PTR;
