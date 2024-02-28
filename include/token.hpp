@@ -7,6 +7,7 @@
 enum TokenKind {
     TOK_LET,
     TOK_FUNC,
+    TOK_STRUCT,
 
     TOK_IF,
     TOK_ELIF,

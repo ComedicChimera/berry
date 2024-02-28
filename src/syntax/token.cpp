@@ -5,6 +5,7 @@
 std::string kindNames[TOKENS_COUNT] = {
     "let",
     "func",
+    "struct",
     "if",
     "elif",
     "else",

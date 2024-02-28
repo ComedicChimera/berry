@@ -3,8 +3,6 @@
 
 #include "symbol.hpp"
 
-struct Visitor;
-
 // AstOpKind enumerates the different possible opcodes for AST operators.
 enum AstOpKind {
     AOP_ADD,
@@ -69,6 +67,7 @@ typedef std::unordered_map<std::string_view, MetadataTag> MetadataMap;
 enum AstKind {
     AST_FUNC,
     AST_GLOBAL_VAR,
+    AST_STRUCT_DEF,
 
     AST_BLOCK,
     AST_IF,
@@ -247,6 +246,10 @@ struct AstStmt : public AstNode {
 
 /* -------------------------------------------------------------------------- */
 
+struct FieldAttr {
+    std::span<MetadataTag> metadata;
+};
+
 struct AstDef : public AstNode {
     std::span<MetadataTag> metadata;
 
@@ -261,6 +264,10 @@ struct AstDef : public AstNode {
             Symbol* symbol;
             AstExpr* init;
         } an_GlobalVar;
+        struct {
+            Symbol* symbol;
+            std::span<FieldAttr> field_attrs;
+        } an_StructDef;
     };
 };
 

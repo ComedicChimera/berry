@@ -7,6 +7,7 @@ static AstDef size_ref_def { };
 static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_def.an_Func),
     sizeof(size_ref_def.an_GlobalVar),
+    sizeof(size_ref_def.an_StructDef),
 
     sizeof(size_ref_stmt.an_Block),
     sizeof(size_ref_stmt.an_If),

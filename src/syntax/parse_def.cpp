@@ -146,7 +146,7 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
                 src_file.parent->id,
                 arena.MoveStr(std::move(name_tok.value)),
                 name_tok.span,
-                SYM_VARIABLE,
+                SYM_VAR,
                 type,
                 false
             );
@@ -188,7 +188,7 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
         src_file.parent->id,
         arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
-        SYM_VARIABLE,
+        SYM_VAR,
         type,
         false,
         exported ? src_file.parent->export_table.size() : UNEXPORTED

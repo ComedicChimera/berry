@@ -1,7 +1,7 @@
 // An Example Implementation of Brainf*ck Interpreter in Berry
 // 
-// NOTE: Most of the features used in this code are not yet implemented. // If I
-ever finish this language, this is what a program in it would look like.
+// NOTE: Most of the features used in this code are not yet implemented. 
+// If I ever finish this language, this is what a program in it would look like.
 
 import (
 	fs,

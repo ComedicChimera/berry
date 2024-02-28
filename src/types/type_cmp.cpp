@@ -60,6 +60,32 @@ bool TypeContext::innerEqual(Type* a, Type* b) {
             return Equal(aft.return_type, bft.return_type);
         }
         break;
+    case TYPE_NAMED:
+        if (b->kind == TYPE_NAMED) {
+            return a->ty_Named.mod_id == b->ty_Named.mod_id && a->ty_Named.name == b->ty_Named.name;
+        }
+        break;
+    case TYPE_STRUCT:
+        if (b->kind == TYPE_STRUCT) {
+            auto& ast = a->ty_Struct;
+            auto& bst = b->ty_Struct;
+
+            if (ast.fields.size() != bst.fields.size()) {
+                return false;
+            }
+
+            for (size_t i = 0; i < ast.fields.size(); i++) {
+                if (ast.fields[i].name != bst.fields[i].name)
+                    return false;
+
+                if (!Equal(ast.fields[i].type, bst.fields[i].type)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        break;
     default:
         Panic("type comparison not implemented for {}", (int)a->kind);
     }

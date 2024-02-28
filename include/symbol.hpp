@@ -18,8 +18,9 @@ namespace llvm {
 
 // SymbolKind enumerates the different kinds of symbols.
 enum SymbolKind {
-    SYM_VARIABLE,   // Variable
-    SYM_FUNC,       // Function
+    SYM_VAR,    // Variable
+    SYM_FUNC,   // Function
+    SYM_TYPE,   // Type Definition
 };
 
 #define UNEXPORTED ((size_t)(-1))

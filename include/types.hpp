@@ -14,12 +14,22 @@ enum TypeKind {
     TYPE_FLOAT, // Floating-point/real type
     TYPE_BOOL,  // Boolean type
     TYPE_UNIT,  // Unit/void type
+    TYPE_UNTYP, // Untyped
+
     TYPE_PTR,   // Pointer type
     TYPE_FUNC,  // Function type
     TYPE_ARRAY, // Array Type
-    TYPE_UNTYP,  // Untyped
+    
+    TYPE_NAMED,     // Named Type 
+    TYPE_STRUCT,    // Struct Type
 
     TYPES_COUNT
+};
+
+// StructField is a field in a struct type.
+struct StructField {
+    std::string_view name;
+    Type* type;
 };
 
 // Type represents a Berry data type.
@@ -35,6 +45,12 @@ struct Type {
             int bit_size;
         } ty_Float;
         struct {
+            uint64_t key;
+            Type* concrete_type;
+            TypeContext* parent;
+        } ty_Untyp;
+
+        struct {
             Type* elem_type;
         } ty_Ptr;
         struct {
@@ -44,11 +60,16 @@ struct Type {
         struct {
             Type* elem_type;
         } ty_Array;
+
         struct {
-            uint64_t key;
-            Type* concrete_type;
-            TypeContext* parent;
-        } ty_Untyp;
+            size_t mod_id;
+            std::string_view mod_name;
+            std::string_view name;
+            Type* type;
+        } ty_Named;
+        struct {
+            std::span<StructField> fields;
+        } ty_Struct;
     };
 
     friend class TypeContext;

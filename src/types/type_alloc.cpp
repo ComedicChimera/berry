@@ -7,12 +7,16 @@ static size_t type_variant_sizes[TYPES_COUNT] = {
     sizeof(prim_i8_type.ty_Float), 
     0,
     0,
+    sizeof(prim_i8_type.ty_Untyp), 
+
     sizeof(prim_i8_type.ty_Ptr),    
     sizeof(prim_i8_type.ty_Func),   
     sizeof(prim_i8_type.ty_Array),  
-    sizeof(prim_i8_type.ty_Untyp),  
+
+    sizeof(prim_i8_type.ty_Named),
+    sizeof(prim_i8_type.ty_Struct)
 };
-#define LARGEST_TYPE_VARIANT_SIZE sizeof(prim_i8_type.ty_Func)
+#define LARGEST_TYPE_VARIANT_SIZE sizeof(prim_i8_type.ty_Named)
 
 Type* AllocType(Arena& arena, TypeKind kind) {
     size_t var_size = type_variant_sizes[(int)kind];

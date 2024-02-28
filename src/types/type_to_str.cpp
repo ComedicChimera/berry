@@ -46,6 +46,20 @@ std::string Type::ToString() const {
         }
         
         return ty_Untyp.concrete_type->ToString();
+    case TYPE_NAMED:
+        return std::format("{}.{}", ty_Named.mod_name, ty_Named.name);
+    case TYPE_STRUCT: {
+        std::string sb { "struct { " };
+        for (auto& field : ty_Struct.fields) {
+            sb += field.name;
+            sb += ": ";
+            sb += field.type->ToString();
+            sb += "; ";
+        }
+
+        sb.push_back('}');
+        return sb;
+    } break;
     default:
         Panic("string printing not implemented for {}", (int)kind);
     }

@@ -438,7 +438,7 @@ llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
     if (afield.imported_sym != nullptr) {
         auto* ll_value = loaded_imports[afield.root->an_Ident.dep_id][afield.imported_sym->export_num];
         
-        if (!expect_addr && afield.imported_sym->kind == SYM_VARIABLE) {
+        if (!expect_addr && afield.imported_sym->kind == SYM_VAR) {
             return irb.CreateLoad(genType(node->type), ll_value);
         }
 
@@ -693,7 +693,7 @@ llvm::Value* CodeGenerator::genIdent(AstExpr* node, bool expect_addr) {
         ll_value = symbol->llvm_value;
     }
     
-    if (symbol->kind == SYM_VARIABLE && !expect_addr) {
+    if (symbol->kind == SYM_VAR && !expect_addr) {
         return irb.CreateLoad(genType(node->type), ll_value);
     } else {
         return ll_value;
