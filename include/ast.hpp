@@ -246,7 +246,7 @@ struct AstStmt : public AstNode {
 
 /* -------------------------------------------------------------------------- */
 
-struct FieldAttr {
+struct StructFieldAttr {
     std::span<MetadataTag> metadata;
 };
 
@@ -266,7 +266,7 @@ struct AstDef : public AstNode {
         } an_GlobalVar;
         struct {
             Symbol* symbol;
-            std::span<FieldAttr> field_attrs;
+            std::span<StructFieldAttr> field_attrs;
         } an_StructDef;
     };
 };

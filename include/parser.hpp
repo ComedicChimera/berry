@@ -47,6 +47,7 @@ private:
     void parseFuncDef(MetadataMap &&meta, bool exported);
     void parseFuncParams(std::vector<Symbol *> &params);
     void parseGlobalVarDef(MetadataMap &&meta, bool exported);
+    void parseStructDef(MetadataMap &&meta, bool exported);
 
     /* ---------------------------------------------------------------------- */
 

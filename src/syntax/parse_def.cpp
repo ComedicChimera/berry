@@ -55,6 +55,9 @@ void Parser::parseDef(MetadataMap&& meta, bool exported) {
     case TOK_LET:
         parseGlobalVarDef(std::move(meta), exported);
         break;
+    case TOK_STRUCT:
+        parseStructDef(std::move(meta), exported);
+        break;
     default:
         reject("expected global definition");
         break;
@@ -204,5 +207,86 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
 
     if (exported) {
         src_file.parent->export_table.emplace_back(aglobal, 0);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
+    auto start_span = tok.span;
+    next();
+
+    auto name_tok = wantAndGet(TOK_IDENT);
+
+    want(TOK_LBRACKET);
+
+    bool field_exported = false;
+    std::vector<StructField> fields;
+    std::unordered_set<std::string_view> used_field_names;
+    do {
+        // TODO: field metadata
+
+        if (has(TOK_PUB)) {
+            if (!exported) {
+                error(tok.span, "unexported struct cannot have exported fields");
+            }
+
+            next();
+            field_exported = true;
+        } else {
+            field_exported = false;
+        }
+
+        auto field_name_toks = parseIdentList();
+        auto field_type = parseTypeExt();
+
+        for (auto& field_name_tok : field_name_toks) {
+            auto field_name = arena.MoveStr(std::move(field_name_tok.value));
+
+            if (used_field_names.contains(field_name)) {
+                error(field_name_tok.span, "multiple fields named {}", field_name);
+            }
+
+            used_field_names.insert(field_name);
+            fields.emplace_back(StructField{
+                field_name,
+                field_type,
+                field_exported
+            });
+        }
+
+        want(TOK_SEMI);
+    } while (!has(TOK_RBRACKET));
+    next();
+
+    auto struct_type = allocType(TYPE_STRUCT);
+    struct_type->ty_Struct.fields = arena.MoveVec(std::move(fields));
+    
+    auto named_type = allocType(TYPE_NAMED);
+    named_type->ty_Named.mod_id = src_file.parent->id;
+    named_type->ty_Named.mod_name = src_file.parent->name;  // No need to move to arena here.
+    named_type->ty_Named.name = arena.MoveStr(std::move(name_tok.value));
+    named_type->ty_Named.type = struct_type;
+
+    auto* symbol = arena.New<Symbol>(
+        src_file.parent->id,
+        named_type->ty_Named.name,
+        name_tok.span,
+        SYM_TYPE,
+        named_type,
+        false,
+        exported ? src_file.parent->export_table.size() : UNEXPORTED
+    );
+
+    defineGlobal(symbol);
+
+    auto* astruct = allocDef(AST_STRUCT_DEF, SpanOver(start_span, prev.span), std::move(meta));
+    astruct->an_StructDef.symbol = symbol;
+    astruct->an_StructDef.field_attrs = {};
+
+    src_file.defs.push_back(astruct);
+
+    if (exported) {
+        src_file.parent->export_table.emplace_back(astruct, 0);
     }
 }

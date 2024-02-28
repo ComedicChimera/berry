@@ -30,6 +30,7 @@ enum TypeKind {
 struct StructField {
     std::string_view name;
     Type* type;
+    bool exported;
 };
 
 // Type represents a Berry data type.
