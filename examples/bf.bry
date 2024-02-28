@@ -1,25 +1,144 @@
-import io.fs;
-import io.std;
-import io;
-import os;
+// An Example Implementation of Brainf*ck Interpreter in Berry
+// 
+// NOTE: Most of the features used in this code are not yet implemented. // If I
+ever finish this language, this is what a program in it would look like.
 
-func run(file_name: string) Result[()] {
-    let file <- fs.Open(file_name);
-    defer file.Close();
+import (
+	fs,
+	io,
+	io.std,
+	os,
+	strings.conv as strconv
+);
 
-    // -- snip --
+enum OpKind {
+	Add;
+	Sub;
+	Left;
+	Right;
+	Print;
+	Input;
+	JumpZ;
+	JumpNZ;
+}
+
+struct Op {
+	kind: OpKind;
+	value: int;
+}
+
+func lex_op(file: *fs.File) Result[OpKind] {
+	while r <- file.get_rune() {
+		match r {
+		case '+': return .Ok(.Add);
+		case '-': return .Ok(.Sub);
+		case '<': return .Ok(.Left);
+		case '>': return .Ok(.Right);
+		case '.': return .Ok(.Print);
+		case ',': return .Ok(.Input);
+		case '[': return .Ok(.JumpZ);
+		case ']': return .Ok(.JumpNZ);
+		}
+		
+	} else err {
+		return err;
+	}
+}
+
+func parse_ops(file: *fs.File) Result[[]Op] {
+	let ops = List[Op].new();
+
+	let backpatches = List[int].new();
+	let curr_op = Op{.Add, 0};
+	while op_kind <- lex_op() {
+		match op_kind {
+			case Add | Sub | Left | Right:
+				if curr_op.kind == op_kind {
+					curr_op.value++;
+				} else {
+					ops.push(curr_op);
+					curr_op.kind = op_kind;
+					curr_op.value = 1;
+				}
+			case Print | Input:
+				curr_op.kind = op_kind;
+				ops.push(curr_op);
+			case JumpZ:
+				curr_op.kind = .JumpZ;
+				curr_op.value = -1;
+				backpatches.push(ops.len());
+				ops.push(curr_op);
+			case JumpNZ:
+				if backpatches.len() {
+					return .Err(Errors.new("unbalanced ']'"));
+				}
+				let bp = backpatches.pop();
+				curr_op.kind = .JumpNZ;
+				curr_op.value = bp;
+				ops[bp].value = ops.len();
+				ops.push(curr_op);	
+		}		
+	} else Err(err) {
+		if !io.IsEof(err) {
+			return .Err(err);
+		}
+	}
+
+	if curr_op.kind match Add | Sub | Left | Right {
+		ops.push(curr_op);
+	}
+
+	if backpatches.len() > 0 {
+		return .Err(Error.new("unbalanced '['"));
+	}
+
+	return .Ok(ops);
+}
+
+func interpret(ops: []Op) Result[unit] {
+	let mem = List[u8].new();
+	let ptr = 0, ip = 0;
+	
+	for ; ip < ops.len(); i++ {
+		let op = ops[ip];
+		match op.kind {
+		case Add:
+			mem[ptr] += op.value;
+		case Sub:
+			mem[ptr] -= op.value;
+		case Left:
+			if ptr == 0 {
+				ptr = mem.len() - 1;
+			} else {
+				ptr--;
+			}
+		case Right:
+			ptr++;
+			if ptr >= mem.len() {
+				mem.push(0);
+			}
+		case Print:
+			std.print(mem[ptr] as rune);
+		case Input:
+			let line = std.get_line().trim_right();
+			mem[ptr] <- strconv.parse_uint(line, bit_size=8);
+		}
+	}
 }
 
 func main() {
-    if os.args.Len() != 2 {
-        std.Errorln("error: usage: bf <filename>");
-        os.Exit(1);
-    }
+	if os.argv.len() != 2 {
+		std.errorln("error: usage: bf <filename>");
+	}
 
-    let file_name = os.args[1];
+	let file_name = os.argv[1];
+	
+	if file <- fs.open(file_name) {
+		defer file.close();
 
-    if run(file_name) match .Err(e) {
-        std.Errorf("error: %v\n", e);
-        os.Exit(1)
-    }
+		let ops <- parse_ops(file);
+		interpret(ops)?;		
+	} else Err(e) {
+		std.errorf("error: %s", e);
+	}  
 }

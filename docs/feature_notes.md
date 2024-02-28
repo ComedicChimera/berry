@@ -3,6 +3,66 @@
 This file lists some of the *planned* features for Berry.  These are mostly just
 design ideas I have had as I have been working on it.
 
+## Conditional Binding
+
+Create chaining contexts using specialized `if` statements and `while` loops.
+These syntax and semantics replace the old notion of a "context manager".
+
+```berry
+if x <- fn() {
+    // ...
+} else Err(e) {
+    // ...
+}
+
+while x <- fn() {
+
+} else Err(e) {
+
+}
+```
+
+Both of these features create new chaining contexts.  All errors which occur
+inside these contexts will bubble to the else statement rather than to the
+return value of the enclosing function.
+
+## Let-Bindings and the Question Operator
+
+The question-mark operator works much like it does in Rust.
+
+```berry
+next()?; // Fails to enclosing chain context
+```
+
+Its principle use is in expression statements or deeply nested expressions. To
+replace the old planned functionality for `?`, we will instead use local `let`
+bindings:
+
+```berry
+let x <- safe_sqrt(y) in x + 2
+```
+
+These can also be non-monadic for doing variable binding in expressions.
+
+## Multi-Case Matching
+
+To make over multiple possibilities in a case clause, match expression or
+test-match expression, we use pipes `|` in the patterns rather than `,` (to
+allow for implicit, ergonomic tuple unpacking).
+
+```berry
+// Match Case
+match peek()? {
+case '\r' | '\t' | '\v' | '\f' | ' ' | '\n':
+    skip()?;
+}
+
+// Test-Match (really good for checking multiple values quickly)
+if x match A | B | C {
+    // -- snip --
+}
+```
+
 ## Struct Enums
 
 Example from Compiler Code (very ergonomic):
