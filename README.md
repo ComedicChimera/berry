@@ -26,7 +26,10 @@ don't always get time (or energy) to work on it.
 
 - [ ] Target 8: Meta Directives and Intrinsic Macros
 
-- [ ] Target 9: Constants and Comptimes
+- [ ] Target 9: Constants, Comptimes, and Global Initializers
+    * Init Ordering and Cycle Detection
+    * Comptime Expressions removed from `__$init`
+    * Runtime Globals won't be overwritten by `runtime.__$init`
 
 - [ ] Target 10: Dynamic Memory, Threads, and Panicking
 
