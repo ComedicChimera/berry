@@ -157,6 +157,12 @@ AstExpr* Parser::parseAtomExpr() {
             node->an_Field.imported_sym = nullptr; // Default to unexported.
             root = node;
         } break;
+        case TOK_LBRACE:
+            if (shouldParseStructLit()) {
+                root = parseStructInit(root);
+                continue;
+            }
+            // fallthrough
         default:
             return root;
         }
@@ -166,16 +172,12 @@ AstExpr* Parser::parseAtomExpr() {
 AstExpr* Parser::parseFuncCall(AstExpr* root) {
     next();
 
+    pushAllowStructLit(true);
+
     std::vector<AstExpr*> args;
     if (!has(TOK_RPAREN)) {
         while (true) {
-            if (has(TOK_NULL)) {
-                next();
-
-                args.emplace_back(allocExpr(AST_NULL, prev.span));
-            } else {
-                args.emplace_back(parseExpr());
-            }
+            args.emplace_back(parseExpr());
 
             if (has(TOK_COMMA)) {
                 next();
@@ -188,6 +190,8 @@ AstExpr* Parser::parseFuncCall(AstExpr* root) {
     auto end_span = tok.span;
     want(TOK_RPAREN);
 
+    popAllowStructLit();
+
     auto* node = allocExpr(AST_CALL, SpanOver(root->span, end_span));
     node->an_Call.func = root;
     node->an_Call.args = arena.MoveVec(std::move(args));
@@ -197,6 +201,8 @@ AstExpr* Parser::parseFuncCall(AstExpr* root) {
 AstExpr* Parser::parseIndexOrSlice(AstExpr* root) {
     next();
     auto start_span = prev.span;
+
+    pushAllowStructLit(true);
 
     if (has(TOK_COLON)) {
         next();
@@ -232,10 +238,103 @@ AstExpr* Parser::parseIndexOrSlice(AstExpr* root) {
 
     want(TOK_RBRACKET);
 
+    popAllowStructLit();
+
     auto* node = allocExpr(AST_INDEX, SpanOver(start_span, prev.span));
     node->an_Index.array = root;
     node->an_Index.index = start_index;
     return node;
+}
+
+AstExpr* Parser::parseStructInit(AstExpr* root) {
+    want(TOK_LBRACE);
+
+    pushAllowStructLit(true);
+
+    AstExpr* struct_lit { nullptr };
+    if (has(TOK_RBRACE)) {
+        next();
+        struct_lit = allocExpr(AST_STRUCT_LIT_POS, SpanOver(root->span, prev.span));
+        struct_lit->an_StructLitPos.root = root;
+        struct_lit->an_StructLitPos.field_values = {};
+    } else if (has(TOK_IDENT)) {
+        auto* first_expr = parseExpr();
+
+        if (first_expr->kind == AST_IDENT && has(TOK_ASSIGN)) {
+            next();
+            auto* init_expr = parseExpr();
+
+            std::vector<std::pair<AstExpr*, AstExpr*>> field_pairs({ std::make_pair(first_expr, init_expr) });
+
+            if (has(TOK_COMMA)) {
+                next();
+
+                std::unordered_set<std::string_view> used_field_names;
+                used_field_names.insert(first_expr->an_Ident.temp_name);
+                while (true) {
+                    auto ident_tok = wantAndGet(TOK_IDENT);
+                    auto ident_name = arena.MoveStr(std::move(ident_tok.value));
+
+                    auto aident = allocExpr(AST_IDENT, ident_tok.span);
+                    aident->an_Ident.temp_name = ident_name;
+
+                    if (used_field_names.contains(ident_name)) {
+                        error(ident_tok.span, "field named {} initialized multiple times", ident_name);
+                    } else {
+                        used_field_names.insert(ident_name);
+                    }
+
+                    init_expr = parseInitializer();
+
+                    field_pairs.emplace_back(std::make_pair(aident, init_expr));
+
+                    if (has(TOK_COMMA)) {
+                        next();
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            want(TOK_RBRACE);
+
+            struct_lit = allocExpr(AST_STRUCT_LIT_NAMED, SpanOver(root->span, prev.span));
+            struct_lit->an_StructLitNamed.root = root;
+            struct_lit->an_StructLitNamed.field_values = arena.MoveVec(std::move(field_pairs));
+        } else {
+            std::vector<AstExpr*> field_values({ first_expr });
+
+            if (has(TOK_COMMA)) {
+                next();
+
+                while (true) {
+                    field_values.push_back(parseExpr());
+
+                    if (has(TOK_COMMA)) {
+                        next();
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            want(TOK_RBRACE);
+
+            struct_lit = allocExpr(AST_STRUCT_LIT_POS, SpanOver(root->span, prev.span));
+            struct_lit->an_StructLitPos.root = root;
+            struct_lit->an_StructLitPos.field_values = arena.MoveVec(std::move(field_values));
+        }   
+    } else {
+        auto field_values = parseExprList();
+        want(TOK_RBRACE);
+
+        struct_lit = allocExpr(AST_STRUCT_LIT_POS, SpanOver(root->span, prev.span));
+        struct_lit->an_StructLitPos.root = root;
+        struct_lit->an_StructLitPos.field_values = field_values;
+    }
+
+    popAllowStructLit();
+    return struct_lit;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -390,10 +489,15 @@ AstExpr* Parser::parseAtom() {
         ident->an_Ident.symbol = nullptr;
         return ident;
     } break;
+    case TOK_NULL:
+        next();
+        return allocExpr(AST_NULL, prev.span);
     case TOK_LPAREN: {
         next();
 
+        pushAllowStructLit(true);
         auto sub_expr = parseExpr();
+        popAllowStructLit();
 
         want(TOK_RPAREN);
 
@@ -403,6 +507,17 @@ AstExpr* Parser::parseAtom() {
         return parseArrayLit();
     case TOK_NEW:
         return parseNewExpr();
+    case TOK_STRUCT: {
+        // Create AST pseudo-node (smallest is null) to represent the type
+        // literal.  Later on, we will probably use a different node for this,
+        // but it works fine for now.
+        auto start_span = tok.span;
+        auto* type = parseStructTypeLabel();
+        auto* anull = allocExpr(AST_NULL, SpanOver(start_span, prev.span));
+        anull->type = type;
+
+        return parseStructInit(anull);
+    } break;
     default:
         reject("expected expression");
         return nullptr;
@@ -433,12 +548,16 @@ AstExpr* Parser::parseArrayLit() {
     next();
     auto start_span = prev.span;
 
+    pushAllowStructLit(true);
+
     std::span<AstExpr*> elems;
     if (!has(TOK_RBRACKET)) {
         elems = parseExprList();
     }
 
     want(TOK_RBRACKET);
+
+    popAllowStructLit();
 
     auto* arr = allocExpr(AST_ARRAY, SpanOver(start_span, prev.span));
     arr->an_Array.elems = elems;

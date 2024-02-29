@@ -92,6 +92,8 @@ enum AstKind {
     AST_FIELD,
     AST_ARRAY,
     AST_NEW,
+    AST_STRUCT_LIT_POS,
+    AST_STRUCT_LIT_NAMED,
     AST_IDENT,
     AST_INT,
     AST_FLOAT,
@@ -162,6 +164,14 @@ struct AstExpr : public AstNode {
             AstExpr* size_expr;
             AstAllocMode alloc_mode;
         } an_New;
+        struct {
+            AstExpr* root;
+            std::span<AstExpr*> field_values;
+        } an_StructLitPos;
+        struct {
+            AstExpr* root;
+            std::span<std::pair<AstExpr*, AstExpr*>> field_values;
+        } an_StructLitNamed;
 
         struct {
             std::string_view temp_name;

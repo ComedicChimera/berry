@@ -23,6 +23,12 @@ class Parser {
     // prev is the previous token seen by the parser.
     Token prev;
 
+    // allow_struct_lit_stack stores whether the parser is expecting struct
+    // literal or if it should prioritze parsing blocks.  When enabled, the
+    // parser will assume that any `{` it encounters during expression parsing
+    // corresponds to a struct literal rather than the opening of a block.
+    std::vector<bool> allow_struct_lit_stack;
+
 public:
     // Creates a new parser reading from file for src_file.
     Parser(Arena& arena, std::ifstream& file, SourceFile& src_file)
@@ -74,17 +80,25 @@ private:
     AstExpr* parseAtom();
     AstExpr* parseNewExpr();
     AstExpr* parseArrayLit();
-
+    AstExpr* parseStructInit(AstExpr *root);
+    
     /* ---------------------------------------------------------------------- */
 
-    Type *parseTypeExt();
-    Type *parseTypeLabel();
+    Type* parseTypeExt();
+    Type* parseTypeLabel();
+    Type* parseStructTypeLabel();
 
     /* ---------------------------------------------------------------------- */
 
     std::span<AstExpr*> parseExprList(TokenKind delim = TOK_COMMA);
     AstExpr* parseInitializer();
     std::vector<Token> parseIdentList(TokenKind delim = TOK_COMMA);
+
+    /* ---------------------------------------------------------------------- */
+
+    void pushAllowStructLit(bool allowed);
+    void popAllowStructLit();
+    bool shouldParseStructLit();
 
     /* ---------------------------------------------------------------------- */
 

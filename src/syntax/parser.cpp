@@ -74,6 +74,22 @@ std::vector<Token> Parser::parseIdentList(TokenKind delim) {
 
 /* -------------------------------------------------------------------------- */
 
+void Parser::pushAllowStructLit(bool allowed) {
+    allow_struct_lit_stack.push_back(allowed);
+}
+
+void Parser::popAllowStructLit() {
+    Assert(allow_struct_lit_stack.size() > 0, "pop on empty allow struct lit stack");
+
+    allow_struct_lit_stack.pop_back();
+}
+
+bool Parser::shouldParseStructLit() {
+    return allow_struct_lit_stack.empty() || allow_struct_lit_stack.back();
+}
+
+/* -------------------------------------------------------------------------- */
+
 void Parser::defineGlobal(Symbol* symbol) {
     auto it = src_file.parent->symbol_table.find(symbol->name);
     if (it == src_file.parent->symbol_table.end()) {

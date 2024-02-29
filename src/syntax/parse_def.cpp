@@ -218,7 +218,7 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
 
     auto name_tok = wantAndGet(TOK_IDENT);
 
-    want(TOK_LBRACKET);
+    want(TOK_LBRACE);
 
     bool field_exported = false;
     std::vector<StructField> fields;
@@ -256,7 +256,7 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
         }
 
         want(TOK_SEMI);
-    } while (!has(TOK_RBRACKET));
+    } while (!has(TOK_RBRACE));
     next();
 
     auto struct_type = allocType(TYPE_STRUCT);

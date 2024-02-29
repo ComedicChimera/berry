@@ -58,8 +58,41 @@ Type* Parser::parseTypeLabel() {
         arr_type->ty_Array.elem_type = parseTypeLabel();
         return arr_type;
     } break;
+    case TOK_STRUCT:
+        return parseStructTypeLabel();
     default:
         reject("expected type label");
         return nullptr;
     }
+}
+
+Type* Parser::parseStructTypeLabel() {
+    next();
+    want(TOK_LBRACE);
+
+    std::vector<StructField> fields;
+    std::unordered_set<std::string_view> used_field_names;
+    do {
+        auto field_name_toks = parseIdentList();
+        auto field_type = parseTypeExt();
+        
+        for (auto& field_name_tok : field_name_toks) {
+            auto field_name = arena.MoveStr(std::move(field_name_tok.value));
+
+            if (used_field_names.contains(field_name)) {
+                error(field_name_tok.span, "multiple field named {}", field_name);
+            }
+
+            used_field_names.insert(field_name);
+            fields.emplace_back(StructField{ field_name, field_type, true });
+        }
+
+        want(TOK_SEMI);
+    } while (!has(TOK_RBRACE));
+    next();
+
+    auto* struct_type = allocType(TYPE_STRUCT);
+    struct_type->ty_Struct.fields = arena.MoveVec(std::move(fields));
+
+    return struct_type;
 }

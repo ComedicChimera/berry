@@ -73,7 +73,10 @@ AstStmt* Parser::parseIfStmt() {
         next();
         auto start_span = prev.span;
 
+        pushAllowStructLit(false);
         auto cond_expr = parseExpr();
+        popAllowStructLit();
+        
         auto body = parseBlock();
 
         auto span = SpanOver(start_span, body->span);
@@ -100,7 +103,10 @@ AstStmt* Parser::parseWhileLoop() {
     next();
     auto start_span = prev.span;
 
+    pushAllowStructLit(false);
     auto cond_expr = parseExpr();
+    popAllowStructLit();
+
     auto body = parseBlock();
     auto else_block = maybeParseElse();
 
@@ -162,7 +168,9 @@ AstStmt* Parser::parseForLoop() {
 
     AstStmt* update_stmt { nullptr };
     if (!has(TOK_LBRACE)) {
+        pushAllowStructLit(false);
         update_stmt = parseExprAssignStmt();
+        popAllowStructLit();
     }
 
     auto body = parseBlock();
