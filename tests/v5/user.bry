@@ -57,10 +57,4 @@ func main() {
 
     mutate(new_user_copy);
     print_user(&new_user_copy);
-
-    if users[0].name == users[1].name {
-        std.puts("users 1 and 2 have the same name\n");
-    } else {
-        std.puts("users 1 and 2 have different names\n");
-    }
 }

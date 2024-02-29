@@ -18,15 +18,17 @@ don't always get time (or energy) to work on it.
 
 - [x] Target 4: Modules and Multi-File Projects
 
-- [ ] Target 5: Structs and Non-Numeric Equality
+- [ ] Target 5: Structs
 
-- [ ] Target 6: Enums and Basic Match Statements
+- [ ] Target 6: Enums, Aliases, and Basic Match Statements
 
-- [ ] Target 7: Meta Directives and Intrinsic Macros
+- [ ] Target 7: Non-Numeric Equality
 
-- [ ] Target 8: Constants and Comptimes
+- [ ] Target 8: Meta Directives and Intrinsic Macros
 
-- [ ] Target 9: Dynamic Memory, Threads, and Panicking
+- [ ] Target 9: Constants and Comptimes
 
-- [ ] Target 10: Garbage Collections and Automatic Allocation
+- [ ] Target 10: Dynamic Memory, Threads, and Panicking
+
+- [ ] Target 11: Garbage Collections and Automatic Allocation
 
