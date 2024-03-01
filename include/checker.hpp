@@ -12,8 +12,11 @@ class Checker {
     // arena is the arena used for allocation of symbols and types.
     Arena& arena;
 
-    // src_file is the source file being checked.
-    SourceFile& src_file;
+    // mod is the module being checked.
+    Module& mod;
+
+    // src_file is the source file currently being checked.
+    SourceFile* src_file;
 
     // scope_stack keeps a stack of the enclosing local scopes with the one on
     // the top (end) being the current local scope.
@@ -35,16 +38,35 @@ class Checker {
     // in every module except the core module itself.
     Module::Dependency* core_dep;
 
+    // explore_table keeps track of which named types have been expanded to
+    // check for infinite recursive types.
+    std::unordered_map<std::string_view, bool> explore_table;
+
 public:
     // Creates a new checker for src_file allocating in arena.
-    Checker(Arena& arena, SourceFile& src_file);
+    Checker(Arena& arena, Module& mod);
 
-    void CheckDef(AstDef* def);
+    // CheckModule performs semantic analysis on the checker's module.
+    void CheckModule();
 
 private:
+    void resolveNamedTypes();
+
+    /* ---------------------------------------------------------------------- */
+    
+    void checkDef(AstDef* def);
     void checkMetadata(AstDef* def);
-    void checkFuncDef(AstDef *node);
-    void checkGlobalVar(AstDef *node);
+    void checkFuncDef(AstDef* node);
+    void checkGlobalVar(AstDef* node);
+
+    struct TypeCycle {
+        std::vector<Type*> nodes;
+        bool done { false };
+    };
+
+    void checkStructDef(AstDef* node);
+    bool checkForInfType(Type* type, TypeCycle& cycle);
+    void fatalOnTypeCycle(const TextSpan& span, TypeCycle &cycle);
 
     /* ---------------------------------------------------------------------- */
 

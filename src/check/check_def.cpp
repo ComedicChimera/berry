@@ -2,7 +2,7 @@
 
 #include "checker.hpp"
 
-void Checker::CheckDef(AstDef* def) {
+void Checker::checkDef(AstDef* def) {
     checkMetadata(def);
 
     switch (def->kind) {
@@ -11,6 +11,9 @@ void Checker::CheckDef(AstDef* def) {
         break;
     case AST_GLOBAL_VAR:
         checkGlobalVar(def);
+        break;
+    case AST_STRUCT_DEF:
+        checkStructDef(def);
         break;
     default:
         Panic("checking is not implemented for def {}", (int)def->kind);
@@ -109,3 +112,68 @@ void Checker::checkGlobalVar(AstDef* node) {
         finishExpr();
     }
 }
+
+/* -------------------------------------------------------------------------- */
+
+void Checker::checkStructDef(AstDef* node) {
+    TypeCycle cycle;
+    if (checkForInfType(node->an_StructDef.symbol->type, cycle)) {
+        fatalOnTypeCycle(node->an_StructDef.symbol->span, cycle);
+    }
+
+    // TODO: check field attrs
+}
+
+bool Checker::checkForInfType(Type* type, TypeCycle& cycle) {
+    switch (type->kind) {
+    case TYPE_NAMED: 
+        if (type->ty_Named.mod_id == mod.id) {
+            auto it = explore_table.find(type->ty_Named.name);
+
+            if (it == explore_table.end()) {
+                explore_table.emplace(type->ty_Named.name, true);
+
+                bool is_cycle = checkForInfType(type->ty_Named.type, cycle);
+                if (is_cycle && !cycle.done) {
+                    cycle.nodes.push_back(type);
+
+                    if (cycle.nodes.front()->ty_Named.name == type->ty_Named.name) {
+                        cycle.done = true;
+                    }
+                }
+
+                explore_table.emplace(type->ty_Named.name, false);
+                return is_cycle;
+            } else if (it->second) {
+                // cycle!
+            }
+        } 
+        break;
+    case TYPE_STRUCT:
+        for (auto& field : type->ty_Struct.fields) {
+            if (checkForInfType(field.type, cycle)) {
+                return true;
+            }
+        }
+        break;
+    }
+
+    return false;
+}
+
+void Checker::fatalOnTypeCycle(const TextSpan& span, TypeCycle& cycle) {
+    std::string fmt_cycle;
+    while (!cycle.nodes.empty()) {
+        auto node = cycle.nodes.back();
+        cycle.nodes.pop_back();
+
+        if (fmt_cycle.size() > 0) {
+            fmt_cycle += " -> ";
+        }
+
+        fmt_cycle += node->ty_Named.name;
+    }
+
+    fatal(span, "infinite type detected: {}", fmt_cycle);
+}
+

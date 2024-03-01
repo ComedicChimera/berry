@@ -1,18 +1,90 @@
 #include "checker.hpp"
 
-Checker::Checker(Arena& arena, SourceFile& src_file)
+Checker::Checker(Arena& arena, Module& mod)
 : arena(arena)
-, src_file(src_file)
+, mod(mod)
+, src_file(nullptr)
 , enclosing_return_type(nullptr)
 , loop_depth(0)
 {
-    if (src_file.parent->deps.size() > 0) {
+    if (mod.deps.size() > 0) {
         // Core module is always the last dependency added to any module. All
         // modules depend on it implicitly (even if they don't use any symbols
         // from it).
-        core_dep = &src_file.parent->deps.back();
+        core_dep = &mod.deps.back();
     } else {
         core_dep = nullptr;
+    }
+}
+
+void Checker::CheckModule() {
+    resolveNamedTypes();
+
+    for (auto& sfile : mod.files) {
+        src_file = &sfile;
+
+        for (auto* def : sfile.defs) {
+            checkDef(def);
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+static bool resolveNamedInDep(Type* type, Module::Dependency& dep) {
+    auto& named = type->ty_Named;
+
+    auto it = dep.mod->symbol_table.find(named.name);
+    if (it != dep.mod->symbol_table.end() && it->second->export_num != UNEXPORTED) {
+        named.mod_id = dep.mod->id;
+        named.mod_name = dep.mod->name;
+        named.type = it->second->type;
+
+        dep.usages.insert(it->second->export_num);
+
+        return true;
+    }
+
+    return false;
+}
+
+void Checker::resolveNamedTypes() {
+    for (auto& pair : mod.named_table.internal_refs) {
+        auto& ref = pair.second;
+        auto& named = ref.named_type->ty_Named;
+
+        auto it = mod.symbol_table.find(named.name);
+        if (it != mod.symbol_table.end()) {
+            named.mod_id = mod.id;
+            named.mod_name = mod.name;
+            named.type = it->second->type;
+            continue;
+        }
+
+        if (!resolveNamedInDep(ref.named_type, *core_dep)) {
+            for (auto& span : ref.spans) {
+                error(span, "undefined symbol: {}", named.name);
+            }
+        }        
+    }
+
+    for (size_t dep_id = 0; dep_id < mod.named_table.external_refs.size(); dep_id++) {
+        auto& dep = mod.deps[dep_id];
+
+        for (auto& pair : mod.named_table.external_refs[dep_id]) {
+            auto* named_type = pair.second.named_type;
+            
+            if (!resolveNamedInDep(named_type, dep)) {
+                for (auto& span : pair.second.spans) {
+                    error(span, "module {} has no exported symbol named {}", dep.mod->name, named_type->ty_Named.name);
+                }
+            }
+        }
+    }
+
+
+    if (ErrorCount()) {
+        throw CompileError{};
     }
 }
 

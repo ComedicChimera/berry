@@ -184,7 +184,7 @@ void Checker::checkField(AstExpr* node) {
                 dep->usages.insert(imported_sym->export_num);
                 return;
             } else {
-                fatal(node->span, "module {} contains no exported symbol named {}", mod->name, fld.field_name);
+                fatal(node->span, "module {} has no exported symbol named {}", mod->name, fld.field_name);
             }
         }
     } else {
@@ -220,14 +220,14 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node) {
     }
 
     if (sym == nullptr) {
-        auto import_it = src_file.import_table.find(name);
-        if (import_it != src_file.import_table.end()) {
+        auto import_it = src_file->import_table.find(name);
+        if (import_it != src_file->import_table.end()) {
             node->an_Ident.dep_id = import_it->second;
-            return &src_file.parent->deps[import_it->second];
+            return &mod.deps[import_it->second];
         }
 
-        auto it = src_file.parent->symbol_table.find(name);
-        if (it != src_file.parent->symbol_table.end()) {
+        auto it = mod.symbol_table.find(name);
+        if (it != mod.symbol_table.end()) {
             sym = it->second;
         } else if (
             core_dep != nullptr && 

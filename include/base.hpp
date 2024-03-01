@@ -93,4 +93,13 @@ inline void ReportCompileError(
 // ErrorCount returns the number of errors that have been reported.
 int ErrorCount();
 
+/* -------------------------------------------------------------------------- */
+
+// GColor enumerates the colors used for three-color DFS cycle detection.
+enum GColor {
+    COLOR_WHITE = 0,
+    COLOR_GREY,
+    COLOR_BLACK
+};
+
 #endif

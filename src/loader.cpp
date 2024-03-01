@@ -314,19 +314,13 @@ std::optional<fs::path> Loader::findModule(const fs::path& search_path, const st
 
 /* -------------------------------------------------------------------------- */
 
-enum GColor {
-    COLOR_WHITE = 0,
-    COLOR_GREY,
-    COLOR_BLACK
-};
-
-struct GCycle {
+struct ImportCycle {
     std::vector<Module*> nodes;
     Module::Dependency* bad_dep { nullptr };
     bool done { false };
 };
 
-static bool findCycle(Module& mod, std::vector<GColor>& colors, GCycle& cycle) {
+static bool findCycle(Module& mod, std::vector<GColor>& colors, ImportCycle& cycle) {
     colors[mod.id] = COLOR_GREY;
 
     bool found_cycle = false;
@@ -374,7 +368,7 @@ void Loader::checkForImportCycles() {
 
     for (auto& mod : *this) {
         if (colors[mod.id] == COLOR_WHITE) {
-            GCycle cycle;
+            ImportCycle cycle;
             if (findCycle(mod, colors, cycle)) {
                 for (auto& loc : cycle.bad_dep->import_locs) {
                     ReportCompileError(
