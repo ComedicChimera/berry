@@ -58,6 +58,28 @@ struct Symbol {
 struct SourceFile;
 struct AstDef;
 
+// NamedTypeTable stores all the named types used by a given module.  It is an
+// extra bit of bookkeeping used to facilitate out-of-order resolution.
+struct NamedTypeTable {
+    // Ref represents a reference to a named type in source code.  These are
+    // resolved by the loader after the parser has been run.
+    struct Ref {
+        // named_type refers to the named type that is still unresolved.
+        Type* named_type;
+
+        // spans is the source locations of the named type reference.
+        std::vector<TextSpan> spans;
+    };
+
+    // internal_refs are all the refs which refer to types within the current
+    // module (or implicitly imported from the core module).
+    std::unordered_map<std::string, Ref> internal_refs;
+
+    // external_refs are all the refs to types in different/imported modules
+    // (indexed by dependency ID).
+    std::vector<std::unordered_map<std::string, Ref>> external_refs;
+};
+
 // Module represents a Berry module.
 struct Module {
     // id is the module's unique ID.
@@ -124,7 +146,12 @@ struct Module {
 
     // export_table is the table of definitions exported by the module.
     std::vector<ExportEntry> export_table;
+
+    // named_table stores the module's named type dependencies.
+    NamedTypeTable named_table;
 };
+
+/* -------------------------------------------------------------------------- */
 
 // SourceFile represents a single source file in a Berry module.
 struct SourceFile {

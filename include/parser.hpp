@@ -87,6 +87,7 @@ private:
     Type* parseTypeExt();
     Type* parseTypeLabel();
     Type* parseStructTypeLabel();
+    Type* parseNamedTypeLabel();
 
     /* ---------------------------------------------------------------------- */
 

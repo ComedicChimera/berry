@@ -60,6 +60,8 @@ Type* Parser::parseTypeLabel() {
     } break;
     case TOK_STRUCT:
         return parseStructTypeLabel();
+    case TOK_IDENT:
+        return parseNamedTypeLabel();
     default:
         reject("expected type label");
         return nullptr;
@@ -95,4 +97,54 @@ Type* Parser::parseStructTypeLabel() {
     struct_type->ty_Struct.fields = arena.MoveVec(std::move(fields));
 
     return struct_type;
+}
+
+Type* Parser::parseNamedTypeLabel() {
+    next();
+
+    NamedTypeTable::Ref* ref;
+    bool first_ref = false;
+    if (has(TOK_DOT)) {
+        auto mod_name_tok = prev;
+        next();
+
+        want(TOK_IDENT);
+
+        auto mod_name = arena.MoveStr(std::move(mod_name_tok.value));
+        auto it_dep = src_file.import_table.find(mod_name);
+        if (it_dep == src_file.import_table.end()) {
+            fatal(mod_name_tok.span, "no module imported with name {}", mod_name);
+        }
+
+        auto& refs = src_file.parent->named_table.external_refs[it_dep->second];
+
+        auto it_ref = refs.find(prev.value);
+        if (it_ref == refs.end()) {
+            ref = &refs.emplace(prev.value, NamedTypeTable::Ref{}).first->second;
+            first_ref = true;
+        } else {
+            ref = &it_ref->second;
+        }
+    } else {
+        auto& refs = src_file.parent->named_table.internal_refs;
+        
+        auto it = refs.find(prev.value);
+        if (it == refs.end()) {
+            ref = &refs.emplace(prev.value, NamedTypeTable::Ref{}).first->second;
+            first_ref = true;
+        } else {
+            ref = &it->second;
+        }
+    }
+
+    if (first_ref) {
+        auto* named_type = allocType(TYPE_NAMED);
+        named_type->ty_Named.type = nullptr;
+        named_type->ty_Named.name = arena.MoveStr(std::move(prev.value));
+
+        ref->named_type = named_type;
+    }
+        
+    ref->spans.push_back(prev.span);
+    return ref->named_type;
 }

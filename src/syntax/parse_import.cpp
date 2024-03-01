@@ -93,5 +93,6 @@ size_t Parser::findOrAddModuleDep(const std::vector<Token>& tok_mod_path) {
     }
 
     src_file.parent->deps.emplace_back(std::move(mod_path), std::move(import_loc));
+    src_file.parent->named_table.external_refs.emplace_back(std::unordered_map<std::string, NamedTypeTable::Ref>{});
     return src_file.parent->deps.size() - 1;
 }

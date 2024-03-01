@@ -20,16 +20,30 @@ don't always get time (or energy) to work on it.
 
 - [ ] Target 5: Structs
 
-- [ ] Target 6: Enums, Aliases, and Basic Match Statements
-
-- [ ] Target 7: Non-Numeric Equality
-
-- [ ] Target 8: Meta Directives and Intrinsic Macros
-
-- [ ] Target 9: Constants, Comptimes, and Global Initializers
+- [ ] Target 6: Constants, Comptimes, and Global Initializers
     * Init Ordering and Cycle Detection
     * Comptime Expressions removed from `__$init`
     * Runtime Globals won't be overwritten by `runtime.__$init`
+    * How to handle pointers to constants?
+    * Enforce string immutability (separate string type?)
+
+- [ ] Target 7: Enums and Aliases
+    * Simple C-style enums (no value-storing variants)
+    * Basic Match Statements (minimal pattern matching, cases with multiple values)
+    * Test Match Expressions
+    * Builtin Type Aliases
+
+- [ ] Target 8: Non-Numeric Equality
+    * Pointer Comparison
+    * String Comparison
+    * Struct Comparison
+    * Enum Comparison
+
+- [ ] Target 9: Meta Directives and Intrinsic Macros
+    * Conditional Compilation
+    * `@sizeof` and `@alignof`
+    * Replace unsafe casting with `@unsafe_cast`
+    * Pointer arithmetic with `@ptr_offset`
 
 - [ ] Target 10: Dynamic Memory, Threads, and Panicking
 
