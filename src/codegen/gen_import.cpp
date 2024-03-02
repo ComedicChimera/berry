@@ -13,6 +13,10 @@ void CodeGenerator::genImports() {
             case AST_GLOBAL_VAR:
                 loaded_imports[i].emplace(export_num, genImportGlobalVar(*dep.mod, entry.def));
                 break;
+            case AST_STRUCT_DEF:
+                // TODO: handle struct metadata
+                genType(entry.def->an_StructDef.symbol->type);
+                break;
             }
         }
 

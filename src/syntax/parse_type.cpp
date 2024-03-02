@@ -99,6 +99,7 @@ Type* Parser::parseStructTypeLabel() {
 
     auto* struct_type = allocType(TYPE_STRUCT);
     struct_type->ty_Struct.fields = arena.MoveVec(std::move(fields));
+    struct_type->ty_Struct.llvm_type = nullptr;
 
     return struct_type;
 }

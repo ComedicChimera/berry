@@ -14,6 +14,10 @@ void CodeGenerator::genTopDecl(AstDef* def) {
     case AST_GLOBAL_VAR:
         genGlobalVarDecl(def);
         break;
+    case AST_STRUCT_DEF:
+        // TODO: handle struct metadata
+        genType(def->an_StructDef.symbol->type);
+        break;
     default:
         Panic("top declaration codegen not implemented for {}", (int)def->kind);
     }

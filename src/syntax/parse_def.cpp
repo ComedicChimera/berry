@@ -261,6 +261,7 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
 
     auto struct_type = allocType(TYPE_STRUCT);
     struct_type->ty_Struct.fields = arena.MoveVec(std::move(fields));
+    struct_type->ty_Struct.llvm_type = nullptr;
     
     auto named_type = allocType(TYPE_NAMED);
     named_type->ty_Named.mod_id = src_file.parent->id;

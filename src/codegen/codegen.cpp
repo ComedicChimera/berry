@@ -164,6 +164,19 @@ llvm::Type* CodeGenerator::genType(Type* type) {
     } break;
     case TYPE_ARRAY: 
         return ll_array_type;
+    case TYPE_STRUCT:
+        if (type->ty_Struct.llvm_type == nullptr) {
+            std::vector<llvm::Type*> field_types(type->ty_Struct.fields.size());
+            for (size_t i = 0; i < field_types.size(); i++) {
+                field_types[i] = genType(type->ty_Struct.fields[i].type);
+            }
+
+            type->ty_Struct.llvm_type = llvm::StructType::get(ctx, field_types, false);
+        } 
+        
+        return type->ty_Struct.llvm_type;
+    case TYPE_NAMED:
+        return genType(type->ty_Named.type);
     case TYPE_UNTYP:
         Panic("abstract untyped in codegen");
         break;

@@ -247,8 +247,8 @@ llvm::DIType* DebugGenerator::GetDIType(Type* type, uint call_conv) {
             call_conv
         );
     }
-    case TYPE_ARRAY:
-        // TODO: dwarf arrays are weird...
+    case TYPE_ARRAY: case TYPE_STRUCT: case TYPE_NAMED:
+        // TODO: unimplemented
         return prim_type_table[1];
     }
 

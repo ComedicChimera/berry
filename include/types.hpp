@@ -35,6 +35,11 @@ struct StructField {
     bool exported;
 };
 
+// Forward declaration of llvm::Type
+namespace llvm {
+    class Type;
+};
+
 // Type represents a Berry data type.
 struct Type {
     TypeKind kind;
@@ -72,6 +77,7 @@ struct Type {
         } ty_Named;
         struct {
             std::span<StructField> fields;
+            llvm::Type* llvm_type;
         } ty_Struct;
     };
 

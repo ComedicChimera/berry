@@ -34,7 +34,7 @@ don't always get time (or energy) to work on it.
         - Multiple Values in a Case
     * Test Match Expressions
     * Builtin Type Aliases
-        - `byte`, `rune`, `int`, and `uint`
+        - `byte` and `rune`
 
 - [ ] Target 8: Non-Numeric Equality
     * Pointer Comparison
@@ -51,8 +51,14 @@ don't always get time (or energy) to work on it.
     * Replace unsafe casting with `@unsafe_cast` 
         - Unsafe Casts = ptr to ptr, string to byte array, byte array to string
     * Pointer arithmetic with `@ptr_offset`
+    * Platform Sized Ints: `int` and `uint`
 
 - [ ] Target 10: Dynamic Memory, Threads, and Panicking
 
 - [ ] Target 11: Garbage Collections and Automatic Allocation
+
+- [ ] Target 12: Debug Info
+    * Fix DIType generation
+    * Add code for debug assignment
+    * Get debugging working on Windows (enable stepping through the program)
 
