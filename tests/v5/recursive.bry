@@ -22,4 +22,4 @@ struct D {
 struct E {
     a: A;
     d: D;
-};
+}

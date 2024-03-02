@@ -2,14 +2,14 @@ import io.std;
 
 struct Vec2 {
     x, y: i64;
-};
+}
 
 pub struct Vec3 {
     // Export fields for external modules.
     pub x, y, z: i64;
 }
 
-let zero_vec = Vec2{0, 0};
+let zero_vec: Vec2 = Vec2{0, 0};
 
 func add_vec2(a, b: Vec2) Vec2 {
     return .{a.x + b.x, a.y + b.y};
@@ -20,11 +20,11 @@ func dot(a, b: Vec2) i64 {
 }
 
 func print_vec(v: Vec2) {
-    std.puts('(');
+    std.putr('(');
     std.putint(v.x);
     std.puts(", ");
     std.putint(v.y);
-    std.puts(')');
+    std.putr(')');
 }
 
 func main() {

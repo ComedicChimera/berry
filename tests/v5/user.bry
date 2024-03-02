@@ -3,11 +3,11 @@ import io.std;
 struct User {
     name, email: []u8;
     age: i64;
-};
+}
 
-let users = [
+let users: []User = [
     User{"John Doe", "example@gmail.com", 30},
-    User{"Jane Doe, "jane@hotmail.com", 27}
+    User{"Jane Doe", "jane@hotmail.com", 27}
 ];
 
 func print_user(u: *User) {
@@ -22,18 +22,18 @@ func print_user(u: *User) {
 
 func print_users() {
     for let i = 0; i < users._len; i++ {
-        printUser(&users[i]);
+        print_user(&users[i]);
     }
 }
 
 func nomutate(u: User) {
     u.name = "Jessie";
-    printUser(&u);
+    print_user(&u);
 }
 
 func mutate(u: *User) {
     u.name = "James";
-    printUser(u);
+    print_user(u);
 }
 
 func main() {
@@ -55,6 +55,6 @@ func main() {
     nomutate(new_user);
     print_user(&new_user);
 
-    mutate(new_user_copy);
+    mutate(&new_user_copy);
     print_user(&new_user_copy);
 }

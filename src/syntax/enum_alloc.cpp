@@ -47,7 +47,7 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
 #define LARGEST_EXPR_VARIANT_SIZE sizeof(size_ref_expr.an_Field)
 
 AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, MetadataMap&& meta_map) {
-    Assert(kind <= AST_GLOBAL_VAR, "invalid kind for allocStmt");
+    Assert(kind <= AST_STRUCT_DEF, "invalid kind for allocDef");
 
     size_t var_size = ast_variant_sizes[(int)kind];
     size_t full_size = sizeof(AstDef) - LARGEST_DEF_VARIANT_SIZE + var_size;

@@ -105,7 +105,7 @@ void Checker::checkGlobalVar(AstDef* node) {
     auto& gv = node->an_GlobalVar;
 
     if (gv.init) {
-        checkExpr(gv.init);
+        checkExpr(gv.init, gv.symbol->type);
 
         mustSubType(gv.init->span, gv.init->type, gv.symbol->type);
 
@@ -142,10 +142,12 @@ bool Checker::checkForInfType(Type* type, TypeCycle& cycle) {
                     }
                 }
 
-                explore_table.emplace(type->ty_Named.name, false);
+                explore_table[type->ty_Named.name] = false;
                 return is_cycle;
             } else if (it->second) {
-                // cycle!
+                // Cycle!
+                cycle.nodes.push_back(type);
+                return true;
             }
         } 
         break;

@@ -4,7 +4,7 @@ import (
     vector
 );
 
-let u = vector.Vec3{1, 2, 3};
+let u: vector.Vec3 = .{1, 2, 3};
 
 func add_vec3(a, b: vector.Vec3) vector.Vec3 {
     return .{a.x + b.x, a.y + b.y, a.z + b.z};

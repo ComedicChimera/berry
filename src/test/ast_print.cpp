@@ -203,6 +203,42 @@ static void printArrayLit(AstExpr* node) {
     std::cout << "])";
 }
 
+static void printStructLitPos(AstExpr* node) {
+    std::cout << std::format("StructLit(span={}, type={}, field_inits=[", spanToStr(node->span), typeToStr(node->type));
+
+    int i = 0;
+    for (auto* field_init : node->an_StructLitPos.field_values) {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+
+        printExpr(field_init);
+
+        i++;
+    }
+
+    std::cout << "])";
+}
+
+static void printStructLitNamed(AstExpr* node) {
+    std::cout << std::format("StructLit(span={}, type={}, field_inits=[", spanToStr(node->span), typeToStr(node->type));
+
+    int i = 0;
+    for (auto& field_pair : node->an_StructLitNamed.field_values) {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+
+        std::cout << std::format("NamedField(name={}, type={}, init=", field_pair.first->an_Ident.temp_name, typeToStr(field_pair.second->type));
+        printExpr(field_pair.second);
+        std::cout << ')';
+
+        i++;
+    }
+
+    std::cout << "])";
+}
+
 static void printExpr(AstExpr* node) {
     if (node == nullptr) {
         std::cout << "<empty>";
@@ -258,6 +294,15 @@ static void printExpr(AstExpr* node) {
         );
         printExpr(node->an_New.size_expr);
         std::cout << ')';
+        break;
+    case AST_STRUCT_LIT_NAMED:
+        printStructLitNamed(node);
+        break;
+    case AST_STRUCT_LIT_POS:
+        printStructLitPos(node);
+        break;
+    case AST_STRUCT_LIT_TYPE:
+        Panic("print struct lit type called directly");
         break;
     case AST_IDENT:
         std::cout << std::format(
@@ -502,6 +547,17 @@ static void printGlobalVar(AstDef* node) {
     std::cout << ')';
 }
 
+static void printStructDef(AstDef* node) {
+    std::cout << std::format(
+        "StructDef(span={}, name={}, type={}, field_attrs=[])", 
+        spanToStr(node->span), 
+        node->an_StructDef.symbol->name, 
+        typeToStr(node->an_StructDef.symbol->type)
+    );
+
+    // TODO: print field attrs
+}   
+
 static void printDef(AstDef* def) {
     switch (def->kind) {
     case AST_FUNC:
@@ -509,6 +565,9 @@ static void printDef(AstDef* def) {
         break;
     case AST_GLOBAL_VAR:
         printGlobalVar(def);
+        break;
+    case AST_STRUCT_DEF:
+        printStructDef(def);
         break;
     default:
          Panic("ast printing not implemented for {}", (int)def->kind);
@@ -518,7 +577,6 @@ static void printDef(AstDef* def) {
 /* -------------------------------------------------------------------------- */
 
 void PrintAst(const SourceFile& src_file) {
-    std::cout << "file: " << src_file.display_path << "\n\n";
     for (auto* def : src_file.defs) {
         printDef(def);
 

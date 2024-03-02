@@ -149,7 +149,7 @@ void Loader::loadRootModule(fs::path& root_mod_abs_path) {
         SourceFile src_file { 
             nullptr,
             root_mod_abs_path.string(), 
-            root_mod_abs_path.filename().string() 
+            (local_path.filename() / root_mod_abs_path.filename()).string() 
         };
 
         auto mod_name = getModuleName(src_file);

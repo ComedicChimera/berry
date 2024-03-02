@@ -12,7 +12,7 @@ func create_anon(s: i64) struct { a: i64, b: i64 } {
 }
 
 func main() {
-    let anon = create_anon();
+    let anon = create_anon(10);
     let anon2 = struct{a: i64, b: i64}{1, 1};
 
     print_anon(anon);

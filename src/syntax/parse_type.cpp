@@ -74,7 +74,7 @@ Type* Parser::parseStructTypeLabel() {
 
     std::vector<StructField> fields;
     std::unordered_set<std::string_view> used_field_names;
-    do {
+    while (true) {
         auto field_name_toks = parseIdentList();
         auto field_type = parseTypeExt();
         
@@ -89,9 +89,13 @@ Type* Parser::parseStructTypeLabel() {
             fields.emplace_back(StructField{ field_name, field_type, true });
         }
 
-        want(TOK_SEMI);
-    } while (!has(TOK_RBRACE));
-    next();
+        if (has(TOK_COMMA)) {
+            next();
+        } else {
+            break;
+        }
+    } 
+    want(TOK_RBRACE);
 
     auto* struct_type = allocType(TYPE_STRUCT);
     struct_type->ty_Struct.fields = arena.MoveVec(std::move(fields));

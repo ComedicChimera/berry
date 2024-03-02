@@ -132,7 +132,7 @@ private:
     template<typename ...Args>
     inline void error(const TextSpan& span, const std::string& fmt, Args&&... args) {
         ReportCompileError(
-            src_file.display_path,
+            src_file->display_path,
             span,
             fmt, 
             args...

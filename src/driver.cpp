@@ -100,12 +100,8 @@ public:
 private:
     void check() {
         for (auto& mod : loader) {
-            for (auto& src_file : mod.files) {
-                Checker c(arena, src_file); 
-                for (auto* def : src_file.defs) {
-                    c.CheckDef(def);
-                }
-            }
+            Checker c(arena, mod); 
+            c.CheckModule();
         }
 
         if (ErrorCount() > 0) {

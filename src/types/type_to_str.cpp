@@ -50,14 +50,20 @@ std::string Type::ToString() const {
         return std::format("{}.{}", ty_Named.mod_name, ty_Named.name);
     case TYPE_STRUCT: {
         std::string sb { "struct { " };
+        int i = 0;
         for (auto& field : ty_Struct.fields) {
+            if (i > 0) {
+                sb += ", ";
+            }
+
             sb += field.name;
             sb += ": ";
             sb += field.type->ToString();
-            sb += "; ";
+
+            i++;
         }
 
-        sb.push_back('}');
+        sb += " }";
         return sb;
     } break;
     default:

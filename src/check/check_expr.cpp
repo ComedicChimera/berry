@@ -119,7 +119,7 @@ void Checker::checkCall(AstExpr* node) {
     }
 
     for (int i = 0; i < call.args.size(); i++) {
-        checkExpr(call.args[i], call.args[i]->type);
+        checkExpr(call.args[i], func_type->ty_Func.param_types[i]);
         mustSubType(call.args[i]->span, call.args[i]->type, func_type->ty_Func.param_types[i]);
     }
 

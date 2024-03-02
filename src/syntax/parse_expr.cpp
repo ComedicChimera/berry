@@ -516,6 +516,8 @@ AstExpr* Parser::parseAtom() {
         return parseStructInit(astruct);
     } break;
     case TOK_DOT: {
+        next();
+        
         auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, prev.span);
         return parseStructInit(astruct);
     } break;

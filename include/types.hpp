@@ -26,6 +26,8 @@ enum TypeKind {
     TYPES_COUNT
 };
 
+struct Type;
+
 // StructField is a field in a struct type.
 struct StructField {
     std::string_view name;

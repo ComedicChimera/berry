@@ -38,7 +38,7 @@ static bool resolveNamedInDep(Type* type, Module::Dependency& dep) {
     if (it != dep.mod->symbol_table.end() && it->second->export_num != UNEXPORTED) {
         named.mod_id = dep.mod->id;
         named.mod_name = dep.mod->name;
-        named.type = it->second->type;
+        named.type = it->second->type->ty_Named.type;
 
         dep.usages.insert(it->second->export_num);
 
@@ -57,7 +57,7 @@ void Checker::resolveNamedTypes() {
         if (it != mod.symbol_table.end()) {
             named.mod_id = mod.id;
             named.mod_name = mod.name;
-            named.type = it->second->type;
+            named.type = it->second->type->ty_Named.type;
             continue;
         }
 
