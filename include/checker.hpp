@@ -82,15 +82,17 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    void checkExpr(AstExpr* expr);
+    void checkExpr(AstExpr* expr, Type* infer_type = nullptr);
     void checkDeref(AstExpr* node);
     void checkCall(AstExpr* node);
     void checkIndex(AstExpr* node);
     void checkSlice(AstExpr* node);
-    void checkField(AstExpr* node);
-    Module::Dependency* checkIdentOrGetImport(AstExpr *node);
-    void checkArray(AstExpr *node);
-    void checkNewExpr(AstExpr *node);
+    void checkField(AstExpr* node, bool expect_type);
+    Module::Dependency* checkIdentOrGetImport(AstExpr* node, bool expect_type);
+
+    void checkArray(AstExpr* node, Type* infer_type);
+    void checkNewExpr(AstExpr* node);
+    void checkStructLit(AstExpr* node, Type* infer_type);
 
     /* ---------------------------------------------------------------------- */
 

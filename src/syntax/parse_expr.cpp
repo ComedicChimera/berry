@@ -508,15 +508,16 @@ AstExpr* Parser::parseAtom() {
     case TOK_NEW:
         return parseNewExpr();
     case TOK_STRUCT: {
-        // Create AST pseudo-node (smallest is null) to represent the type
-        // literal.  Later on, we will probably use a different node for this,
-        // but it works fine for now.
         auto start_span = tok.span;
         auto* type = parseStructTypeLabel();
-        auto* anull = allocExpr(AST_NULL, SpanOver(start_span, prev.span));
-        anull->type = type;
+        auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, SpanOver(start_span, prev.span));
+        astruct->type = type;
 
-        return parseStructInit(anull);
+        return parseStructInit(astruct);
+    } break;
+    case TOK_DOT: {
+        auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, prev.span);
+        return parseStructInit(astruct);
     } break;
     default:
         reject("expected expression");

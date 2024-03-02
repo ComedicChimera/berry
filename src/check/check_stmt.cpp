@@ -63,7 +63,7 @@ bool Checker::checkIf(AstStmt* node) {
     bool always_returns = true;
 
     for (auto& branch : node->an_If.branches) {
-        checkExpr(branch.cond_expr);
+        checkExpr(branch.cond_expr, &prim_bool_type);
         mustEqual(branch.cond_expr->span, branch.cond_expr->type, &prim_bool_type);
         finishExpr();
 
@@ -82,7 +82,7 @@ bool Checker::checkIf(AstStmt* node) {
 void Checker::checkWhile(AstStmt* node) {
     auto& awhile = node->an_While;
 
-    checkExpr(awhile.cond_expr);
+    checkExpr(awhile.cond_expr, &prim_bool_type);
     mustEqual(awhile.cond_expr->span, awhile.cond_expr->type, &prim_bool_type);
     finishExpr();
 
@@ -103,7 +103,7 @@ void Checker::checkFor(AstStmt* node) {
         checkStmt(afor.var_def);
 
     if (afor.cond_expr) {
-        checkExpr(afor.cond_expr);
+        checkExpr(afor.cond_expr, &prim_bool_type);
         mustEqual(afor.cond_expr->span, afor.cond_expr->type, &prim_bool_type);
         finishExpr();
     }
@@ -128,7 +128,7 @@ void Checker::checkLocalVar(AstStmt* node) {
     auto& alocal = node->an_LocalVar;
 
     if (alocal.init != nullptr) {
-        checkExpr(alocal.init); 
+        checkExpr(alocal.init, alocal.symbol->type); 
 
         if (alocal.symbol->type == nullptr) {
             alocal.symbol->type = alocal.init->type;
@@ -159,7 +159,7 @@ void Checker::checkAssign(AstStmt* node) {
 
     mustBeAssignable(aassign.lhs);
 
-    checkExpr(aassign.rhs);
+    checkExpr(aassign.rhs, aassign.lhs->type);
 
     if (aassign.assign_op == AOP_NONE) {
         mustSubType(node->span, aassign.rhs->type, aassign.lhs->type);
@@ -193,7 +193,7 @@ void Checker::checkReturn(AstStmt* node) {
 
     auto* ret_value = node->an_Return.value;
     if (ret_value) {
-        checkExpr(ret_value);
+        checkExpr(ret_value, enclosing_return_type);
         mustSubType(ret_value->span, ret_value->type, enclosing_return_type);
         finishExpr();
     } else if (enclosing_return_type->kind != TYPE_UNIT) {

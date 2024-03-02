@@ -94,6 +94,7 @@ enum AstKind {
     AST_NEW,
     AST_STRUCT_LIT_POS,
     AST_STRUCT_LIT_NAMED,
+    AST_STRUCT_LIT_TYPE,
     AST_IDENT,
     AST_INT,
     AST_FLOAT,

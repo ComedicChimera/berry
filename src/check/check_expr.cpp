@@ -1,9 +1,9 @@
 #include "checker.hpp"
 
-void Checker::checkExpr(AstExpr* node) {
+void Checker::checkExpr(AstExpr* node, Type* infer_type) {
     switch (node->kind) {
     case AST_CAST:
-        checkExpr(node->an_Cast.src);
+        checkExpr(node->an_Cast.src, node->type);
         mustCast(node->an_Cast.src->span, node->an_Cast.src->type, node->type);
         break;
     case AST_BINOP:
@@ -41,16 +41,16 @@ void Checker::checkExpr(AstExpr* node) {
         checkSlice(node);
         break;
     case AST_FIELD:
-        checkField(node);
+        checkField(node, false);
         break;
     case AST_ARRAY:
-        checkArray(node);
+        checkArray(node, infer_type);
         break;
     case AST_NEW: 
         checkNewExpr(node);
         break;
     case AST_IDENT: {
-        auto* dep = checkIdentOrGetImport(node);
+        auto* dep = checkIdentOrGetImport(node, false);
         if (dep != nullptr) {
             fatal(node->span, "imported module cannot be used as a value");
         }
@@ -68,7 +68,18 @@ void Checker::checkExpr(AstExpr* node) {
         // Nothing to do :)
         break;
     case AST_NULL:
-        Panic("null outside of function call");
+        if (infer_type) {
+            node->type = infer_type;
+        } else {
+            fatal(node->span, "unable to infer type of null");
+        }
+        break;
+    case AST_STRUCT_LIT_POS:
+    case AST_STRUCT_LIT_NAMED:
+        checkStructLit(node, infer_type);
+        break;
+    case AST_STRUCT_LIT_TYPE:
+        Panic("ast struct lit type outside of ast struct lit");
         break;
     default:
         Panic("checking not implemented for expr {}", (int)node->kind);
@@ -108,12 +119,8 @@ void Checker::checkCall(AstExpr* node) {
     }
 
     for (int i = 0; i < call.args.size(); i++) {
-        if (call.args[i]->kind == AST_NULL) {
-            call.args[i]->type = func_type->ty_Func.param_types[i];
-        } else {
-            checkExpr(call.args[i]);
-            mustSubType(call.args[i]->span, call.args[i]->type, func_type->ty_Func.param_types[i]);
-        }
+        checkExpr(call.args[i], call.args[i]->type);
+        mustSubType(call.args[i]->span, call.args[i]->type, func_type->ty_Func.param_types[i]);
     }
 
     node->type = func_type->ty_Func.return_type;
@@ -122,7 +129,9 @@ void Checker::checkCall(AstExpr* node) {
 void Checker::checkIndex(AstExpr* node) {
     auto& index = node->an_Index;
     checkExpr(index.array);
-    checkExpr(index.index);
+
+    // TODO: platform int type
+    checkExpr(index.index, &prim_i64_type);
 
     auto* array_type = index.array->type->Inner();
     if (array_type->kind == TYPE_ARRAY) {
@@ -143,10 +152,12 @@ void Checker::checkSlice(AstExpr* node) {
     checkExpr(slice.array);
 
     if (slice.start_index)
-        checkExpr(slice.start_index);
+        // TODO: platform int type
+        checkExpr(slice.start_index, &prim_i64_type);
 
     if (slice.end_index)
-        checkExpr(slice.end_index);
+        // TODO: platform int type
+        checkExpr(slice.end_index, &prim_i64_type);
 
     auto* inner_type = slice.array->type->Inner();
     if (inner_type->kind == TYPE_ARRAY) {
@@ -166,11 +177,11 @@ void Checker::checkSlice(AstExpr* node) {
 }
 
 
-void Checker::checkField(AstExpr* node) {
+void Checker::checkField(AstExpr* node, bool expect_type) {
     auto& fld = node->an_Field;
     
     if (fld.root->kind == AST_IDENT) {
-        auto* dep= checkIdentOrGetImport(fld.root);
+        auto* dep= checkIdentOrGetImport(fld.root, false);
         if (dep != nullptr) {
             auto* mod = dep->mod;
 
@@ -179,6 +190,12 @@ void Checker::checkField(AstExpr* node) {
                 auto* imported_sym = sym_it->second;
                 node->type = imported_sym->type;
                 node->immut = imported_sym->immut;
+
+                if (!expect_type && imported_sym->kind == SYM_TYPE) {
+                    fatal(node->span, "cannot use type as value");
+                } else if (expect_type && imported_sym->kind != SYM_TYPE) {
+                    fatal(node->span, "expected type not value");
+                }
                 
                 fld.imported_sym = imported_sym;
                 dep->usages.insert(imported_sym->export_num);
@@ -192,22 +209,51 @@ void Checker::checkField(AstExpr* node) {
     }
 
     auto root_type = fld.root->type->Inner();
-    if (root_type->kind == TYPE_ARRAY) {
+    if (root_type->kind == TYPE_PTR) {
+        root_type = root_type->ty_Ptr.elem_type;
+    }
+
+    switch (root_type->kind) {
+    case TYPE_NAMED: {
+        auto base_type = root_type->ty_Named.type;
+        if (base_type->kind == TYPE_STRUCT) {
+            for (auto& field : base_type->ty_Struct.fields) {
+                if (field.name == fld.field_name) {
+                    if (root_type->ty_Named.mod_id != mod.id && !field.exported) {
+                        fatal(node->span, "struct field {} is not exported", field.name);
+                    }
+
+                    node->type = field.type;
+                    return;
+                }
+            }
+        }
+    } break;
+    case TYPE_STRUCT: // Anonymous struct
+        for (auto& field : root_type->ty_Struct.fields) {
+            if (field.name == fld.field_name) {
+                node->type = field.type;
+                return;
+            }
+        }
+        break;
+    case TYPE_ARRAY:
         if (fld.field_name == "_ptr") {
             node->type = AllocType(arena, TYPE_PTR);
             node->type->ty_Ptr.elem_type = root_type->ty_Array.elem_type;
+            return;
         } else if (fld.field_name == "_len") {
             // TODO: platform sizes?
             node->type = &prim_i64_type;
-        } else {
-            fatal(node->span, "{} has no field named {}", fld.root->type->ToString(), fld.field_name);
+            return;
         }
-    } else {
-        fatal(fld.root->span, "{} is not array type", fld.root->type->ToString());
+        break;
     }
+
+    fatal(node->span, "{} has no field named {}", fld.root->type->ToString(), fld.field_name);
 }
 
-Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node) {
+Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node, bool expect_type) {
     auto name = node->an_Ident.temp_name;
     Symbol* sym { nullptr };
     for (int i = scope_stack.size() - 1; i >= 0; i--) {
@@ -240,6 +286,12 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node) {
         }
     }
     
+    if (!expect_type && sym->kind == SYM_TYPE) {
+        fatal(node->span, "cannot use type as value");
+    } else if (expect_type && sym->kind != SYM_TYPE) {
+        fatal(node->span, "expected type not value");
+    }
+
     node->an_Ident.symbol = sym;
     node->type = sym->type;
     node->immut = sym->immut;
@@ -248,12 +300,20 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node) {
 
 /* -------------------------------------------------------------------------- */
 
-void Checker::checkArray(AstExpr* node) {
+void Checker::checkArray(AstExpr* node, Type* infer_type) {
     auto& arr = node->an_Array;
     Assert(arr.elems.size() > 0, "empty array literals are not implemented yet");
 
+    Type* elem_infer_type = nullptr;
+    if (infer_type) {
+        infer_type = infer_type->Inner();
+
+        if (infer_type->kind == TYPE_ARRAY)
+            elem_infer_type = infer_type->ty_Array.elem_type;
+    }
+
     for (auto& elem : arr.elems) {
-        checkExpr(elem);
+        checkExpr(elem, elem_infer_type);
     }
 
     auto* first_type = arr.elems[0]->type;
@@ -275,7 +335,8 @@ void Checker::checkArray(AstExpr* node) {
 void Checker::checkNewExpr(AstExpr* node) {
     auto* size_expr = node->an_New.size_expr;
     if (size_expr) {
-        checkExpr(size_expr);
+        // TODO: platform int type
+        checkExpr(size_expr, &prim_i64_type);
         mustIntType(size_expr->span, size_expr->type);
 
         node->type = AllocType(arena, TYPE_ARRAY);
@@ -285,10 +346,90 @@ void Checker::checkNewExpr(AstExpr* node) {
         node->type->ty_Ptr.elem_type = node->an_New.elem_type;
     }
 
+    // TODO: check for non-comptime sizes/dynamic allocation
     if (enclosing_return_type == nullptr) {
-        // TODO: check for non-comptime sizes 
         node->an_New.alloc_mode = A_ALLOC_GLOBAL;
     } else {
         node->an_New.alloc_mode = A_ALLOC_STACK;
     }
+}
+
+void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
+    // Should be same location for Pos and Named :)
+    auto* root_node = node->an_StructLitPos.root;
+
+    switch (root_node->kind) {
+    case AST_IDENT: {
+        auto* dep = checkIdentOrGetImport(root_node, true);
+        if (dep != nullptr) {
+            fatal(node->span, "imported module cannot be used as a value");
+        }
+    } break;
+    case AST_FIELD:
+        checkField(root_node, true);
+        break;
+    case AST_STRUCT_LIT_TYPE: 
+        if (root_node->type == nullptr) {
+            if (infer_type) {
+                root_node->type = infer_type;
+            } else {
+                fatal(root_node->span, "cannot infer type of struct literal");
+            }
+        }
+        break;
+    default:
+        fatal(root_node->span, "expected a struct type label or '.'");
+    }
+
+    auto* struct_type = root_node->type->Inner();
+    if (struct_type->kind == TYPE_NAMED) {
+        struct_type = struct_type->ty_Named.type;
+    }
+
+    if (struct_type->kind != TYPE_STRUCT) {
+        fatal(root_node->span, "{} is not a struct type", root_node->type->ToString());
+    }
+
+    if (node->kind == AST_STRUCT_LIT_POS) {
+        auto& field_values = node->an_StructLitPos.field_values;
+        for (size_t i = 0; i < field_values.size(); i++) {
+            if (i >= struct_type->ty_Struct.fields.size()) {
+                error(
+                    root_node->span, 
+                    "{} has only {} fields but initializer provides {} values", 
+                    root_node->type->ToString(), 
+                    i, field_values.size()
+                );
+                break;
+            }
+
+            checkExpr(field_values[i], struct_type->ty_Struct.fields[i].type);
+            mustSubType(field_values[i]->span, field_values[i]->type, struct_type->ty_Struct.fields[i].type);
+        }
+    } else { // Named
+        // O(n^2) kekw
+        bool found_match = false;
+        for (auto& field_pair : node->an_StructLitNamed.field_values) {
+            found_match = false;
+
+            for (auto& field : struct_type->ty_Struct.fields) {
+                if (field.name == field_pair.first->an_Ident.temp_name) {
+                    checkExpr(field_pair.second, field.type);
+                    mustSubType(field_pair.second->span, field_pair.second->type, field.type);
+                    found_match = true;
+                }
+            }
+
+            if (!found_match) {
+                error(
+                    field_pair.first->span, 
+                    "struct {} has no field named {}", 
+                    root_node->type->ToString(), 
+                    field_pair.first->an_Ident.temp_name
+                );
+            }
+        }
+    }
+
+    node->type = root_node->type;
 }
