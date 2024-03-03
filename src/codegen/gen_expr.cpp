@@ -3,27 +3,13 @@
 void CodeGenerator::genStoreExpr(AstExpr* node, llvm::Value* dest) {
     auto src = genExpr(node, false, dest);
     if (src != nullptr) {
-        if (node->IsLValue() && shouldPtrWrap(node->type)) {
-            genStructCopy(genType(node->type, true), src, dest);
+        auto* ll_type = genType(node->type, true);
+        if (node->IsLValue() && shouldPtrWrap(ll_type)) {
+            genStructCopy(ll_type, src, dest);
         } else {
             irb.CreateStore(src, dest);
         }
     }
-}
-
-llvm::Value* CodeGenerator::genExprWithCopy(AstExpr* node) {
-    if (node->IsLValue() && shouldPtrWrap(node->type)) {
-        auto* alloc_loc = genStackAlloc(node->type);
-
-        auto* src = genExpr(node, false, alloc_loc);
-        if (src != nullptr) {
-            genStructCopy(genType(node->type, true), src, alloc_loc);
-        }
-
-        return alloc_loc;
-    }
-
-    return genExpr(node);
 }
 
 llvm::Value* CodeGenerator::genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest) {

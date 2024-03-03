@@ -156,11 +156,19 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
         auto& func_type = type->ty_Func;
 
         std::vector<llvm::Type*> ll_param_types;
+        llvm::Type* ll_return_type;
+        if (shouldPtrWrap(func_type.return_type)) {
+            ll_param_types.push_back(genType(func_type.return_type));
+            ll_return_type = llvm::Type::getVoidTy(ctx);
+        } else {
+            ll_return_type = genType(func_type.return_type);
+        }
+
         for (auto* param_type : func_type.param_types) {
             ll_param_types.push_back(genType(param_type));
         }
 
-        return llvm::FunctionType::get(genType(func_type.return_type), ll_param_types, false);
+        return llvm::FunctionType::get(ll_return_type, ll_param_types, false);
     } break;
     case TYPE_ARRAY: 
         return ll_array_type;
@@ -194,10 +202,14 @@ bool CodeGenerator::shouldPtrWrap(Type* type) {
     type = type->Inner();
 
     if (type->kind == TYPE_NAMED || type->kind == TYPE_STRUCT) {
-        return getLLVMTypeByteSize(genType(type, true)) > layout.getPointerSize() * 2;
+        return shouldPtrWrap(genType(type, true));
     }
 
     return false;
+}
+
+bool CodeGenerator::shouldPtrWrap(llvm::Type* type) {
+    return getLLVMTypeByteSize(type) > layout.getPointerSize() * 2;
 }
 
 uint64_t CodeGenerator::getLLVMTypeByteSize(llvm::Type* llvm_type) {

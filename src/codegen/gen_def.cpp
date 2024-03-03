@@ -71,7 +71,7 @@ void CodeGenerator::genFuncProto(AstDef* node) {
 
     ll_func->setCallingConv(cconv);
 
-    int i = 0;
+    int i = ll_func->arg_size() > node->an_Func.params.size();
     for (auto& arg : ll_func->args()) {
         arg.setName(node->an_Func.params[i]->name);
         node->an_Func.params[i]->llvm_value = &arg;
@@ -92,9 +92,22 @@ void CodeGenerator::genFuncBody(AstDef* node) {
     setCurrentBlock(var_block);
 
     for (auto* param : node->an_Func.params) {
-        auto* ll_param = irb.CreateAlloca(param->llvm_value->getType());
-        irb.CreateStore(param->llvm_value, ll_param);
+        auto* ll_type = genType(param->type, true);
+        auto* ll_param = irb.CreateAlloca(ll_type);
+
+        if (shouldPtrWrap(ll_type)) {
+            genStructCopy(ll_type, param->llvm_value, ll_param);
+        } else {
+            irb.CreateStore(param->llvm_value, ll_param);
+        }
+        
         param->llvm_value = ll_param;
+    }
+
+    if (ll_func->arg_size() > node->an_Func.params.size()) {
+        return_param = &(*ll_func->arg_begin());
+    } else {
+        return_param = nullptr;
     }
 
     ll_enclosing_func = ll_func;

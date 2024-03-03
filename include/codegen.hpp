@@ -95,6 +95,9 @@ class CodeGenerator {
     // ll_enclosing_func is the enclosing LLVM function.
     llvm::Function* ll_enclosing_func;
 
+    // return_param is the return parameter (if present).
+    llvm::Value* return_param;
+
     // var_block is the block to append variable allocas to.
     llvm::BasicBlock* var_block;
 
@@ -195,7 +198,6 @@ private:
     /* ---------------------------------------------------------------------- */
 
     void genStoreExpr(AstExpr* node, llvm::Value* dest);
-    llvm::Value* genExprWithCopy(AstExpr *node);
     llvm::Value* genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest);
     llvm::Value* genStackAlloc(Type* type);
 
@@ -227,6 +229,7 @@ private:
     // genType converts the Berry type type to an LLVM type.
     llvm::Type* genType(Type* type, bool alloc_type = false);
     bool shouldPtrWrap(Type* type);
+    bool shouldPtrWrap(llvm::Type* type);
     uint64_t getLLVMTypeByteSize(llvm::Type* llvm_type);
 
     /* ---------------------------------------------------------------------- */

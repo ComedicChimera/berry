@@ -36,7 +36,11 @@ void CodeGenerator::genStmt(AstStmt* node) {
         break;
     case AST_RETURN:
         if (node->an_Return.value) {
-            irb.CreateRet(genExpr(node->an_Return.value));
+            if (return_param) {
+                genStoreExpr(node->an_Return.value, return_param);
+            } else {
+                irb.CreateRet(genExpr(node->an_Return.value));
+            }
         } else {
             irb.CreateRetVoid();
         }

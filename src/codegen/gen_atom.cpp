@@ -38,7 +38,7 @@ llvm::Value* CodeGenerator::genIndexExpr(AstExpr* node, bool expect_addr) {
     auto* ll_elem_type = genType(node->type->Inner(), true);
     auto* elem_ptr = irb.CreateGEP(llvm::ArrayType::get(ll_elem_type, 0), getArrayData(array_val), { getInt32Const(0), index_val });
 
-    if (expect_addr || shouldPtrWrap(node->type)) {
+    if (expect_addr || shouldPtrWrap(ll_elem_type)) {
         return elem_ptr;
     } else {
         return irb.CreateLoad(ll_elem_type, elem_ptr);
@@ -313,7 +313,7 @@ llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) 
     auto* ll_struct_type = genType(struct_type, true);
 
     bool needs_alloc = alloc_loc == nullptr;
-    if (node->kind < AST_STRUCT_PTR_LIT_POS && needs_alloc && !shouldPtrWrap(struct_type) ) {
+    if (node->kind < AST_STRUCT_PTR_LIT_POS && needs_alloc && !shouldPtrWrap(ll_struct_type) ) {
         llvm::Value* lit_value = getNullValue(ll_struct_type);
 
         if (node->kind == AST_STRUCT_LIT_POS) {
