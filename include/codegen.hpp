@@ -78,6 +78,9 @@ class CodeGenerator {
     // mod is the LLVM module being generated.
     llvm::Module& mod;
 
+    // layout is the module's data layout (retrieved for convenience).
+    const llvm::DataLayout& layout;
+
     // builder is the IR builder being used.
     llvm::IRBuilder<> irb;
     
@@ -146,6 +149,7 @@ public:
     // Creates a new code generator using ctx and outputting to mod.
     CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& bry_mod, bool debug)
     : ctx(ctx), mod(mod), irb(ctx)
+    , layout(mod.getDataLayout())
     , debug(debug, mod, irb)
     , bry_mod(bry_mod)
     , ll_enclosing_func(nullptr)
@@ -163,17 +167,17 @@ public:
 
 private:
     void genImports();
-    llvm::Value* genImportFunc(Module &imported_mod, AstDef *node);
-    llvm::Value* genImportGlobalVar(Module &imported_mod, AstDef *node);
+    llvm::Value* genImportFunc(Module &imported_mod, AstDef* node);
+    llvm::Value* genImportGlobalVar(Module &imported_mod, AstDef* node);
 
-    void genTopDecl(AstDef *def);
-    void genPredicates(AstDef *def);
+    void genTopDecl(AstDef* def);
+    void genPredicates(AstDef* def);
 
-    void genFuncProto(AstDef *node);
-    void genFuncBody(AstDef *node);
+    void genFuncProto(AstDef* node);
+    void genFuncBody(AstDef* node);
 
-    void genGlobalVarDecl(AstDef *node);
-    void genGlobalVarInit(AstDef *node);
+    void genGlobalVarDecl(AstDef* node);
+    void genGlobalVarInit(AstDef* node);
 
     std::string mangleName(std::string_view name);
     std::string mangleName(Module &imported_bry_mod, std::string_view name);
@@ -190,18 +194,22 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    llvm::Value* genExpr(AstExpr* expr, bool expect_addr=false, llvm::Value* alloc_loc=nullptr);
+    llvm::Value* genExprWithCopy(AstExpr* node, llvm::Value* alloc_loc);
+    void copyStruct(Type* struct_type, llvm::Value* dest, llvm::Value* src);
+    llvm::Value* stackAlloc(Type* type);
+
+    llvm::Value* genExpr(AstExpr* expr, bool expect_addr = false, llvm::Value* alloc_loc = nullptr);
     llvm::Value* genCast(AstExpr* node);
     llvm::Value* genBinop(AstExpr* node);
     llvm::Value* genUnop(AstExpr* node);
-    llvm::Value* genCall(AstExpr *node, llvm::Value* alloc_loc);
-    llvm::Value* genIndexExpr(AstExpr *node, bool expect_addr);
-    llvm::Value* genSliceExpr(AstExpr *node, llvm::Value *alloc_loc);
-    llvm::Value* genFieldExpr(AstExpr *node, bool expect_addr);
-    llvm::Value* genArrayLit(AstExpr *node, llvm::Value *alloc_loc);
-    llvm::Value* genNewExpr(AstExpr *node, llvm::Value *alloc_loc);
-    llvm::Value* genStrLit(AstExpr *node, llvm::Value *alloc_loc);
-    llvm::Value* genIdent(AstExpr *node, bool expect_addr);
+    llvm::Value* genCall(AstExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genIndexExpr(AstExpr* node, bool expect_addr);
+    llvm::Value* genSliceExpr(AstExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genFieldExpr(AstExpr* node, bool expect_addr);
+    llvm::Value* genArrayLit(AstExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genNewExpr(AstExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genStrLit(AstExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genIdent(AstExpr* node, bool expect_addr);
 
     /* ---------------------------------------------------------------------- */
 
@@ -212,7 +220,9 @@ private:
     /* ---------------------------------------------------------------------- */
 
     // genType converts the Berry type type to an LLVM type.
-    llvm::Type *genType(Type *type);
+    llvm::Type* genType(Type* type, bool alloc_type = false);
+    bool shouldPtrWrap(Type* type);
+    uint64_t getLLVMTypeByteSize(llvm::Type* llvm_type);
 
     /* ---------------------------------------------------------------------- */
 

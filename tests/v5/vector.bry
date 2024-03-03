@@ -37,5 +37,10 @@ func main() {
     let p = dot(v1, v2);
     std.putint(p);
     std.putr('\n');
+
+    let v_ptr = new Vec2{10, 20};
+    v_ptr.x += 2;
+
+    std.putint(v_ptr.x);
 }
 

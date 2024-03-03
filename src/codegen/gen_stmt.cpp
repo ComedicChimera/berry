@@ -223,17 +223,13 @@ void CodeGenerator::genForLoop(AstStmt* node) {
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::genLocalVar(AstStmt* node) {
-    auto* prev_pos = getCurrentBlock();
-
-    setCurrentBlock(var_block);
-    auto* ll_var = irb.CreateAlloca(genType(node->an_LocalVar.symbol->type));
+    auto* ll_var = stackAlloc(node->an_LocalVar.symbol->type);
     node->an_LocalVar.symbol->llvm_value = ll_var;
-    setCurrentBlock(prev_pos);
 
     debug.EmitLocalVariableInfo(node, ll_var);
 
     if (node->an_LocalVar.init != nullptr) {
-        auto* rhs_val = genExpr(node->an_LocalVar.init, false, ll_var);
+        auto* rhs_val = genExprWithCopy(node->an_LocalVar.init, ll_var);
         if (rhs_val) {
             irb.CreateStore(rhs_val, ll_var);
         }
@@ -244,7 +240,7 @@ void CodeGenerator::genAssign(AstStmt* node) {
     auto* lhs_addr = genExpr(node->an_Assign.lhs, true);
 
     if (node->an_Assign.assign_op == AOP_NONE) {
-        auto* rhs_val = genExpr(node->an_Assign.rhs, false, lhs_addr);
+        auto* rhs_val = genExprWithCopy(node->an_Assign.rhs, lhs_addr);
         if (rhs_val) {
             irb.CreateStore(rhs_val, lhs_addr);
         }
@@ -256,9 +252,11 @@ void CodeGenerator::genAssign(AstStmt* node) {
         binop.an_Binop.op = node->an_Assign.assign_op;
         binop.an_Binop.lhs = node->an_Assign.lhs;
         binop.an_Binop.rhs = node->an_Assign.rhs;
-        auto* rhs_val = genExpr(&binop);
 
-        irb.CreateStore(rhs_val, lhs_addr);
+        auto* rhs_val = genExpr(&binop, false, lhs_addr);
+        if (rhs_val) {
+            irb.CreateStore(rhs_val, lhs_addr);
+        }
     }
 
     // TODO: debug value instrinsic
@@ -281,7 +279,10 @@ void CodeGenerator::genIncDec(AstStmt* node) {
     binop.an_Binop.rhs = &one_val;
     binop.an_Binop.op = node->an_IncDec.op;
     
-    irb.CreateStore(genExpr(&binop), lhs_addr);
+    auto* rhs_val = genExpr(&binop, false, lhs_addr);
+    if (rhs_val) {
+        irb.CreateStore(rhs_val, lhs_addr);
+    }
 
     // TODO: debug value intrinsic
 }

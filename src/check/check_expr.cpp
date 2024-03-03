@@ -76,6 +76,8 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
         break;
     case AST_STRUCT_LIT_POS:
     case AST_STRUCT_LIT_NAMED:
+    case AST_STRUCT_PTR_LIT_POS:
+    case AST_STRUCT_PTR_LIT_NAMED:
         checkStructLit(node, infer_type);
         break;
     case AST_STRUCT_LIT_TYPE:
@@ -371,9 +373,17 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
     case AST_STRUCT_LIT_TYPE: 
         if (root_node->type == nullptr) {
             if (infer_type) {
-                root_node->type = infer_type;
+                if (node->kind == AST_STRUCT_PTR_LIT_NAMED || node->kind == AST_STRUCT_PTR_LIT_POS) {
+                    if (infer_type->kind == TYPE_PTR) {
+                        root_node->type = infer_type->ty_Ptr.elem_type;
+                    } else {
+                        fatal(node->span, "cannot infer type of struct literal");
+                    }
+                } else {
+                    root_node->type = infer_type;
+                }
             } else {
-                fatal(root_node->span, "cannot infer type of struct literal");
+                fatal(node->span, "cannot infer type of struct literal");
             }
         }
         break;
@@ -385,12 +395,12 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
     if (struct_type->kind == TYPE_NAMED) {
         struct_type = struct_type->ty_Named.type;
     }
-
+    
     if (struct_type->kind != TYPE_STRUCT) {
         fatal(root_node->span, "{} is not a struct type", root_node->type->ToString());
     }
 
-    if (node->kind == AST_STRUCT_LIT_POS) {
+    if (node->kind == AST_STRUCT_LIT_POS || node->kind == AST_STRUCT_PTR_LIT_POS) {
         auto& field_values = node->an_StructLitPos.field_values;
         for (size_t i = 0; i < field_values.size(); i++) {
             if (i >= struct_type->ty_Struct.fields.size()) {
@@ -405,6 +415,12 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
 
             checkExpr(field_values[i], struct_type->ty_Struct.fields[i].type);
             mustSubType(field_values[i]->span, field_values[i]->type, struct_type->ty_Struct.fields[i].type);
+        }
+
+        if (enclosing_return_type == nullptr) {
+            node->an_StructLitPos.alloc_mode = A_ALLOC_GLOBAL;
+        } else {
+            node->an_StructLitPos.alloc_mode = A_ALLOC_STACK;
         }
     } else { // Named
         // O(n^2) kekw
@@ -429,7 +445,18 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
                 );
             }
         }
+
+        if (enclosing_return_type == nullptr) {
+            node->an_StructLitNamed.alloc_mode = A_ALLOC_GLOBAL;
+        } else {
+            node->an_StructLitNamed.alloc_mode = A_ALLOC_STACK;
+        }
     }
 
-    node->type = root_node->type;
+    if (node->kind == AST_STRUCT_LIT_NAMED || node->kind == AST_STRUCT_LIT_POS) {
+        node->type = root_node->type;
+    } else {
+        node->type = AllocType(arena, TYPE_PTR);
+        node->type->ty_Ptr.elem_type = root_node->type;
+    }
 }

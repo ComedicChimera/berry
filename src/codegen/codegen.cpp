@@ -121,7 +121,7 @@ void CodeGenerator::finishModule() {
 
 /* -------------------------------------------------------------------------- */
 
-llvm::Type* CodeGenerator::genType(Type* type) {
+llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
     type = type->Inner();
 
     switch (type->kind) {
@@ -165,18 +165,22 @@ llvm::Type* CodeGenerator::genType(Type* type) {
     case TYPE_ARRAY: 
         return ll_array_type;
     case TYPE_STRUCT:
-        if (type->ty_Struct.llvm_type == nullptr) {
-            std::vector<llvm::Type*> field_types(type->ty_Struct.fields.size());
-            for (size_t i = 0; i < field_types.size(); i++) {
-                field_types[i] = genType(type->ty_Struct.fields[i].type);
-            }
+        if (alloc_type || !shouldPtrWrap(type)) {
+            if (type->ty_Struct.llvm_type == nullptr) {
+                std::vector<llvm::Type*> field_types(type->ty_Struct.fields.size());
+                for (size_t i = 0; i < field_types.size(); i++) {
+                    field_types[i] = genType(type->ty_Struct.fields[i].type);
+                }
 
-            type->ty_Struct.llvm_type = llvm::StructType::get(ctx, field_types, false);
-        } 
-        
-        return type->ty_Struct.llvm_type;
+                type->ty_Struct.llvm_type = llvm::StructType::get(ctx, field_types, false);
+            } 
+            
+            return type->ty_Struct.llvm_type;
+        }
+
+        return llvm::PointerType::get(ctx, 0);        
     case TYPE_NAMED:
-        return genType(type->ty_Named.type);
+        return genType(type->ty_Named.type, alloc_type);
     case TYPE_UNTYP:
         Panic("abstract untyped in codegen");
         break;
@@ -184,6 +188,26 @@ llvm::Type* CodeGenerator::genType(Type* type) {
 
     Panic("unimplemented type in codegen");
     return nullptr;
+}
+
+bool CodeGenerator::shouldPtrWrap(Type* type) {
+    type = type->Inner();
+
+    if (type->kind == TYPE_NAMED || type->kind == TYPE_STRUCT) {
+        return getLLVMTypeByteSize(genType(type, true)) > layout.getPointerSize() * 2;
+    }
+
+    return false;
+}
+
+uint64_t CodeGenerator::getLLVMTypeByteSize(llvm::Type* llvm_type) {
+    auto bit_size = layout.getTypeSizeInBits(llvm_type).getFixedSize();
+
+    if (bit_size % 8 == 0) {
+        return bit_size / 8;
+    }
+
+    return bit_size / 8 + 1;
 }
 
 /* -------------------------------------------------------------------------- */

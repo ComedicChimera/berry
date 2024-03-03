@@ -159,7 +159,7 @@ AstExpr* Parser::parseAtomExpr() {
         } break;
         case TOK_LBRACE:
             if (shouldParseStructLit()) {
-                root = parseStructInit(root);
+                root = parseStructLit(root);
                 continue;
             }
             // fallthrough
@@ -246,7 +246,7 @@ AstExpr* Parser::parseIndexOrSlice(AstExpr* root) {
     return node;
 }
 
-AstExpr* Parser::parseStructInit(AstExpr* root) {
+AstExpr* Parser::parseStructLit(AstExpr* root) {
     want(TOK_LBRACE);
 
     pushAllowStructLit(true);
@@ -513,13 +513,13 @@ AstExpr* Parser::parseAtom() {
         auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, SpanOver(start_span, prev.span));
         astruct->type = type;
 
-        return parseStructInit(astruct);
+        return parseStructLit(astruct);
     } break;
     case TOK_DOT: {
         next();
         
         auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, prev.span);
-        return parseStructInit(astruct);
+        return parseStructLit(astruct);
     } break;
     default:
         reject("expected expression");
@@ -531,7 +531,20 @@ AstExpr* Parser::parseNewExpr() {
     next();
     auto start_span = prev.span;
 
+    if (has(TOK_LBRACE)) {
+        auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, prev.span);
+        return parseStructPtrLit(astruct);
+    }
+
     auto* type = parseTypeLabel();
+
+    if (has(TOK_LBRACE) && shouldParseStructLit()) {
+        auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, SpanOver(start_span, prev.span));
+        astruct->type = type;
+        
+        return parseStructPtrLit(astruct);
+    }
+
     AstExpr* size_expr { nullptr };
     if (has(TOK_LBRACKET)) {
         next();
@@ -545,6 +558,17 @@ AstExpr* Parser::parseNewExpr() {
     anew->an_New.elem_type = type;
     anew->an_New.size_expr = size_expr;
     return anew;
+}
+
+AstExpr* Parser::parseStructPtrLit(AstExpr* root) {
+    auto struct_lit = parseStructLit(root);
+    if (struct_lit->kind == AST_STRUCT_LIT_POS) {
+        struct_lit->kind = AST_STRUCT_PTR_LIT_POS;
+    } else {
+        struct_lit->kind = AST_STRUCT_PTR_LIT_NAMED;
+    }
+
+    return struct_lit;
 }
 
 AstExpr* Parser::parseArrayLit() {

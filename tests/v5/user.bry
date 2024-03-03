@@ -57,4 +57,7 @@ func main() {
 
     mutate(&new_user_copy);
     print_user(&new_user_copy);
+
+    let user_ptr: *User = new { "Hello", "ah", 225};
+    print_user(user_ptr);
 }

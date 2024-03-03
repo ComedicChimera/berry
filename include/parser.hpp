@@ -79,8 +79,9 @@ private:
     AstExpr* parseIndexOrSlice(AstExpr* root);
     AstExpr* parseAtom();
     AstExpr* parseNewExpr();
+    AstExpr* parseStructPtrLit(AstExpr* root);
     AstExpr* parseArrayLit();
-    AstExpr* parseStructInit(AstExpr *root);
+    AstExpr* parseStructLit(AstExpr* root);
     
     /* ---------------------------------------------------------------------- */
 

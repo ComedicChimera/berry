@@ -204,7 +204,11 @@ static void printArrayLit(AstExpr* node) {
 }
 
 static void printStructLitPos(AstExpr* node) {
-    std::cout << std::format("StructLit(span={}, type={}, field_inits=[", spanToStr(node->span), typeToStr(node->type));
+    std::cout << std::format("{}(span={}, type={}, field_inits=[", 
+        node->kind == AST_STRUCT_LIT_POS ? "StructLit" : "StructPtrLit",
+        spanToStr(node->span), typeToStr(node->type)
+    );
+
 
     int i = 0;
     for (auto* field_init : node->an_StructLitPos.field_values) {
@@ -221,7 +225,10 @@ static void printStructLitPos(AstExpr* node) {
 }
 
 static void printStructLitNamed(AstExpr* node) {
-    std::cout << std::format("StructLit(span={}, type={}, field_inits=[", spanToStr(node->span), typeToStr(node->type));
+    std::cout << std::format("{}(span={}, type={}, field_inits=[", 
+        node->kind == AST_STRUCT_LIT_NAMED ? "StructLit" : "StructPtrLit",
+        spanToStr(node->span), typeToStr(node->type)
+    );
 
     int i = 0;
     for (auto& field_pair : node->an_StructLitNamed.field_values) {
@@ -296,9 +303,11 @@ static void printExpr(AstExpr* node) {
         std::cout << ')';
         break;
     case AST_STRUCT_LIT_NAMED:
+    case AST_STRUCT_PTR_LIT_NAMED:
         printStructLitNamed(node);
         break;
     case AST_STRUCT_LIT_POS:
+    case AST_STRUCT_PTR_LIT_POS:
         printStructLitPos(node);
         break;
     case AST_STRUCT_LIT_TYPE:
