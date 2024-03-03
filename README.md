@@ -20,11 +20,19 @@ don't always get time (or energy) to work on it.
 
 - [ ] Target 5: Structs
 
-- [ ] Target 6: Constants, Comptimes, and Global Initializers
+- [ ] Target 6: Constants and Global Initializers
     * Init Ordering and Cycle Detection
-    * Comptime Expressions removed from `__$init`
-    * Runtime Globals won't be overwritten by `runtime.__$init`
-    * How to handle pointers to constants?
+        - Detect cycles in functions and global initializer
+    * Automatically detect when a global initializer is constant
+        - Only put initializers in `__$init` which aren't constant
+        - Remove empty `__$init` functions
+        - Runtime Globals won't be overwritten by `runtime.__$init`
+    * Constants are compile-time constant (comptime, like Go)
+        - Use LLVM constant instructions to facilitate compile-time evaluation
+        - No need to do compile-time evaluation yourself
+    * No pointers to constants: aren't guaranteed to have a well-defined location
+        - May be automatically inlined by the compiler (like defines)
+    * No constant parameters, fields, or anything besides variables
     * Enforce string immutability (introduce `string` type)
 
 - [ ] Target 7: Enums and Aliases
@@ -45,8 +53,8 @@ don't always get time (or energy) to work on it.
 - [ ] Target 9: Meta Directives and Intrinsic Macros
     * Conditional Compilation
         - `#require` and `#if`
-        - Builtin Defines: `OS` and `ARCH`
-        - Define new symbols via `comptime`
+        - Builtin Defines: `OS`, `ARCH`, `COMPILER`, and `DEBUG`
+        - No user defined symbols (right now)
     * `@sizeof` and `@alignof`
     * Replace unsafe casting with `@unsafe_cast` 
         - Unsafe Casts = ptr to ptr, string to byte array, byte array to string
