@@ -200,6 +200,7 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
                 }
                 
                 fld.imported_sym = imported_sym;
+                node->kind = AST_STATIC_GET;
                 dep->usages.insert(imported_sym->export_num);
                 return;
             } else {
@@ -401,20 +402,20 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
     }
 
     if (node->kind == AST_STRUCT_LIT_POS || node->kind == AST_STRUCT_PTR_LIT_POS) {
-        auto& field_values = node->an_StructLitPos.field_values;
-        for (size_t i = 0; i < field_values.size(); i++) {
+        auto& field_inits = node->an_StructLitPos.field_inits;
+        for (size_t i = 0; i < field_inits.size(); i++) {
             if (i >= struct_type->ty_Struct.fields.size()) {
                 error(
                     root_node->span, 
                     "{} has only {} fields but initializer provides {} values", 
                     root_node->type->ToString(), 
-                    i, field_values.size()
+                    i, field_inits.size()
                 );
                 break;
             }
 
-            checkExpr(field_values[i], struct_type->ty_Struct.fields[i].type);
-            mustSubType(field_values[i]->span, field_values[i]->type, struct_type->ty_Struct.fields[i].type);
+            checkExpr(field_inits[i], struct_type->ty_Struct.fields[i].type);
+            mustSubType(field_inits[i]->span, field_inits[i]->type, struct_type->ty_Struct.fields[i].type);
         }
 
         if (enclosing_return_type == nullptr) {
@@ -425,23 +426,27 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
     } else { // Named
         // O(n^2) kekw
         bool found_match = false;
-        for (auto& field_pair : node->an_StructLitNamed.field_values) {
+        for (auto& field_init : node->an_StructLitNamed.field_inits) {
             found_match = false;
 
+            size_t i = 0;
             for (auto& field : struct_type->ty_Struct.fields) {
-                if (field.name == field_pair.first->an_Ident.temp_name) {
-                    checkExpr(field_pair.second, field.type);
-                    mustSubType(field_pair.second->span, field_pair.second->type, field.type);
+                if (field.name == field_init.ident->an_Ident.temp_name) {
+                    checkExpr(field_init.expr, field.type);
+                    mustSubType(field_init.expr->span, field_init.expr->type, field.type);
+                    field_init.field_index = i;
                     found_match = true;
                 }
+
+                i++;
             }
 
             if (!found_match) {
                 error(
-                    field_pair.first->span, 
+                    field_init.ident->span, 
                     "struct {} has no field named {}", 
                     root_node->type->ToString(), 
-                    field_pair.first->an_Ident.temp_name
+                    field_init.ident->an_Ident.temp_name
                 );
             }
         }

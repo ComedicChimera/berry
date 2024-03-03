@@ -1,34 +1,44 @@
 #include "codegen.hpp"
 
-llvm::Value* CodeGenerator::genExprWithCopy(AstExpr* node, llvm::Value* alloc_loc) {
-    if (node->IsLValue() && shouldPtrWrap(node->type)) {
-        auto expr = genExpr(node);
-
-        if (alloc_loc == nullptr) {
-            alloc_loc = stackAlloc(node->type);
+void CodeGenerator::genStoreExpr(AstExpr* node, llvm::Value* dest) {
+    auto src = genExpr(node, false, dest);
+    if (src != nullptr) {
+        if (node->IsLValue() && shouldPtrWrap(node->type)) {
+            genStructCopy(genType(node->type, true), src, dest);
+        } else {
+            irb.CreateStore(src, dest);
         }
-
-        copyStruct(node->type, alloc_loc, expr);
-        return nullptr;
     }
-
-    return genExpr(node, false, alloc_loc);
 }
 
-void CodeGenerator::copyStruct(Type* struct_type, llvm::Value* dest, llvm::Value* src) {
-    auto llvm_unwrapped_type = genType(struct_type, true);
-    auto pref_align = layout.getPrefTypeAlign(llvm_unwrapped_type);
+llvm::Value* CodeGenerator::genExprWithCopy(AstExpr* node) {
+    if (node->IsLValue() && shouldPtrWrap(node->type)) {
+        auto* alloc_loc = genStackAlloc(node->type);
+
+        auto* src = genExpr(node, false, alloc_loc);
+        if (src != nullptr) {
+            genStructCopy(genType(node->type, true), src, alloc_loc);
+        }
+
+        return alloc_loc;
+    }
+
+    return genExpr(node);
+}
+
+llvm::Value* CodeGenerator::genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest) {
+    auto pref_align = layout.getPrefTypeAlign(llvm_struct_type);
 
     irb.CreateMemCpy(
         dest,
         pref_align,
         src,
         pref_align,
-        getPlatformIntConst(getLLVMTypeByteSize(llvm_unwrapped_type))
+        getPlatformIntConst(getLLVMTypeByteSize(llvm_struct_type))
     );
 }
 
-llvm::Value* CodeGenerator::stackAlloc(Type* type) {
+llvm::Value* CodeGenerator::genStackAlloc(Type* type) {
     auto* curr_block = getCurrentBlock();
     setCurrentBlock(var_block);
 
@@ -71,6 +81,16 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
         return genSliceExpr(node, alloc_loc);
     case AST_FIELD:
         return genFieldExpr(node, expect_addr);
+    case AST_STATIC_GET: {
+        auto& afield = node->an_Field;
+
+        auto* ll_value = loaded_imports[afield.root->an_Ident.dep_id][afield.imported_sym->export_num];
+        if (!expect_addr && afield.imported_sym->kind == SYM_VAR && !shouldPtrWrap(node->type)) {
+            return irb.CreateLoad(genType(node->type), ll_value);
+        }
+
+        return ll_value;
+    } break;
     case AST_ARRAY:
         return genArrayLit(node, alloc_loc);
     case AST_NEW:

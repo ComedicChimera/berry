@@ -211,7 +211,7 @@ static void printStructLitPos(AstExpr* node) {
 
 
     int i = 0;
-    for (auto* field_init : node->an_StructLitPos.field_values) {
+    for (auto* field_init : node->an_StructLitPos.field_inits) {
         if (i > 0) {
             std::cout << ", ";
         }
@@ -231,13 +231,13 @@ static void printStructLitNamed(AstExpr* node) {
     );
 
     int i = 0;
-    for (auto& field_pair : node->an_StructLitNamed.field_values) {
+    for (auto& field_init : node->an_StructLitNamed.field_inits) {
         if (i > 0) {
             std::cout << ", ";
         }
 
-        std::cout << std::format("NamedField(name={}, type={}, init=", field_pair.first->an_Ident.temp_name, typeToStr(field_pair.second->type));
-        printExpr(field_pair.second);
+        std::cout << std::format("NamedFieldInit(name={}, type={}, init=", field_init.ident->an_Ident.temp_name, typeToStr(field_init.expr->type));
+        printExpr(field_init.expr);
         std::cout << ')';
 
         i++;
@@ -288,6 +288,12 @@ static void printExpr(AstExpr* node) {
         printExpr(node->an_Field.root);
 
         std::cout << std::format(", field_name={})", node->an_Field.field_name);
+        break;
+    case AST_STATIC_GET:
+        std::cout << std::format(
+            "StaticGet(span={}, type={}, import_name={})", 
+            spanToStr(node->span), typeToStr(node->type), node->an_Field.field_name
+        );
         break;
     case AST_ARRAY:
         printArrayLit(node);

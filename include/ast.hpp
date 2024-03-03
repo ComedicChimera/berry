@@ -90,6 +90,7 @@ enum AstKind {
     AST_INDEX,
     AST_SLICE,
     AST_FIELD,
+    AST_STATIC_GET,
     AST_ARRAY,
     AST_NEW,
     AST_STRUCT_LIT_POS,
@@ -113,6 +114,12 @@ struct AstNode {
 };
 
 /* -------------------------------------------------------------------------- */
+
+struct AstNamedFieldInit {
+    AstExpr* ident;
+    AstExpr* expr;
+    size_t field_index;
+};
 
 struct AstExpr : public AstNode {
     Type* type;
@@ -149,9 +156,11 @@ struct AstExpr : public AstNode {
         struct {
             AstExpr* root;
             std::string_view field_name;
+            union {
+                size_t field_index;
+                Symbol* imported_sym;
 
-            // This field is only used for static_get
-            Symbol* imported_sym;
+            };
         } an_Field;
         struct {
             AstExpr* func;
@@ -169,12 +178,12 @@ struct AstExpr : public AstNode {
         } an_New;
         struct {
             AstExpr* root;
-            std::span<AstExpr*> field_values;
+            std::span<AstExpr*> field_inits;
             AstAllocMode alloc_mode;
         } an_StructLitPos;
         struct {
             AstExpr* root;
-            std::span<std::pair<AstExpr*, AstExpr*>> field_values;
+            std::span<AstNamedFieldInit> field_inits;
             AstAllocMode alloc_mode;
         } an_StructLitNamed;
 

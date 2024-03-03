@@ -223,16 +223,13 @@ void CodeGenerator::genForLoop(AstStmt* node) {
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::genLocalVar(AstStmt* node) {
-    auto* ll_var = stackAlloc(node->an_LocalVar.symbol->type);
+    auto* ll_var = genStackAlloc(node->an_LocalVar.symbol->type);
     node->an_LocalVar.symbol->llvm_value = ll_var;
 
     debug.EmitLocalVariableInfo(node, ll_var);
 
     if (node->an_LocalVar.init != nullptr) {
-        auto* rhs_val = genExprWithCopy(node->an_LocalVar.init, ll_var);
-        if (rhs_val) {
-            irb.CreateStore(rhs_val, ll_var);
-        }
+        genStoreExpr(node->an_LocalVar.init, ll_var);
     }
 }
 
@@ -240,10 +237,7 @@ void CodeGenerator::genAssign(AstStmt* node) {
     auto* lhs_addr = genExpr(node->an_Assign.lhs, true);
 
     if (node->an_Assign.assign_op == AOP_NONE) {
-        auto* rhs_val = genExprWithCopy(node->an_Assign.rhs, lhs_addr);
-        if (rhs_val) {
-            irb.CreateStore(rhs_val, lhs_addr);
-        }
+        genStoreExpr(node->an_Assign.rhs, lhs_addr);
     } else {
         AstExpr binop { };
         binop.span = node->span;
@@ -253,10 +247,7 @@ void CodeGenerator::genAssign(AstStmt* node) {
         binop.an_Binop.lhs = node->an_Assign.lhs;
         binop.an_Binop.rhs = node->an_Assign.rhs;
 
-        auto* rhs_val = genExpr(&binop, false, lhs_addr);
-        if (rhs_val) {
-            irb.CreateStore(rhs_val, lhs_addr);
-        }
+        genStoreExpr(&binop, lhs_addr);
     }
 
     // TODO: debug value instrinsic
@@ -279,10 +270,6 @@ void CodeGenerator::genIncDec(AstStmt* node) {
     binop.an_Binop.rhs = &one_val;
     binop.an_Binop.op = node->an_IncDec.op;
     
-    auto* rhs_val = genExpr(&binop, false, lhs_addr);
-    if (rhs_val) {
-        irb.CreateStore(rhs_val, lhs_addr);
-    }
-
+    genStoreExpr(&binop, lhs_addr);
     // TODO: debug value intrinsic
 }

@@ -30,6 +30,7 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_expr.an_Index),
     sizeof(size_ref_expr.an_Slice),
     sizeof(size_ref_expr.an_Field),
+    sizeof(size_ref_expr.an_Field),
     sizeof(size_ref_expr.an_Array),
     sizeof(size_ref_expr.an_New),
     sizeof(size_ref_expr.an_StructLitPos),

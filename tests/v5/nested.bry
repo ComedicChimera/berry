@@ -1,0 +1,45 @@
+struct A {
+    x: i64;
+    y: B;
+}
+
+struct B {
+    y, z: i64;
+}
+
+struct C {
+    a: A;
+    b: B;
+};
+
+struct D {
+    x: i32;
+    e: E;
+};
+
+struct E {
+    y, z: i32;
+};
+
+func main() {
+    let a = .{ 10, .{4, 5} };
+    let b = B{z = 11, y = 4};
+
+    let c = .{a, b};
+    let pc = new C{a, b};
+
+    c.a.x = 14;
+    c.b.y = 15;
+
+    let d = .{ 7, .{'a', 'b'}};
+    let pd = &d;
+
+    d.x = 12;
+    d.e.z = 'd';
+
+    let d2 = *pd;
+    let d3 = d;
+
+    let c2 = *pc;
+    c2.a.x++;
+}

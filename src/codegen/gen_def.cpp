@@ -161,12 +161,8 @@ void CodeGenerator::genGlobalVarInit(AstDef* node) {
     setCurrentBlock(ll_init_block);
 
     ll_enclosing_func = ll_init_func;
-    auto* ll_value = genExprWithCopy(node->an_GlobalVar.init, node->an_GlobalVar.symbol->llvm_value);
+    genStoreExpr(node->an_GlobalVar.init, node->an_GlobalVar.symbol->llvm_value);
     ll_enclosing_func = nullptr;
-
-    if (ll_value) {
-        irb.CreateStore(ll_value, node->an_GlobalVar.symbol->llvm_value);
-    }
     
     ll_init_block = getCurrentBlock();
 

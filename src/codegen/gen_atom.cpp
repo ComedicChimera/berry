@@ -107,15 +107,6 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
 
 llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
     auto& afield = node->an_Field;
-    if (afield.imported_sym != nullptr) {
-        auto* ll_value = loaded_imports[afield.root->an_Ident.dep_id][afield.imported_sym->export_num];
-        
-        if (!expect_addr && afield.imported_sym->kind == SYM_VAR) {
-            return irb.CreateLoad(genType(node->type), ll_value);
-        }
-
-        return ll_value;
-    }
 
     auto* root_inner_type = afield.root->type->Inner();
 
@@ -134,17 +125,11 @@ llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
 
         switch (root_inner_type->kind) {
         case TYPE_STRUCT:
-            for (size_t i = 0; i < root_inner_type->ty_Struct.fields.size(); i++) {
-                auto& field = root_inner_type->ty_Struct.fields[i];
-
-                if (field.name == afield.field_name) {
-                    return irb.CreateInBoundsGEP(
-                        genType(root_inner_type, true),
-                        root_ptr, 
-                        { getInt32Const(0), getInt32Const(i)}
-                    );
-                }
-            }
+            return irb.CreateInBoundsGEP(
+                genType(root_inner_type, true),
+                root_ptr, 
+                { getInt32Const(0), getInt32Const(afield.field_index)}
+            );
         case TYPE_ARRAY:
             if (afield.field_name == "_ptr") {
                 return getArrayDataPtr(root_ptr);
@@ -170,22 +155,16 @@ llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
 
         switch (root_inner_type->kind) {
         case TYPE_STRUCT:
-            for (size_t i = 0; i < root_inner_type->ty_Struct.fields.size(); i++) {
-                auto& field = root_inner_type->ty_Struct.fields[i];
+            if (shouldPtrWrap(root_inner_type)) {
+                auto* field_ptr = irb.CreateInBoundsGEP(
+                    genType(root_inner_type, true),
+                    root_val, 
+                    { getInt32Const(0), getInt32Const(afield.field_index)}
+                );
 
-                if (field.name == afield.field_name) {
-                    if (shouldPtrWrap(root_inner_type)) {
-                        auto* field_ptr = irb.CreateInBoundsGEP(
-                            genType(root_inner_type, true),
-                            root_val, 
-                            { getInt32Const(0), getInt32Const(i)}
-                        );
-
-                        return irb.CreateLoad(genType(field.type), field_ptr);
-                    } else {
-                        return irb.CreateExtractValue(root_val, i);
-                    }
-                }
+                return irb.CreateLoad(genType(root_inner_type->ty_Struct.fields[afield.field_index].type), field_ptr);
+            } else {
+                return irb.CreateExtractValue(root_val, afield.field_index);
             }
         case TYPE_ARRAY:
             if (afield.field_name == "_ptr") {
@@ -235,10 +214,7 @@ llvm::Value* CodeGenerator::genArrayLit(AstExpr* node, llvm::Value* alloc_loc) {
     for (int32_t i = 0; i < array.elems.size(); i++) {
         auto* elem_ptr = irb.CreateInBoundsGEP(ll_const_array_type, data_val, { getInt32Const(0), getPlatformIntConst(i) });
         
-        auto* elem_val = genExprWithCopy(array.elems[i], elem_ptr);
-        if (elem_val) {
-            irb.CreateStore(elem_val, elem_ptr);
-        }
+        genStoreExpr(array.elems[i], elem_ptr);
     }
 
     if (alloc_loc) {
@@ -288,7 +264,7 @@ llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
                 addr_val,
                 getInt8Const(0),
                 array_len_val * layout.getTypeAllocSize(ll_elem_type),
-                llvm::MaybeAlign(layout.getPrefTypeAlign(ll_elem_type))
+                layout.getPrefTypeAlign(ll_elem_type)
             );
 
             setCurrentBlock(curr_block);
@@ -319,12 +295,80 @@ llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
                 getNullValue(ll_elem_type)
             );
         } else {
-            addr_val = stackAlloc(anew.elem_type);
-            irb.CreateStore(getNullValue(ll_elem_type), addr_val);
+            addr_val = genStackAlloc(anew.elem_type);
+            irb.CreateMemSet(
+                addr_val,
+                getInt8Const(0),
+                layout.getTypeAllocSize(ll_elem_type),
+                layout.getPrefTypeAlign(ll_elem_type)
+            );
         }
 
         return addr_val;
     }
+}
+
+llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) {
+    auto* struct_type = node->an_StructLitPos.root->type;
+    auto* ll_struct_type = genType(struct_type, true);
+
+    bool needs_alloc = alloc_loc == nullptr;
+    if (node->kind < AST_STRUCT_PTR_LIT_POS && needs_alloc && !shouldPtrWrap(struct_type) ) {
+        llvm::Value* lit_value = getNullValue(ll_struct_type);
+
+        if (node->kind == AST_STRUCT_LIT_POS) {
+            for (size_t i = 0; i < node->an_StructLitPos.field_inits.size(); i++) {
+                lit_value = irb.CreateInsertValue(lit_value, genExpr(node->an_StructLitPos.field_inits[i]), i);
+            }
+        } else {
+            for (auto& field_init : node->an_StructLitNamed.field_inits) {
+                lit_value = irb.CreateInsertValue(lit_value, genExpr(field_init.expr), field_init.field_index);
+            }
+        }
+
+        return lit_value;
+    }
+
+    if (needs_alloc) {
+        // Should always be safe to do this :)
+        if (node->an_StructLitPos.alloc_mode == A_ALLOC_GLOBAL) {
+            alloc_loc = new llvm::GlobalVariable(
+                mod,
+                ll_struct_type,
+                false,
+                llvm::GlobalValue::PrivateLinkage,
+                getNullValue(ll_struct_type)
+            );
+        } else if (node->an_StructLitPos.alloc_mode == A_ALLOC_STACK) {
+            alloc_loc = genStackAlloc(node->an_StructLitPos.root->type);
+        } else {
+            Panic("heap allocation is not implemented yet");
+        }
+    }
+
+    if (node->kind == AST_STRUCT_LIT_POS || node->kind == AST_STRUCT_PTR_LIT_POS) {
+        for (size_t i = 0; i < node->an_StructLitPos.field_inits.size(); i++) {
+            auto* field_ptr = irb.CreateInBoundsGEP(
+                ll_struct_type,
+                alloc_loc,
+                { getInt32Const(0), getInt32Const(i) }
+            );
+
+            genStoreExpr(node->an_StructLitPos.field_inits[i], field_ptr);
+        }
+    } else {
+        for (auto& field_init : node->an_StructLitNamed.field_inits) {
+            auto* field_ptr = irb.CreateInBoundsGEP(
+                ll_struct_type, 
+                alloc_loc, 
+                { getInt32Const(0), getInt32Const(field_init.field_index)}
+            );
+
+            genStoreExpr(field_init.expr, field_ptr);
+        }
+    }
+
+    return needs_alloc ? alloc_loc : nullptr;
 }
 
 /* -------------------------------------------------------------------------- */

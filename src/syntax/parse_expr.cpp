@@ -256,7 +256,7 @@ AstExpr* Parser::parseStructLit(AstExpr* root) {
         next();
         struct_lit = allocExpr(AST_STRUCT_LIT_POS, SpanOver(root->span, prev.span));
         struct_lit->an_StructLitPos.root = root;
-        struct_lit->an_StructLitPos.field_values = {};
+        struct_lit->an_StructLitPos.field_inits = {};
     } else if (has(TOK_IDENT)) {
         auto* first_expr = parseExpr();
 
@@ -264,7 +264,7 @@ AstExpr* Parser::parseStructLit(AstExpr* root) {
             next();
             auto* init_expr = parseExpr();
 
-            std::vector<std::pair<AstExpr*, AstExpr*>> field_pairs({ std::make_pair(first_expr, init_expr) });
+            std::vector<AstNamedFieldInit> field_inits({ { first_expr, init_expr } });
 
             if (has(TOK_COMMA)) {
                 next();
@@ -286,7 +286,7 @@ AstExpr* Parser::parseStructLit(AstExpr* root) {
 
                     init_expr = parseInitializer();
 
-                    field_pairs.emplace_back(std::make_pair(aident, init_expr));
+                    field_inits.emplace_back(aident, init_expr);
 
                     if (has(TOK_COMMA)) {
                         next();
@@ -300,15 +300,15 @@ AstExpr* Parser::parseStructLit(AstExpr* root) {
 
             struct_lit = allocExpr(AST_STRUCT_LIT_NAMED, SpanOver(root->span, prev.span));
             struct_lit->an_StructLitNamed.root = root;
-            struct_lit->an_StructLitNamed.field_values = arena.MoveVec(std::move(field_pairs));
+            struct_lit->an_StructLitNamed.field_inits = arena.MoveVec(std::move(field_inits));
         } else {
-            std::vector<AstExpr*> field_values({ first_expr });
+            std::vector<AstExpr*> field_inits({ first_expr });
 
             if (has(TOK_COMMA)) {
                 next();
 
                 while (true) {
-                    field_values.push_back(parseExpr());
+                    field_inits.push_back(parseExpr());
 
                     if (has(TOK_COMMA)) {
                         next();
@@ -322,15 +322,15 @@ AstExpr* Parser::parseStructLit(AstExpr* root) {
 
             struct_lit = allocExpr(AST_STRUCT_LIT_POS, SpanOver(root->span, prev.span));
             struct_lit->an_StructLitPos.root = root;
-            struct_lit->an_StructLitPos.field_values = arena.MoveVec(std::move(field_values));
+            struct_lit->an_StructLitPos.field_inits = arena.MoveVec(std::move(field_inits));
         }   
     } else {
-        auto field_values = parseExprList();
+        auto field_inits = parseExprList();
         want(TOK_RBRACE);
 
         struct_lit = allocExpr(AST_STRUCT_LIT_POS, SpanOver(root->span, prev.span));
         struct_lit->an_StructLitPos.root = root;
-        struct_lit->an_StructLitPos.field_values = field_values;
+        struct_lit->an_StructLitPos.field_inits = field_inits;
     }
 
     popAllowStructLit();

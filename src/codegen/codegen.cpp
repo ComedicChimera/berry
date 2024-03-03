@@ -169,7 +169,7 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
             if (type->ty_Struct.llvm_type == nullptr) {
                 std::vector<llvm::Type*> field_types(type->ty_Struct.fields.size());
                 for (size_t i = 0; i < field_types.size(); i++) {
-                    field_types[i] = genType(type->ty_Struct.fields[i].type);
+                    field_types[i] = genType(type->ty_Struct.fields[i].type, true);
                 }
 
                 type->ty_Struct.llvm_type = llvm::StructType::get(ctx, field_types, false);

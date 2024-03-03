@@ -194,21 +194,26 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    llvm::Value* genExprWithCopy(AstExpr* node, llvm::Value* alloc_loc);
-    void copyStruct(Type* struct_type, llvm::Value* dest, llvm::Value* src);
-    llvm::Value* stackAlloc(Type* type);
+    void genStoreExpr(AstExpr* node, llvm::Value* dest);
+    llvm::Value* genExprWithCopy(AstExpr *node);
+    llvm::Value* genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest);
+    llvm::Value* genStackAlloc(Type* type);
 
     llvm::Value* genExpr(AstExpr* expr, bool expect_addr = false, llvm::Value* alloc_loc = nullptr);
     llvm::Value* genCast(AstExpr* node);
     llvm::Value* genBinop(AstExpr* node);
     llvm::Value* genUnop(AstExpr* node);
+
+    /* ---------------------------------------------------------------------- */
+
     llvm::Value* genCall(AstExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genIndexExpr(AstExpr* node, bool expect_addr);
     llvm::Value* genSliceExpr(AstExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genFieldExpr(AstExpr* node, bool expect_addr);
     llvm::Value* genArrayLit(AstExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genNewExpr(AstExpr* node, llvm::Value* alloc_loc);
-    llvm::Value* genStrLit(AstExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genStructLit(AstExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genStrLit(AstExpr *node, llvm::Value *alloc_loc);
     llvm::Value* genIdent(AstExpr* node, bool expect_addr);
 
     /* ---------------------------------------------------------------------- */
