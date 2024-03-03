@@ -59,6 +59,7 @@ don't always get time (or energy) to work on it.
     * Replace unsafe casting with `@unsafe_cast` 
         - Unsafe Casts = ptr to ptr, string to byte array, byte array to string
     * Pointer arithmetic with `@ptr_offset`
+    * Extract defines in code via `@get_defined`
     * Platform Sized Ints: `int` and `uint`
 
 - [ ] Target 10: Dynamic Memory, Threads, and Panicking
