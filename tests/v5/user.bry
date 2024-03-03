@@ -36,6 +36,15 @@ func mutate(u: *User) {
     print_user(u);
 }
 
+func get_user() User {
+    return .{"Bob", "bob@hotmal.com", 25};
+}
+
+func set_email(u: User, email: []u8) User {
+    u.email = email;
+    return u;
+}
+
 func main() {
     print_users();
 
@@ -60,4 +69,12 @@ func main() {
 
     let user_ptr: *User = new { "Hello", "ah", 225};
     print_user(user_ptr);
+
+    new_user = get_user();
+    new_user.age++;
+
+    print_user(&new_user);
+
+    new_user = set_email(new_user, "ex@beans.edu");
+    std.puts(new_user.email);
 }

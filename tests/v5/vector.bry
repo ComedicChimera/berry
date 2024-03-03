@@ -27,6 +27,17 @@ func print_vec(v: Vec2) {
     std.putr(')');
 }
 
+func filled(x: i64) Vec2 {
+    return .{x, x};
+}
+
+func sub_vec2(a, b: Vec2) Vec2 {
+    let v: Vec2;
+    v.x = a.x + b.x;
+    v.y = a.y + b.y;
+    return v;
+}
+
 func main() {
     let v1 = Vec2{x = 10, y = 4};
     let v2 = Vec2{-5, 1};
