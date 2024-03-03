@@ -312,7 +312,7 @@ llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) 
     auto* struct_type = node->an_StructLitPos.root->type;
     auto* ll_struct_type = genType(struct_type, true);
 
-    bool needs_alloc = alloc_loc == nullptr;
+    bool needs_alloc = alloc_loc == nullptr || node->kind > AST_STRUCT_LIT_NAMED;
     if (node->kind < AST_STRUCT_PTR_LIT_POS && needs_alloc && !shouldPtrWrap(ll_struct_type) ) {
         llvm::Value* lit_value = getNullValue(ll_struct_type);
 

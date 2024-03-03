@@ -25,6 +25,7 @@ func print_vec(v: Vec2) {
     std.puts(", ");
     std.putint(v.y);
     std.putr(')');
+    std.putr('\n');
 }
 
 func filled(x: i64) Vec2 {
@@ -50,8 +51,17 @@ func main() {
     std.putr('\n');
 
     let v_ptr = new Vec2{10, 20};
+    print_vec(*v_ptr);
+
     v_ptr.x += 2;
 
     std.putint(v_ptr.x);
+    std.putr('\n');
+
+    let v3 = filled(10);
+    print_vec(v3);
+    
+    v3 = sub_vec2(v3, v2);
+    print_vec(v3);
 }
 

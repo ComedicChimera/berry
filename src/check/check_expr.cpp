@@ -219,7 +219,9 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
     switch (root_type->kind) {
     case TYPE_NAMED: {
         auto base_type = root_type->ty_Named.type;
+
         if (base_type->kind == TYPE_STRUCT) {
+            size_t i = 0;
             for (auto& field : base_type->ty_Struct.fields) {
                 if (field.name == fld.field_name) {
                     if (root_type->ty_Named.mod_id != mod.id && !field.exported) {
@@ -227,19 +229,26 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
                     }
 
                     node->type = field.type;
+                    fld.field_index = i;
                     return;
                 }
+
+                i++;
             }
         }
     } break;
-    case TYPE_STRUCT: // Anonymous struct
+    case TYPE_STRUCT: { // Anonymous struct
+        size_t i = 0;
         for (auto& field : root_type->ty_Struct.fields) {
             if (field.name == fld.field_name) {
                 node->type = field.type;
+                fld.field_index = i;
                 return;
             }
+
+            i++;
         }
-        break;
+    } break;
     case TYPE_ARRAY:
         if (fld.field_name == "_ptr") {
             node->type = AllocType(arena, TYPE_PTR);
