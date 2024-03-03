@@ -12,7 +12,7 @@ void CodeGenerator::genStoreExpr(AstExpr* node, llvm::Value* dest) {
     }
 }
 
-llvm::Value* CodeGenerator::genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest) {
+void CodeGenerator::genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest) {
     auto pref_align = layout.getPrefTypeAlign(llvm_struct_type);
 
     irb.CreateMemCpy(
@@ -81,6 +81,11 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
         return genArrayLit(node, alloc_loc);
     case AST_NEW:
         return genNewExpr(node, alloc_loc);
+    case AST_STRUCT_LIT_POS:
+    case AST_STRUCT_LIT_NAMED:
+    case AST_STRUCT_PTR_LIT_POS:
+    case AST_STRUCT_PTR_LIT_NAMED:
+        return genStructLit(node, alloc_loc);
     case AST_IDENT: 
         return genIdent(node, expect_addr);
     case AST_INT: {

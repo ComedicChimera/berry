@@ -4,3 +4,5 @@ out
 *.exe
 *.pdb
 *.ilk
+berry-out/
+.berry-temp/

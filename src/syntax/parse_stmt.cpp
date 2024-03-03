@@ -205,7 +205,7 @@ AstStmt* Parser::parseLocalVarDef() {
     auto name_tok = wantAndGet(TOK_IDENT);
 
     Type* type = nullptr;
-    AstExpr* init;
+    AstExpr* init { nullptr };
     TextSpan end_span;
     if (has(TOK_COLON)) {
         type = parseTypeExt();

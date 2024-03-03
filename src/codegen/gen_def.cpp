@@ -33,6 +33,9 @@ void CodeGenerator::genPredicates(AstDef* def) {
     case AST_GLOBAL_VAR:
         genGlobalVarInit(def);
         break;
+    case AST_STRUCT_DEF:
+        // Nothing to do here :)
+        break;
     default:
         Panic("predicate codegen not implemented for {}", (int)def->kind);
     }

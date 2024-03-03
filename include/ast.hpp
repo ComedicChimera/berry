@@ -115,6 +115,8 @@ struct AstNode {
 
 /* -------------------------------------------------------------------------- */
 
+struct AstExpr;
+
 struct AstNamedFieldInit {
     AstExpr* ident;
     AstExpr* expr;

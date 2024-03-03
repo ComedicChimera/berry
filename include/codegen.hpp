@@ -198,7 +198,7 @@ private:
     /* ---------------------------------------------------------------------- */
 
     void genStoreExpr(AstExpr* node, llvm::Value* dest);
-    llvm::Value* genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest);
+    void genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest);
     llvm::Value* genStackAlloc(Type* type);
 
     llvm::Value* genExpr(AstExpr* expr, bool expect_addr = false, llvm::Value* alloc_loc = nullptr);

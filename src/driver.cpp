@@ -59,7 +59,7 @@ public:
         case OUTFMT_EXE:
         case OUTFMT_STATIC:
         case OUTFMT_SHARED:
-            out_dir = ".berry_temp";
+            out_dir = ".berry-temp";
             should_delete_out_dir = true;
             prepareOutDir();
 
