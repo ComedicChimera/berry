@@ -228,6 +228,7 @@ private:
 
     // genType converts the Berry type type to an LLVM type.
     llvm::Type* genType(Type* type, bool alloc_type = false);
+    llvm::Type* genNamedBaseType(Type* type, bool alloc_type, std::string_view type_name);
     bool shouldPtrWrap(Type* type);
     bool shouldPtrWrap(llvm::Type* type);
     uint64_t getLLVMTypeByteSize(llvm::Type* llvm_type);

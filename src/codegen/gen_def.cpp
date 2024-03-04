@@ -16,7 +16,7 @@ void CodeGenerator::genTopDecl(AstDef* def) {
         break;
     case AST_STRUCT_DEF:
         // TODO: handle struct metadata
-        genType(def->an_StructDef.symbol->type);
+        genType(def->an_StructDef.symbol->type, true);
         break;
     default:
         Panic("top declaration codegen not implemented for {}", (int)def->kind);

@@ -1,6 +1,8 @@
+import io.std;
+
 struct A {
     x: i64;
-    y: B;
+    b: B;
 }
 
 struct B {
@@ -21,25 +23,93 @@ struct E {
     y, z: i32;
 }
 
+func print_A(a: A) {
+    std.puts("A{x=");
+    std.putint(a.x);
+    std.puts(", b=");
+    print_B(a.b);
+    std.putr('}');
+}
+
+func print_B(b: B) {
+    std.puts("B{y=");
+    std.putint(b.y);
+    std.puts(", z=");
+    std.putint(b.z);
+    std.putr('}');
+}
+
+func print_C(c: C) {
+    std.puts("C{a=");
+    print_A(c.a);
+    std.puts(", b=");
+    print_B(c.b);
+    std.putr('}');
+}
+
+func print_D(d: D) {
+    std.puts("D{x=");
+    std.putint(d.x as i64);
+    std.puts(", e=");
+    print_E(d.e);
+    std.putr('}');
+}
+
+func print_E(e: E) {
+    std.puts("E{y=");
+    std.putint(e.y as i64);
+    std.puts(", z=");
+    std.putint(e.z as i64);
+    std.putr('}');
+}
+
 func main() {
     let a = A{ 10, .{4, 5} };
     let b = B{z = 11, y = 4};
+    let b2 = a.b;
 
-    let c = C{a, b};
+    print_A(a);
+    std.putr('\n');
+    print_B(b);
+    std.putr('\n');
+    print_B(b2);
+    std.putr('\n');
+    
     let pc = new C{a, b};
+    print_C(*pc);
+    std.putr('\n');
 
-    c.a.x = 14;
-    c.b.y = 15;
+    pc.b.y = 15;
+    print_C(*pc);
+    std.putr('\n');
 
     let d = D{ 7, .{'a', 'b'}};
     let pd = &d;
 
+    print_D(*pd);
+    std.putr('\n');
+
     d.x = 12;
     d.e.z = 'd';
+
+    print_D(d);
+    std.putr('\n');
 
     let d2 = *pd;
     let d3 = d;
 
+    d2.x--;
+    d3.x++;
+
+    print_D(d2);
+    std.putr('\n');
+
+    print_D(d3);
+    std.putr('\n');
+
     let c2 = *pc;
     c2.a.x++;
+
+    print_C(c2);
+    std.putr('\n');
 }

@@ -53,7 +53,7 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
     case AST_DEREF: {
         auto ptr_val = genExpr(node->an_Deref.ptr);
     
-        if (expect_addr) {
+        if (expect_addr || shouldPtrWrap(node->type)) {
             return ptr_val;
         } else {
             return irb.CreateLoad(genType(node->type), ptr_val);

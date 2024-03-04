@@ -173,22 +173,9 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
     case TYPE_ARRAY: 
         return ll_array_type;
     case TYPE_STRUCT:
-        if (alloc_type || !shouldPtrWrap(type)) {
-            if (type->ty_Struct.llvm_type == nullptr) {
-                std::vector<llvm::Type*> field_types(type->ty_Struct.fields.size());
-                for (size_t i = 0; i < field_types.size(); i++) {
-                    field_types[i] = genType(type->ty_Struct.fields[i].type, true);
-                }
-
-                type->ty_Struct.llvm_type = llvm::StructType::get(ctx, field_types, false);
-            } 
-            
-            return type->ty_Struct.llvm_type;
-        }
-
-        return llvm::PointerType::get(ctx, 0);        
+        return genNamedBaseType(type, alloc_type, "");     
     case TYPE_NAMED:
-        return genType(type->ty_Named.type, alloc_type);
+        return genNamedBaseType(type->ty_Named.type, alloc_type, type->ty_Named.name);
     case TYPE_UNTYP:
         Panic("abstract untyped in codegen");
         break;
@@ -196,6 +183,33 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
 
     Panic("unimplemented type in codegen");
     return nullptr;
+}
+
+llvm::Type* CodeGenerator::genNamedBaseType(Type* type, bool alloc_type, std::string_view type_name) {
+    switch (type->kind) {
+    case TYPE_STRUCT:
+        if (alloc_type || !shouldPtrWrap(type)) {
+            if (type->ty_Struct.llvm_type == nullptr) {
+                std::vector<llvm::Type*> field_types(type->ty_Struct.fields.size());
+                for (size_t i = 0; i < field_types.size(); i++) {
+                    field_types[i] = genType(type->ty_Struct.fields[i].type, true);
+                }
+
+                if (type_name.size() == 0) {
+                    type->ty_Struct.llvm_type = llvm::StructType::get(ctx, field_types);
+                } else {
+                    type->ty_Struct.llvm_type = llvm::StructType::create(ctx, field_types, mangleName(type_name));
+                }
+            } 
+            
+            return type->ty_Struct.llvm_type;
+        }
+
+        return llvm::PointerType::get(ctx, 0);   
+    default:
+        Panic("bad type to call genNamedBaseType in codegen");
+        return nullptr;
+    }
 }
 
 bool CodeGenerator::shouldPtrWrap(Type* type) {
