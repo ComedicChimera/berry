@@ -1,0 +1,41 @@
+import io.std;
+
+let x: i64 = z - 2;
+let y: i64 = x + 4;
+let z: i64 = 8;
+
+let a: i64 = fn();
+let b: i64 = x * x;
+
+func fn() i64 {
+    return b / 2;
+}
+
+let name: string = get_name();
+let real_name: string = "Steven";
+
+func really_get_name() string {
+    return real_name;
+}
+
+func get_name() string {
+    return really_get_name();
+}
+
+func putresult(name: string, n: i64) {
+    std.puts(name);
+    std.puts(" = ");
+    std.putint(n);
+    std.putr('\n');
+}
+
+func main() {
+    putresult("x", x);
+    putresult("y", y);
+    putresult("z", z);
+    putresult("a", a);
+    putresult("b", b);
+
+    std.puts(name);
+    std.putr('\n');
+}

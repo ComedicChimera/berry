@@ -30,6 +30,7 @@ don't always get time (or energy) to work on it.
     * Constants are compile-time constant (comptime, like Go)
         - Use LLVM constant instructions to facilitate compile-time evaluation
         - No need to do compile-time evaluation yourself
+        - No local constants: not needed.
     * No pointers to constants: aren't guaranteed to have a well-defined location
         - May be automatically inlined by the compiler (like defines)
     * No constant parameters, fields, or anything besides variables

@@ -1,0 +1,33 @@
+import io.std;
+
+let message: string = "Hello, world!";
+
+func get_message() string {
+    return message;
+}
+
+func shift_chars(src: string, dest: []u8) {
+    for let i = 0; i < src._len && i < dest._len; i++ {
+        dest[i] = src[i] + 1;
+    }
+}
+
+func set_message(new_message: string) {
+    message = new_message;
+}
+
+func print_message() {
+    std.puts(message);
+    std.putr('\n');
+}
+
+func main() {
+    let msg = get_message();
+    print_message();
+
+    let new_msg = new u8[13];
+    shift_chars(msg, new_msg);
+
+    set_message(new_msg as string);
+    print_message();
+}

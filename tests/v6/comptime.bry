@@ -1,0 +1,94 @@
+import io.std;
+
+const x: i64 = y + 2;
+const y: i64 = 10;
+const z: i64 = (x * y) - 4 / (x + y);
+
+const name: string = "Bob Jones";
+const first_char: u8 = name[0];
+const first_name: string = name[:4];
+
+const primes: []i64 = [2, 3, 5, 7, 11, 13];
+const second_prime: i64 = primes[1];
+const middle_primes: []i64 = primes[1:y - 6];
+const zero_array: []i64 = new i64[x];
+
+struct Vec2 {
+    x, y: i64;
+}
+
+struct Vec3 {
+    x, y, z: i64;
+}
+
+const v2: Vec2 = .{1, 2};
+const v3: Vec3 = .{x=8, y=4, z=2};
+const first_component_sum: i64 = v2.x + v3.x;
+
+func print_array(arr: []i64) {
+    for let i = 0; i < arr._len; i++ {
+        if (i > 0) {
+            std.puts(", ");
+        }
+
+        std.putint(arr[i]);
+    }
+
+    std.putr('\n');
+}
+
+func print_vec2(v: Vec2) {
+    std.putr('(');
+
+    std.putint(v.x);
+    std.puts(", ");
+    std.putint(v.y);
+
+    std.putr(')');
+}
+
+func print_vec3(v: Vec3) {
+    std.putr('(');
+
+    std.putint(v.x);
+    std.puts(", ");
+    std.putint(v.y);
+    std.puts(", ");
+    std.putint(v.z);
+
+    std.putr(')');
+}
+
+func main() {
+    std.putint(x);
+    std.putr('\n');
+
+    std.putint(y);
+    std.putr('\n');
+
+    std.putint(z);
+    std.putr('\n');
+
+    std.puts(name);
+    std.putr('\n');
+
+    std.pur(first_char as i32);
+    std.putr('\n');
+
+    std.puts(first_name);
+    std.putr('\n');
+
+    print_array(primes);
+
+    std.putint(second_prime);
+    std.putr('\n');
+
+    print_array(middle_primes);
+    print_array(zero_array);
+
+    print_vec2(v2);
+    print_vec3(v3);
+
+    std.putint(first_component_sum);
+    std.putr('\n');
+}

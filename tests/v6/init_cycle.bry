@@ -1,0 +1,9 @@
+let x: i64 = y;
+let y: i64 = z;
+let z: i64 = x;
+
+let a: i64 = fn();
+
+func fn() i64 {
+    return a + 2;
+}

@@ -1,0 +1,4 @@
+func main() {
+    let str = "test";
+    str[0] = 'b'; 
+}
