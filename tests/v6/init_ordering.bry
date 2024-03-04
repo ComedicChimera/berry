@@ -38,4 +38,7 @@ func main() {
 
     std.puts(name);
     std.putr('\n');
+
+    const k = 46;
+    putresult("k", k);
 }
