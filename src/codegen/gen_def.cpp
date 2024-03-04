@@ -74,11 +74,12 @@ void CodeGenerator::genFuncProto(AstDef* node) {
 
     ll_func->setCallingConv(cconv);
 
-    int i = ll_func->arg_size() > node->an_Func.params.size();
-    for (auto& arg : ll_func->args()) {
-        arg.setName(node->an_Func.params[i]->name);
-        node->an_Func.params[i]->llvm_value = &arg;
-        i++;
+    size_t offset = ll_func->arg_size() > node->an_Func.params.size();
+    for (size_t i = 0; i < node->an_Func.params.size(); i++) {
+        auto arg = ll_func->getArg(i + offset);
+
+        arg->setName(node->an_Func.params[i]->name);
+        node->an_Func.params[i]->llvm_value = arg;
     }
 
     symbol->llvm_value = ll_func;

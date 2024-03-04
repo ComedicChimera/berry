@@ -28,16 +28,14 @@ func print_users() {
 
 func nomutate(u: User) {
     u.name = "Jessie";
-    print_user(&u);
 }
 
 func mutate(u: *User) {
     u.name = "James";
-    print_user(u);
 }
 
 func get_user() User {
-    return .{"Bob", "bob@hotmal.com", 25};
+    return .{"Bob", "bob@hotmail.com", 25};
 }
 
 func set_email(u: User, email: []u8) User {
@@ -46,19 +44,11 @@ func set_email(u: User, email: []u8) User {
 }
 
 func main() {
-    print_users();
-
-    users[0].age++;
-    users[1].email = "jd@outlook.com";
-
-    print_users();
-
     let new_user = User{email="beans@bb.edu", name="Beans", age=69};
-    let new_user_copy = new_user;
-
-    new_user_copy.age = 420;
-
     print_user(&new_user);
+
+    let new_user_copy = new_user;
+    new_user_copy.age = 420;
     print_user(&new_user_copy);
 
     nomutate(new_user);
@@ -77,4 +67,12 @@ func main() {
 
     new_user = set_email(new_user, "ex@beans.edu");
     std.puts(new_user.email);
+    std.putr('\n');
+
+    print_users();
+
+    users[0].age++;
+    users[1].email = "jd@outlook.com";
+
+    print_users();
 }

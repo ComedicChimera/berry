@@ -1,8 +1,6 @@
 #include "codegen.hpp"
 
 llvm::Value* CodeGenerator::genCall(AstExpr* node, llvm::Value* alloc_loc) {
-    // TODO: smart allocation (using alloc_loc)
-
     auto* func_ptr = genExpr(node->an_Call.func);
 
     // Handle global values.
@@ -20,6 +18,19 @@ llvm::Value* CodeGenerator::genCall(AstExpr* node, llvm::Value* alloc_loc) {
     std::vector<llvm::Value*> args;
     for (auto& arg : node->an_Call.args) {
         args.push_back(genExpr(arg));
+    }
+
+    if (ll_func_type->getNumParams() > args.size()) {
+        if (alloc_loc) {
+            args.insert(args.begin(), alloc_loc);
+            irb.CreateCall(ll_func_type, func_ptr, args);
+            return nullptr;
+        } else {
+            auto* ret_val = genStackAlloc(node->type);
+            args.insert(args.begin(), ret_val);
+            irb.CreateCall(ll_func_type, func_ptr, args);
+            return ret_val;
+        }
     }
 
     return irb.CreateCall(ll_func_type, func_ptr, args);
@@ -146,7 +157,10 @@ llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
 
         if (root_inner_type->kind == TYPE_PTR) {
             root_inner_type = root_inner_type->ty_Ptr.elem_type->Inner();
-            root_val = irb.CreateLoad(genType(root_inner_type), root_val);
+
+            if (!shouldPtrWrap(root_inner_type)) {
+                root_val = irb.CreateLoad(genType(root_inner_type), root_val);
+            }
         }
 
         if (root_inner_type->kind == TYPE_NAMED) {
