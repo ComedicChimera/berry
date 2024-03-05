@@ -44,6 +44,8 @@ Type* Parser::parseTypeLabel() {
     case TOK_UNIT:
         next();
         return &prim_unit_type;
+    case TOK_STRING:
+        return &prim_string_type;
     case TOK_STAR: {
         next();
         auto* ptr_type = allocType(TYPE_PTR);
@@ -110,10 +112,7 @@ Type* Parser::parseNamedTypeLabel() {
     NamedTypeTable::Ref* ref;
     bool first_ref = false;
     if (has(TOK_DOT)) {
-        auto mod_name_tok = prev;
-        next();
-
-        want(TOK_IDENT);
+        auto mod_name_tok = wantAndGet(TOK_IDENT);
 
         auto mod_name = arena.MoveStr(std::move(mod_name_tok.value));
         auto it_dep = src_file.import_table.find(mod_name);

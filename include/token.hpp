@@ -6,6 +6,7 @@
 // TokenKind enumerates the different kinds of tokens.
 enum TokenKind {
     TOK_LET,
+    TOK_CONST,
     TOK_FUNC,
     TOK_STRUCT,
 
@@ -36,6 +37,7 @@ enum TokenKind {
     TOK_F64,
     TOK_BOOL,
     TOK_UNIT,
+    TOK_STRING,
 
     TOK_MODULE,
     TOK_IMPORT,

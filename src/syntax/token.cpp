@@ -4,6 +4,7 @@
 
 std::string kindNames[TOKENS_COUNT] = {
     "let",
+    "const",
     "func",
     "struct",
     "if",
@@ -30,6 +31,7 @@ std::string kindNames[TOKENS_COUNT] = {
     "f64",
     "bool",
     "unit",
+    "string",
     "module",
     "import",
     "pub",

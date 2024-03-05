@@ -551,18 +551,7 @@ static void printFunc(AstDef* node) {
     std::cout << ')';
 }
 
-static void printGlobalVar(AstDef* node) {
-    std::cout << std::format("GlobalVarDef(span={}, meta=", spanToStr(node->span));
-    printMetadata(node->metadata);
-
-    auto* symbol = node->an_GlobalVar.symbol;
-    std::cout << std::format("type={}, name={}, init=", typeToStr(symbol->type), symbol->name);
-    printExpr(node->an_GlobalVar.init);
-
-    std::cout << ')';
-}
-
-static void printStructDef(AstDef* node) {
+static void printStruct(AstDef* node) {
     std::cout << std::format(
         "StructDef(span={}, name={}, type={}, field_attrs=[])", 
         spanToStr(node->span), 
@@ -578,22 +567,40 @@ static void printDef(AstDef* def) {
     case AST_FUNC:
         printFunc(def);
         break;
-    case AST_GLOBAL_VAR:
-        printGlobalVar(def);
-        break;
-    case AST_STRUCT_DEF:
-        printStructDef(def);
+    case AST_STRUCT:
+        printStruct(def);
         break;
     default:
          Panic("ast printing not implemented for {}", (int)def->kind);
     }
 }
 
+static void printGlobalVar(AstGlobalVar* node) {
+    std::cout << std::format("GlobalVarDef(span={}, meta=", spanToStr(node->span));
+    printMetadata(node->metadata);
+
+    auto* symbol = node->symbol;
+    std::cout << std::format("type={}, name={}, init=", typeToStr(symbol->type), symbol->name);
+    printExpr(node->init_expr);
+
+    std::cout << ')';
+}
+
 /* -------------------------------------------------------------------------- */
 
-void PrintAst(const SourceFile& src_file) {
-    for (auto* def : src_file.defs) {
+void PrintAst(const Module& mod) {
+    for (auto* def : mod.defs) {
+        std::cout << "source file: " << def->src_file->display_path << '\n';
+
         printDef(def);
+
+        std::cout << "\n\n";
+    }
+
+    for (auto* global_var : mod.global_vars) {
+        std::cout << "source file: " << global_var->src_file->display_path << '\n';
+
+        printGlobalVar(global_var);
 
         std::cout << "\n\n";
     }

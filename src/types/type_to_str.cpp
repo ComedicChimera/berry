@@ -10,6 +10,8 @@ std::string Type::ToString() const {
         return "bool";
     case TYPE_UNIT:
         return "unit";
+    case TYPE_STRING:
+        return "string";
     case TYPE_PTR:
         return std::format("*{}", ty_Ptr.elem_type->ToString());
     case TYPE_FUNC:

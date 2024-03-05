@@ -76,12 +76,12 @@ public:
             break;
         case OUTFMT_DUMPAST:
             for (auto& mod : loader) {
-                for (auto& file : mod.files) {
-                    std::cout << FULL_LINE;
-                    std::cout << std::format("mod = {}, file = {}:\n\n", mod.name, file.display_path);
-                    PrintAst(file);
-                    std::cout << FULL_LINE << '\n';
-                }
+                std::cout << FULL_LINE;
+
+                std::cout << std::format("mod = {}:\n\n", mod.name);
+                PrintAst(mod);
+
+                std::cout << FULL_LINE << '\n';
             }
             return;
         }

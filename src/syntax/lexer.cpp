@@ -138,6 +138,7 @@ void Lexer::NextToken(Token& tok) {
 
 static std::unordered_map<std::string, TokenKind> keyword_patterns {
     { "let", TOK_LET },
+    { "const", TOK_CONST },
     { "func", TOK_FUNC },
     { "struct", TOK_STRUCT },
     { "if", TOK_IF },
@@ -164,6 +165,7 @@ static std::unordered_map<std::string, TokenKind> keyword_patterns {
     { "f64", TOK_F64 },
     { "bool", TOK_BOOL },
     { "unit", TOK_UNIT },
+    { "string", TOK_STRING },
     { "module", TOK_MODULE },
     { "import", TOK_IMPORT },
     { "pub", TOK_PUB },

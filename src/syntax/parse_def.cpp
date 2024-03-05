@@ -53,7 +53,10 @@ void Parser::parseDef(MetadataMap&& meta, bool exported) {
         parseFuncDef(std::move(meta), exported);
         break;
     case TOK_LET:
-        parseGlobalVarDef(std::move(meta), exported);
+        parseGlobalVarDef(std::move(meta), exported, false);
+        break;
+    case TOK_CONST:
+        parseGlobalVarDef(std::move(meta), exported, true);
         break;
     case TOK_STRUCT:
         parseStructDef(std::move(meta), exported);
@@ -118,10 +121,10 @@ void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
         src_file.parent->id,
         arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
-        SYM_FUNC,
+        exported ? SYM_FUNC | SYM_EXPORTED : SYM_FUNC,
         func_type,
         true,
-        exported ? src_file.parent->export_table.size() : UNEXPORTED
+        src_file.parent->defs.size()
     );
 
     defineGlobal(symbol);
@@ -132,11 +135,7 @@ void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
     afunc->an_Func.return_type = return_type;
     afunc->an_Func.body = body;
 
-    src_file.defs.push_back(afunc);
-
-    if (exported) {
-        src_file.parent->export_table.emplace_back(afunc, 0);
-    }
+    src_file.parent->defs.push_back(afunc);
 }
 
 void Parser::parseFuncParams(std::vector<Symbol*>& params) {
@@ -167,7 +166,7 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
+void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported, bool immut) {
     auto start_span = tok.span;
     next();
 
@@ -179,9 +178,9 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
 
     auto* type = parseTypeExt();
 
-    AstExpr* init = nullptr;
+    AstExpr* init_expr = nullptr;
     if (has(TOK_ASSIGN)) {
-        init = parseInitializer();
+        init_expr = parseInitializer();
     }
 
     auto end_span = tok.span;
@@ -191,23 +190,25 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
         src_file.parent->id,
         arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
-        SYM_VAR,
+        exported ? SYM_VAR | SYM_EXPORTED : SYM_VAR,
         type,
-        false,
-        exported ? src_file.parent->export_table.size() : UNEXPORTED
+        immut,
+        src_file.parent->global_vars.size()
     );
 
     defineGlobal(symbol);
 
-    auto* aglobal = allocDef(AST_GLOBAL_VAR, SpanOver(start_span, end_span), std::move(meta));
-    aglobal->an_GlobalVar.symbol = symbol;
-    aglobal->an_GlobalVar.init = init;
+    auto meta_tags = moveMetadataToArena(std::move(meta));
+    auto* aglobal = arena.New<AstGlobalVar>(
+        &src_file,
+        meta_tags,
 
-    src_file.defs.push_back(aglobal);
+        symbol,
+        init_expr,
+        false
+    );
 
-    if (exported) {
-        src_file.parent->export_table.emplace_back(aglobal, 0);
-    }
+    src_file.parent->global_vars.push_back(aglobal);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -273,21 +274,17 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
         src_file.parent->id,
         named_type->ty_Named.name,
         name_tok.span,
-        SYM_TYPE,
+        exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
         named_type,
         false,
-        exported ? src_file.parent->export_table.size() : UNEXPORTED
+        src_file.parent->defs.size()
     );
 
     defineGlobal(symbol);
 
-    auto* astruct = allocDef(AST_STRUCT_DEF, SpanOver(start_span, prev.span), std::move(meta));
-    astruct->an_StructDef.symbol = symbol;
-    astruct->an_StructDef.field_attrs = {};
+    auto* astruct = allocDef(AST_STRUCT, SpanOver(start_span, prev.span), std::move(meta));
+    astruct->an_Struct.symbol = symbol;
+    astruct->an_Struct.field_attrs = {};
 
-    src_file.defs.push_back(astruct);
-
-    if (exported) {
-        src_file.parent->export_table.emplace_back(astruct, 0);
-    }
+    src_file.parent->defs.push_back(astruct);
 }

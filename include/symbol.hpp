@@ -16,14 +16,15 @@ namespace llvm {
     class DIFile;
 }
 
-// SymbolKind enumerates the different kinds of symbols.
-enum SymbolKind {
-    SYM_VAR,    // Variable
-    SYM_FUNC,   // Function
-    SYM_TYPE,   // Type Definition
-};
+// SymbolFlags enumerates the possible flags that can be set on symbols.
+enum {
+    SYM_VAR = 0,    // Variable
+    SYM_FUNC = 1,   // Function
+    SYM_TYPE = 2,   // Type Definition
 
-#define UNEXPORTED ((size_t)(-1))
+    SYM_EXPORTED = 4  // Symbol is publically visible
+};
+typedef int SymbolFlags;
 
 // Symbol represents a named symbol in a Berry module.
 struct Symbol {
@@ -36,8 +37,8 @@ struct Symbol {
     // span is the source location of the symbol definition.
     TextSpan span;
 
-    // kind is the kind of the symbol.
-    SymbolKind kind;
+    // flags are the flags associated with the symbol.
+    SymbolFlags flags;
 
     // type is the data type of the symbol.
     Type* type { nullptr };
@@ -45,9 +46,9 @@ struct Symbol {
     // immut indicates whether the symbol is immutable.
     bool immut { false };
 
-    // export_num stores the index of the symbol's export table entry if it has
-    // one.  If the symbol is unexported, then this will be SYM_UNEXPORTED.
-    size_t export_num { UNEXPORTED };
+    // def_num stores the index of the definition which defines this symbol.
+    // This field is only used for globally-defined symbols.
+    size_t def_num;
 
     // llvm_value contains the LLVM value bound to the symbol.
     llvm::Value* llvm_value { nullptr };
@@ -57,6 +58,7 @@ struct Symbol {
 
 struct SourceFile;
 struct AstDef;
+struct AstGlobalVar;
 
 // NamedTypeTable stores all the named types used by a given module.  It is an
 // extra bit of bookkeeping used to facilitate out-of-order resolution.
@@ -80,6 +82,7 @@ struct NamedTypeTable {
     std::vector<std::unordered_map<std::string, Ref>> external_refs;
 };
 
+
 // Module represents a Berry module.
 struct Module {
     // id is the module's unique ID.
@@ -90,6 +93,13 @@ struct Module {
 
     // files is the list of files contained in the module.
     std::vector<SourceFile> files;
+
+    // defs is the definition ASTs comprising the module.
+    std::vector<AstDef*> defs;
+
+    // global_vars is the global variable ASTs comprising the module.  These are
+    // arranged in the order that their initializers should be generated.
+    std::vector<AstGlobalVar*> global_vars;
 
     // symbol_table is the module's global symbol table.
     std::unordered_map<std::string_view, Symbol*> symbol_table;
@@ -134,19 +144,6 @@ struct Module {
     // deps stores the module's dependencies.
     std::vector<Dependency> deps;
 
-    // ExportEntry is an entry of the module's export table.
-    struct ExportEntry {
-        // def the AST definition that is exported.
-        AstDef* def;
-
-        // symbol_num identifies the specific symbol within the definition that
-        // is being referenced.  For most definitions, this will be zero.
-        int symbol_num;
-    };
-
-    // export_table is the table of definitions exported by the module.
-    std::vector<ExportEntry> export_table;
-
     // named_table stores the module's named type dependencies.
     NamedTypeTable named_table;
 };
@@ -163,9 +160,6 @@ struct SourceFile {
 
     // display_path is the path displayed to the user to identify the file.
     std::string display_path;
-
-    // defs is the definition ASTs comprising the file.
-    std::vector<AstDef*> defs;
 
     // import_table stores the package's imports.
     std::unordered_map<std::string_view, size_t> import_table;
@@ -184,7 +178,6 @@ struct SourceFile {
     : parent(src_file.parent)
     , abs_path(std::move(src_file.abs_path))
     , display_path(std::move(src_file.display_path))
-    , defs(std::move(src_file.defs))
     , llvm_di_file(src_file.llvm_di_file)
     {}
 };

@@ -8,6 +8,6 @@ func WriteConsoleA(h: *u8, buff: *u8, n_to_write: i32, n_written: *i32, reserved
 
 pub let _stdout: *u8 = GetStdHandle(-11 as u32);
 
-func rputs(s: []u8) {
+func rputs(s: string) {
     WriteConsoleA(_stdout, s._ptr, s._len as i32, null, null);
 }

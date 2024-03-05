@@ -10,15 +10,16 @@ struct TypeContext;
 
 // TypeKind enumerates the possible variants of Type.
 enum TypeKind {
-    TYPE_INT,   // Integral type
-    TYPE_FLOAT, // Floating-point/real type
-    TYPE_BOOL,  // Boolean type
-    TYPE_UNIT,  // Unit/void type
-    TYPE_UNTYP, // Untyped
+    TYPE_INT,       // Integral type
+    TYPE_FLOAT,     // Floating-point/real type
+    TYPE_BOOL,      // Boolean type
+    TYPE_UNIT,      // Unit/void type
+    TYPE_UNTYP,     // Untyped
 
-    TYPE_PTR,   // Pointer type
-    TYPE_FUNC,  // Function type
-    TYPE_ARRAY, // Array Type
+    TYPE_PTR,       // Pointer type
+    TYPE_FUNC,      // Function type
+    TYPE_ARRAY,     // Array Type
+    TYPE_STRING,    // String Type
     
     TYPE_NAMED,     // Named Type 
     TYPE_STRUCT,    // Struct Type
@@ -221,7 +222,7 @@ inline Type prim_f32_type { .kind{ TYPE_FLOAT }, .ty_Float{ 32 } };
 inline Type prim_f64_type { .kind{ TYPE_FLOAT }, .ty_Float{ 64 } };
 inline Type prim_bool_type { .kind { TYPE_BOOL }};
 inline Type prim_unit_type { .kind { TYPE_UNIT }};
-inline Type prim_string_type { .kind{ TYPE_ARRAY}, .ty_Array{ &prim_u8_type } };
+inline Type prim_string_type { .kind{ TYPE_STRING }, .ty_Array{ &prim_u8_type } };
 
 Type* AllocType(Arena& arena, TypeKind kind);
 

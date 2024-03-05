@@ -23,7 +23,10 @@ AstStmt* Parser::parseStmt() {
 
     switch (tok.kind) {
     case TOK_LET:
-        stmt = parseLocalVarDef();
+        stmt = parseLocalVarDef(false);
+        break;
+    case TOK_CONST:
+        stmt = parseLocalVarDef(true);
         break;
     case TOK_BREAK:
         next();
@@ -154,7 +157,7 @@ AstStmt* Parser::parseForLoop() {
 
     AstStmt* var_def { nullptr };
     if (has(TOK_LET)) {
-        var_def = parseLocalVarDef();
+        var_def = parseLocalVarDef(false);
     }
 
     want(TOK_SEMI);
@@ -198,7 +201,7 @@ AstStmt* Parser::maybeParseElse() {
 
 /* -------------------------------------------------------------------------- */
 
-AstStmt* Parser::parseLocalVarDef() {
+AstStmt* Parser::parseLocalVarDef(bool immut) {
     auto start_span = tok.span;
     want(TOK_LET);
 
@@ -227,7 +230,7 @@ AstStmt* Parser::parseLocalVarDef() {
         name_tok.span,
         SYM_VAR,
         type,
-        false
+        immut
     );
 
     auto* alocal = allocStmt(AST_LOCAL_VAR, SpanOver(start_span, end_span));

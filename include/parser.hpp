@@ -52,7 +52,7 @@ private:
     void parseDef(MetadataMap &&meta, bool exported);
     void parseFuncDef(MetadataMap &&meta, bool exported);
     void parseFuncParams(std::vector<Symbol *> &params);
-    void parseGlobalVarDef(MetadataMap &&meta, bool exported);
+    void parseGlobalVarDef(MetadataMap &&meta, bool exported, bool immut);
     void parseStructDef(MetadataMap &&meta, bool exported);
 
     /* ---------------------------------------------------------------------- */
@@ -66,7 +66,7 @@ private:
     AstStmt* parseForLoop();
     AstStmt* maybeParseElse();
 
-    AstStmt* parseLocalVarDef();
+    AstStmt* parseLocalVarDef(bool immut);
     AstStmt* parseExprAssignStmt();
 
     /* ---------------------------------------------------------------------- */
@@ -104,7 +104,8 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    AstDef* allocDef(AstKind kind, const TextSpan& span, MetadataMap&& metadata);
+    std::span<MetadataTag> moveMetadataToArena(MetadataMap&& meta_map);
+    AstDef *allocDef(AstKind kind, const TextSpan &span, MetadataMap &&metadata);
     AstStmt* allocStmt(AstKind kind, const TextSpan& span);
     AstExpr* allocExpr(AstKind kind, const TextSpan& span);
     Type *allocType(TypeKind kind);

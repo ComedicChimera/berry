@@ -3,6 +3,6 @@
 
 #include "ast.hpp"
 
-void PrintAst(const SourceFile& src_file);
+void PrintAst(const Module& mod);
 
 #endif

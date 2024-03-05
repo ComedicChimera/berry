@@ -64,6 +64,6 @@ pub func putr(r: i32) {
     write([r as u8]);
 }
 
-pub func puts(s: []u8) {
-    write(s);
+pub func puts(s: string) {
+    write(s as []u8);
 }
