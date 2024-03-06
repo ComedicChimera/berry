@@ -3,16 +3,11 @@
 #include "checker.hpp"
 
 void Checker::checkDef(AstDef* def) {
-    checkMetadata(def);
-
     switch (def->kind) {
     case AST_FUNC:
         checkFuncDef(def);
         break;
-    case AST_GLOBAL_VAR:
-        checkGlobalVar(def);
-        break;
-    case AST_STRUCT_DEF:
+    case AST_STRUCT:
         checkStructDef(def);
         break;
     default:
@@ -28,6 +23,12 @@ struct SpecialMetadataInfo {
     bool expect_body;
 };
 
+enum {
+    META_FUNC,
+    META_VAR,
+    META_STRUCT
+};
+
 static std::unordered_map<std::string_view, SpecialMetadataInfo> special_metadata_table[] = {
     {
         { "extern", { {}, false, false } },
@@ -37,13 +38,14 @@ static std::unordered_map<std::string_view, SpecialMetadataInfo> special_metadat
     {
         { "extern", { {}, false, false } },
         { "abientry", { {}, false, true } }
-    }  // Global Variables
+    },  // Global Variables
+    {}  // Structs
 };
 
-void Checker::checkMetadata(AstDef* def) {
-    auto& special_meta = special_metadata_table[def->kind];
+bool Checker::checkMetadata(const std::span<MetadataTag>& metadata, int meta_kind) {
+    auto& special_meta = special_metadata_table[meta_kind];
     bool expect_body = true;
-    for (auto& tag : def->metadata) {
+    for (auto& tag : metadata) {
         auto it = special_meta.find(tag.name);
         if (it != special_meta.end()) {
             auto& meta_info = it->second;
@@ -64,22 +66,19 @@ void Checker::checkMetadata(AstDef* def) {
         }
     }
 
-    if (def->kind == AST_FUNC) {
-        if (expect_body && def->an_Func.body == nullptr) {
-            error(def->span, "function {} must have a body", def->an_Func.symbol->name);
-        } else if (!expect_body && def->an_Func.body != nullptr) {
-            error(def->span, "function {} is externally defined and can't have a body", def->an_Func.symbol->name);
-        }
-    } else if (def->kind == AST_GLOBAL_VAR) {
-        if (!expect_body && def->an_GlobalVar.init != nullptr) {
-            error(def->span, "external global variable {} cannot have an initializer", def->an_GlobalVar.symbol->name);
-        }
-    }    
+    return expect_body; 
 }
 
 /* -------------------------------------------------------------------------- */
 
 void Checker::checkFuncDef(AstDef* node) {    
+    bool expect_body = checkMetadata(node->metadata, META_FUNC);
+    if (expect_body && node->an_Func.body == nullptr) {
+        error(node->span, "function {} must have a body", node->an_Func.symbol->name);
+    } else if (!expect_body && node->an_Func.body != nullptr) {
+        error(node->span, "function {} is externally defined and can't have a body", node->an_Func.symbol->name);
+    }
+
     pushScope();
 
     for (auto* param : node->an_Func.params) {
@@ -97,17 +96,19 @@ void Checker::checkFuncDef(AstDef* node) {
         }
     }
 
-
     popScope();
 }
 
-void Checker::checkGlobalVar(AstDef* node) {
-    auto& gv = node->an_GlobalVar;
+void Checker::checkGlobalVar(AstGlobalVar* node) {
+    bool expect_init = checkMetadata(node->metadata, META_VAR);
+    if (!expect_init && node->init_expr != nullptr) {
+        error(node->span, "external global variable {} cannot have an initializer", node->symbol->name);
+    }
 
-    if (gv.init) {
-        checkExpr(gv.init, gv.symbol->type);
+    if (node->init_expr) {
+        checkExpr(node->init_expr, node->symbol->type);
 
-        mustSubType(gv.init->span, gv.init->type, gv.symbol->type);
+        mustSubType(node->init_expr->span, node->init_expr->type, node->symbol->type);
 
         finishExpr();
     }
@@ -117,8 +118,8 @@ void Checker::checkGlobalVar(AstDef* node) {
 
 void Checker::checkStructDef(AstDef* node) {
     TypeCycle cycle;
-    if (checkForInfType(node->an_StructDef.symbol->type, cycle)) {
-        fatalOnTypeCycle(node->an_StructDef.symbol->span, cycle);
+    if (checkForInfType(node->an_Struct.symbol->type, cycle)) {
+        fatalOnTypeCycle(node->an_Struct.symbol->span, cycle);
     }
 
     // TODO: check field attrs

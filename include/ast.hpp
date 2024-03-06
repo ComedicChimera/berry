@@ -271,13 +271,14 @@ struct AstStmt : public AstNode {
 
 /* -------------------------------------------------------------------------- */
 
+typedef std::span<MetadataTag> Metadata;
+
 struct StructFieldAttr {
-    std::span<MetadataTag> metadata;
+    Metadata metadata;
 };
 
 struct AstDef : public AstNode {
-    SourceFile* src_file;
-    std::span<MetadataTag> metadata;
+    Metadata metadata;
 
     union {
         struct {
@@ -295,7 +296,7 @@ struct AstDef : public AstNode {
 
 struct AstGlobalVar : public AstNode {
     SourceFile* src_file;
-    std::span<MetadataTag> metadata;
+    Metadata metadata;
     
     Symbol* symbol;
     AstExpr* init_expr;

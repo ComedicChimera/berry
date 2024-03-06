@@ -27,6 +27,12 @@ void Checker::CheckModule() {
             checkDef(def);
         }
     }
+
+    for (auto* global_var : mod.global_vars) {
+        src_file = global_var->src_file;
+
+        checkGlobalVar(global_var);
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -35,13 +41,17 @@ static bool resolveNamedInDep(Type* type, Module::Dependency& dep) {
     auto& named = type->ty_Named;
 
     auto it = dep.mod->symbol_table.find(named.name);
-    if (it != dep.mod->symbol_table.end() && it->second->export_num != UNEXPORTED) {
+    if (it != dep.mod->symbol_table.end()) {
+        auto& sentry = it->second;
+        if ((sentry.symbol->flags & SYM_EXPORTED) == 0) {
+            return false;
+        }
+
         named.mod_id = dep.mod->id;
         named.mod_name = dep.mod->name;
-        named.type = it->second->type->ty_Named.type;
+        named.type = sentry.symbol->type->ty_Named.type;
 
-        dep.usages.insert(it->second->export_num);
-
+        dep.usages.insert(sentry.symbol->name);
         return true;
     }
 
@@ -57,7 +67,7 @@ void Checker::resolveNamedTypes() {
         if (it != mod.symbol_table.end()) {
             named.mod_id = mod.id;
             named.mod_name = mod.name;
-            named.type = it->second->type->ty_Named.type;
+            named.type = it->second.symbol->type->ty_Named.type;
             continue;
         }
 

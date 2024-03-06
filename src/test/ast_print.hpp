@@ -3,6 +3,6 @@
 
 #include "ast.hpp"
 
-void PrintAst(const Module& mod);
+void PrintModuleAst(const Module& mod);
 
 #endif

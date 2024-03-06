@@ -136,15 +136,14 @@ void Checker::checkIndex(AstExpr* node) {
     checkExpr(index.index, &prim_i64_type);
 
     auto* array_type = index.array->type->Inner();
-    if (array_type->kind == TYPE_ARRAY) {
+    if (array_type->kind == TYPE_ARRAY || array_type->kind == TYPE_STRING) {
         mustIntType(index.index->span, index.index->type);
 
         node->type = array_type->ty_Array.elem_type;
 
-        // TODO: array constancy
-        node->immut = index.array->immut;
+        node->immut = index.array->immut || array_type->kind == TYPE_STRING;
     } else {
-        fatal(index.array->span, "{} is not array type", index.array->type->ToString());
+        fatal(index.array->span, "{} is not a string or array type", index.array->type->ToString());
     }
 }
 
@@ -162,7 +161,7 @@ void Checker::checkSlice(AstExpr* node) {
         checkExpr(slice.end_index, &prim_i64_type);
 
     auto* inner_type = slice.array->type->Inner();
-    if (inner_type->kind == TYPE_ARRAY) {
+    if (inner_type->kind == TYPE_ARRAY || inner_type->kind == TYPE_STRING) {
         if (slice.start_index)
             mustIntType(slice.start_index->span, slice.start_index->type);
 
@@ -171,10 +170,9 @@ void Checker::checkSlice(AstExpr* node) {
 
         node->type = inner_type;
 
-        // TODO: array constancy
         node->immut = slice.array->immut;
     } else {
-        fatal(slice.array->span, "{} is not array type", slice.array->type->ToString());
+        fatal(slice.array->span, "{} is not a string or array type", slice.array->type->ToString());
     }
 }
 
@@ -187,24 +185,29 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
         if (dep != nullptr) {
             auto* mod = dep->mod;
 
-            auto sym_it = mod->symbol_table.find(fld.field_name);
-            if (sym_it != mod->symbol_table.end() && sym_it->second->export_num != UNEXPORTED) {
-                auto* imported_sym = sym_it->second;
+            auto sentry_it = mod->symbol_table.find(fld.field_name);
+            if (sentry_it != mod->symbol_table.end()) {
+                auto& sentry = sentry_it->second;
+                if ((sentry.symbol->flags & SYM_EXPORTED) == 0) {
+                    fatal(node->span, "symbol {} is not exported by module {}", fld.field_name, mod->name);
+                }
+
+                auto* imported_sym = sentry.symbol;
                 node->type = imported_sym->type;
                 node->immut = imported_sym->immut;
 
-                if (!expect_type && imported_sym->kind == SYM_TYPE) {
+                if (!expect_type && (imported_sym->flags & SYM_TYPE)) {
                     fatal(node->span, "cannot use type as value");
-                } else if (expect_type && imported_sym->kind != SYM_TYPE) {
+                } else if (expect_type && (imported_sym->flags & SYM_TYPE)) {
                     fatal(node->span, "expected type not value");
                 }
                 
                 fld.imported_sym = imported_sym;
                 node->kind = AST_STATIC_GET;
-                dep->usages.insert(imported_sym->export_num);
+                dep->usages.insert(imported_sym->name);
                 return;
             } else {
-                fatal(node->span, "module {} has no exported symbol named {}", mod->name, fld.field_name);
+                fatal(node->span, "module {} has no symbol named {}", mod->name, fld.field_name);
             }
         }
     } else {
@@ -250,6 +253,7 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
         }
     } break;
     case TYPE_ARRAY:
+    case TYPE_STRING:
         if (fld.field_name == "_ptr") {
             node->type = AllocType(arena, TYPE_PTR);
             node->type->ty_Ptr.elem_type = root_type->ty_Array.elem_type;
@@ -286,21 +290,23 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node, bool expect_ty
 
         auto it = mod.symbol_table.find(name);
         if (it != mod.symbol_table.end()) {
-            sym = it->second;
+            sym = it->second.symbol;
+
+            // TODO: initializer ordering
         } else if (
             core_dep != nullptr && 
             (it = core_dep->mod->symbol_table.find(name)) != core_dep->mod->symbol_table.end()
         ) {
-            sym = it->second;
-            core_dep->usages.insert(sym->export_num);
+            sym = it->second.symbol;
+            core_dep->usages.insert(sym->name);
         } else {
             fatal(node->span, "undefined symbol: {}", name);
         }
     }
     
-    if (!expect_type && sym->kind == SYM_TYPE) {
+    if (!expect_type && (sym->flags & SYM_TYPE)) {
         fatal(node->span, "cannot use type as value");
-    } else if (expect_type && sym->kind != SYM_TYPE) {
+    } else if (expect_type && (sym->flags & SYM_TYPE)) {
         fatal(node->span, "expected type not value");
     }
 

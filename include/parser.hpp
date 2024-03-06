@@ -112,7 +112,7 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    void defineGlobal(Symbol *symbol);
+    void defineGlobal(Symbol *symbol, size_t def_number);
 
     /* ---------------------------------------------------------------------- */
 

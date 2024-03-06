@@ -24,8 +24,6 @@ namespace fs = std::filesystem;
 
 /* -------------------------------------------------------------------------- */
 
-#define FULL_LINE "-------------------------------------------------------------\n"
-
 class Compiler {
     const BuildConfig& cfg;
 
@@ -76,12 +74,7 @@ public:
             break;
         case OUTFMT_DUMPAST:
             for (auto& mod : loader) {
-                std::cout << FULL_LINE;
-
-                std::cout << std::format("mod = {}:\n\n", mod.name);
-                PrintAst(mod);
-
-                std::cout << FULL_LINE << '\n';
+                PrintModuleAst(mod);
             }
             return;
         }

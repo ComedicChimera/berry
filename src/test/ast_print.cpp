@@ -555,8 +555,8 @@ static void printStruct(AstDef* node) {
     std::cout << std::format(
         "StructDef(span={}, name={}, type={}, field_attrs=[])", 
         spanToStr(node->span), 
-        node->an_StructDef.symbol->name, 
-        typeToStr(node->an_StructDef.symbol->type)
+        node->an_Struct.symbol->name, 
+        typeToStr(node->an_Struct.symbol->type)
     );
 
     // TODO: print field attrs
@@ -588,20 +588,27 @@ static void printGlobalVar(AstGlobalVar* node) {
 
 /* -------------------------------------------------------------------------- */
 
-void PrintAst(const Module& mod) {
-    for (auto* def : mod.defs) {
-        std::cout << "source file: " << def->src_file->display_path << '\n';
+#define FULL_LINE "-------------------------------------------------------------\n"
 
-        printDef(def);
 
-        std::cout << "\n\n";
+void PrintModuleAst(const Module& mod) {
+    std::cout << FULL_LINE;
+    std::cout << "module: " << mod.name << "\n\n";
+
+    for (auto& src_file : mod.files) {
+        std::cout << "source file: " << src_file.display_path << '\n';
+        for (auto* def : src_file.defs) {
+            printDef(def);
+            std::cout << "\n\n";
+        }
+
+        for (auto* global_var : mod.global_vars) {
+            if (global_var->src_file->abs_path == src_file.abs_path) {
+                printGlobalVar(global_var);
+                std::cout << "\n\n";
+            }
+        }
     }
 
-    for (auto* global_var : mod.global_vars) {
-        std::cout << "source file: " << global_var->src_file->display_path << '\n';
-
-        printGlobalVar(global_var);
-
-        std::cout << "\n\n";
-    }
+    std::cout << FULL_LINE;
 }

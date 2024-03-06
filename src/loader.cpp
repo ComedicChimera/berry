@@ -148,6 +148,7 @@ void Loader::loadRootModule(fs::path& root_mod_abs_path) {
     } else if (fs::is_regular_file(root_mod_abs_path)) {
         SourceFile src_file { 
             nullptr,
+            0,
             root_mod_abs_path.string(), 
             (local_path.filename() / root_mod_abs_path.filename()).string() 
         };
@@ -197,6 +198,7 @@ Module& Loader::initModule(const fs::path& local_path, const fs::path& mod_abs_p
 
                 SourceFile src_file {
                     &mod,
+                    mod.files.size(),
                     abs_path.string(),
                     createDisplayPath(local_path, abs_path)
                 };
@@ -216,6 +218,7 @@ Module& Loader::initModule(const fs::path& local_path, const fs::path& mod_abs_p
     } else if (fs::is_regular_file(mod_abs_path)) {
         mod.files.emplace_back(
             &mod, 
+            0,
             mod_abs_path.string(), 
             createDisplayPath(local_path, mod_abs_path)
         );
@@ -291,7 +294,7 @@ std::optional<fs::path> Loader::findModule(const fs::path& search_path, const st
     if (fs::exists(path) && fs::is_regular_file(path)) {
         std::ifstream file;
         if (file) {
-            SourceFile src_file { nullptr, path.string(), createDisplayPath(search_path, path)};
+            SourceFile src_file { nullptr, 0, path.string(), createDisplayPath(search_path, path)};
             Parser p(arena, file, src_file);
 
             auto mod_name_tok = p.ParseModuleName();

@@ -46,10 +46,6 @@ struct Symbol {
     // immut indicates whether the symbol is immutable.
     bool immut { false };
 
-    // def_num stores the index of the definition which defines this symbol.
-    // This field is only used for globally-defined symbols.
-    size_t def_num;
-
     // llvm_value contains the LLVM value bound to the symbol.
     llvm::Value* llvm_value { nullptr };
 };
@@ -94,15 +90,23 @@ struct Module {
     // files is the list of files contained in the module.
     std::vector<SourceFile> files;
 
-    // defs is the definition ASTs comprising the module.
-    std::vector<AstDef*> defs;
-
     // global_vars is the global variable ASTs comprising the module.  These are
     // arranged in the order that their initializers should be generated.
     std::vector<AstGlobalVar*> global_vars;
 
+    // SymbolTableEntry is an entry in the module's global symbol table.
+    struct SymbolTableEntry {
+        // symbol is the symbol contained in the entry.
+        Symbol* symbol;
+
+        // file_number and def_number identify the global definition
+        // corresponding to the symbol.  For global variables, file_number is
+        // unused (set to 0).
+        size_t file_number, def_number;
+    };
+
     // symbol_table is the module's global symbol table.
-    std::unordered_map<std::string_view, Symbol*> symbol_table;
+    std::unordered_map<std::string_view, SymbolTableEntry> symbol_table;
 
     // ImportLoc represents a location where a dependency is imported.
     struct ImportLoc {
@@ -123,8 +127,8 @@ struct Module {
         // is its own entry in the mod_path vector.
         std::vector<std::string> mod_path;
 
-        // usages lists all the exports referred to be this dependency.
-        std::unordered_set<size_t> usages;
+        // usages stores the exported symbols accesses through this dependency.
+        std::unordered_set<std::string_view> usages;
 
         // import_locs lists the locations where the dependency is imported.
         std::vector<ImportLoc> import_locs;
@@ -154,6 +158,9 @@ struct Module {
 struct SourceFile {
     // parent is the module the file is apart of.
     Module* parent;
+
+    // file_number uniquely identifies the file within its parent module.
+    size_t file_number;
     
     // abs_path is the absolute path to the file.
     std::string abs_path;
@@ -161,14 +168,18 @@ struct SourceFile {
     // display_path is the path displayed to the user to identify the file.
     std::string display_path;
 
+    // defs is the definition ASTs comprising the source file
+    std::vector<AstDef*> defs;
+
     // import_table stores the package's imports.
     std::unordered_map<std::string_view, size_t> import_table;
 
     // llvm_di_file is the debug info scope associated with this file.
     llvm::DIFile* llvm_di_file { nullptr };
 
-    SourceFile(Module* parent_, std::string&& abs_path_, std::string&& display_path_)
+    SourceFile(Module* parent_, size_t file_number_, std::string&& abs_path_, std::string&& display_path_)
     : parent(parent_)
+    , file_number(file_number_)
     , abs_path(std::move(abs_path_))
     , display_path(std::move(display_path_))
     , llvm_di_file(nullptr)

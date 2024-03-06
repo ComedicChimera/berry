@@ -55,9 +55,9 @@ private:
     /* ---------------------------------------------------------------------- */
     
     void checkDef(AstDef* def);
-    void checkMetadata(AstDef* def);
+    bool checkMetadata(const std::span<MetadataTag>& metadata, int meta_kind);
     void checkFuncDef(AstDef* node);
-    void checkGlobalVar(AstDef* node);
+    void checkGlobalVar(AstGlobalVar* node);
 
     struct TypeCycle {
         std::vector<Type*> nodes;
