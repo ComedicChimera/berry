@@ -292,7 +292,7 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node, bool expect_ty
         if (it != mod.symbol_table.end()) {
             sym = it->second.symbol;
 
-            // TODO: initializer ordering
+            init_graph.back().edges.insert(it->second.def_number);
         } else if (
             core_dep != nullptr && 
             (it = core_dep->mod->symbol_table.find(name)) != core_dep->mod->symbol_table.end()

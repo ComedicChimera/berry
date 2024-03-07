@@ -3,9 +3,6 @@
 Checker::Checker(Arena& arena, Module& mod)
 : arena(arena)
 , mod(mod)
-, src_file(nullptr)
-, enclosing_return_type(nullptr)
-, loop_depth(0)
 {
     if (mod.deps.size() > 0) {
         // Core module is always the last dependency added to any module. All
@@ -20,9 +17,94 @@ Checker::Checker(Arena& arena, Module& mod)
 void Checker::CheckModule() {
     for (auto* def : mod.defs) {
         src_file = &mod.files[def->parent_file_number];
+        init_graph.emplace_back();
 
         checkDef(def);
     }
+
+    size_t def_number = 0;
+    for (auto* def : mod.defs) {
+        if (def->kind == AST_GLVAR) {
+            InitCycle cycle;
+            if (checkInitOrder(def_number, cycle)) {
+                auto* cycle_start = mod.defs[cycle.nodes[0]];
+
+                std::string fmt_cycle;
+                while (cycle.nodes.size() > 0) {
+                    if (fmt_cycle.size() > 0) {
+                        fmt_cycle += " -> ";
+                    }
+
+                    auto node = cycle.nodes.back();
+                    cycle.nodes.pop_back();
+
+                    auto* def = mod.defs[node];
+                    switch (def->kind) {
+                    case AST_FUNC:
+                        fmt_cycle += def->an_Func.symbol->name;
+                        break;
+                    case AST_GLVAR:
+                        fmt_cycle += def->an_GlVar.symbol->name;
+                        break;
+                    case AST_STRUCT:
+                        fmt_cycle += def->an_Struct.symbol->name;
+                        break;
+                    }
+                }
+
+                src_file = &mod.files[cycle_start->parent_file_number];
+                error(cycle_start->span, "initialization cycle detected: {}", fmt_cycle);
+            }
+        }
+
+        def_number++;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+bool Checker::checkInitOrder(size_t def_number, InitCycle& cycle) {
+    auto& node = init_graph[def_number];
+
+    switch (node.color) {
+    case COLOR_BLACK:
+        return false;
+    case COLOR_GREY:
+        node.color = COLOR_BLACK;
+
+        if (mod.defs[def_number]->kind == AST_GLVAR) {
+            cycle.nodes.push_back(def_number);
+            return true;    
+        }
+
+        break;
+    case COLOR_WHITE:
+        node.color = COLOR_GREY;
+
+        for (auto edge : node.edges) {
+            if (checkInitOrder(edge, cycle)) {
+                if (!cycle.done) {
+                    if (cycle.nodes[0] == def_number) {
+                        cycle.done = true;
+                    }
+
+                    cycle.nodes.push_back(def_number);
+                }
+                
+                node.color = COLOR_BLACK;
+                return true;
+            }
+        }
+
+        if (mod.defs[def_number]->kind == AST_GLVAR) {
+            mod.init_order.push_back(def_number);
+        }
+
+        node.color = COLOR_BLACK;
+        break;
+    }
+    
+    return false;
 }
 
 /* -------------------------------------------------------------------------- */

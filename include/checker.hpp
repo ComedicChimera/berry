@@ -16,7 +16,7 @@ class Checker {
     Module& mod;
 
     // src_file is the source file currently being checked.
-    SourceFile* src_file;
+    SourceFile* src_file { nullptr };
 
     // scope_stack keeps a stack of the enclosing local scopes with the one on
     // the top (end) being the current local scope.
@@ -28,11 +28,11 @@ class Checker {
     // enclosing_return_type is the return type of the function whose body is
     // being type checked. If the checker is running outside of a function body,
     // then this value is nullptr.
-    Type* enclosing_return_type;
+    Type* enclosing_return_type { nullptr };
 
     // loop_depth keeps track of how many enclosing loops there are.  This is
     // used for break and continue checking.
-    int loop_depth;
+    int loop_depth { 0 };
 
     // core_dep is a pointer to the core module dependency.  This will non-null
     // in every module except the core module itself.
@@ -48,9 +48,8 @@ class Checker {
 
     // InitNode is a node in the init_graph.
     struct InitNode {
-        std::vector<size_t> edges;
-        GColor color;
-        bool is_global_var;
+        std::unordered_set<size_t> edges;
+        GColor color { COLOR_WHITE };
     };
 
     // init_graph is used to determine global variable initialization ordering
@@ -64,11 +63,19 @@ public:
     // CheckModule performs semantic analysis on the checker's module.
     void CheckModule();
 
+
 private:
     void checkDef(AstDef* def);
     bool checkMetadata(const Metadata& metadata, AstKind meta_kind);
     void checkFuncDef(AstDef* node);
+
+    struct InitCycle {
+        std::vector<size_t> nodes;
+        bool done { false };
+    };
+
     void checkGlobalVar(AstDef* node);
+    bool checkInitOrder(size_t def_number, InitCycle& cycle);
 
     struct TypeCycle {
         std::vector<Type*> nodes;
