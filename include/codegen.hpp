@@ -87,8 +87,8 @@ class CodeGenerator {
     // debug is the debug generator instance.
     DebugGenerator debug;
 
-    // bry_mod is the Berry module being compiled.
-    Module& bry_mod;
+    // src_mod is the source module being compiled.
+    Module& src_mod;
 
     /* ---------------------------------------------------------------------- */
 
@@ -150,11 +150,11 @@ class CodeGenerator {
 
 public:
     // Creates a new code generator using ctx and outputting to mod.
-    CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& bry_mod, bool debug)
+    CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& src_mod, bool debug)
     : ctx(ctx), mod(mod), irb(ctx)
     , layout(mod.getDataLayout())
     , debug(debug, mod, irb)
-    , bry_mod(bry_mod)
+    , src_mod(src_mod)
     , ll_enclosing_func(nullptr)
     , var_block(nullptr)
     , ll_array_type(nullptr)
@@ -162,7 +162,7 @@ public:
     , ll_init_block(nullptr)
     , ll_panic_oob_func(nullptr)
     , ll_panic_badslice_func(nullptr)
-    , loaded_imports(bry_mod.deps.size())
+    , loaded_imports(src_mod.deps.size())
     {}
 
     // GenerateModule compiles the module.

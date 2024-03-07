@@ -18,83 +18,10 @@ Checker::Checker(Arena& arena, Module& mod)
 }
 
 void Checker::CheckModule() {
-    resolveNamedTypes();
+    for (auto* def : mod.defs) {
+        src_file = &mod.files[def->parent_file_number];
 
-    for (auto& sfile : mod.files) {
-        src_file = &sfile;
-
-        for (auto* def : sfile.defs) {
-            checkDef(def);
-        }
-    }
-
-    for (auto* global_var : mod.global_vars) {
-        src_file = global_var->src_file;
-
-        checkGlobalVar(global_var);
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
-static bool resolveNamedInDep(Type* type, Module::Dependency& dep) {
-    auto& named = type->ty_Named;
-
-    auto it = dep.mod->symbol_table.find(named.name);
-    if (it != dep.mod->symbol_table.end()) {
-        auto& sentry = it->second;
-        if ((sentry.symbol->flags & SYM_EXPORTED) == 0) {
-            return false;
-        }
-
-        named.mod_id = dep.mod->id;
-        named.mod_name = dep.mod->name;
-        named.type = sentry.symbol->type->ty_Named.type;
-
-        dep.usages.insert(sentry.symbol->name);
-        return true;
-    }
-
-    return false;
-}
-
-void Checker::resolveNamedTypes() {
-    for (auto& pair : mod.named_table.internal_refs) {
-        auto& ref = pair.second;
-        auto& named = ref.named_type->ty_Named;
-
-        auto it = mod.symbol_table.find(named.name);
-        if (it != mod.symbol_table.end()) {
-            named.mod_id = mod.id;
-            named.mod_name = mod.name;
-            named.type = it->second.symbol->type->ty_Named.type;
-            continue;
-        }
-
-        if (!resolveNamedInDep(ref.named_type, *core_dep)) {
-            for (auto& span : ref.spans) {
-                error(span, "undefined symbol: {}", named.name);
-            }
-        }        
-    }
-
-    for (size_t dep_id = 0; dep_id < mod.named_table.external_refs.size(); dep_id++) {
-        auto& dep = mod.deps[dep_id];
-
-        for (auto& pair : mod.named_table.external_refs[dep_id]) {
-            auto* named_type = pair.second.named_type;
-            
-            if (!resolveNamedInDep(named_type, dep)) {
-                for (auto& span : pair.second.spans) {
-                    error(span, "module {} has no exported symbol named {}", dep.mod->name, named_type->ty_Named.name);
-                }
-            }
-        }
-    }
-
-
-    if (ErrorCount()) {
-        throw CompileError{};
+        checkDef(def);
     }
 }
 

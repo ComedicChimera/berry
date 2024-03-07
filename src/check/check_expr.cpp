@@ -204,7 +204,7 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
                 
                 fld.imported_sym = imported_sym;
                 node->kind = AST_STATIC_GET;
-                dep->usages.insert(imported_sym->name);
+                dep->usages.insert(sentry.def_number);
                 return;
             } else {
                 fatal(node->span, "module {} has no symbol named {}", mod->name, fld.field_name);
@@ -298,7 +298,7 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node, bool expect_ty
             (it = core_dep->mod->symbol_table.find(name)) != core_dep->mod->symbol_table.end()
         ) {
             sym = it->second.symbol;
-            core_dep->usages.insert(sym->name);
+            core_dep->usages.insert(it->second.def_number);
         } else {
             fatal(node->span, "undefined symbol: {}", name);
         }

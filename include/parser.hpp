@@ -104,7 +104,7 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    std::span<MetadataTag> moveMetadataToArena(MetadataMap&& meta_map);
+    Metadata moveMetadataToArena(MetadataMap&& meta_map);
     AstDef *allocDef(AstKind kind, const TextSpan &span, MetadataMap &&metadata);
     AstStmt* allocStmt(AstKind kind, const TextSpan& span);
     AstExpr* allocExpr(AstKind kind, const TextSpan& span);

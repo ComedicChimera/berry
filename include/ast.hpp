@@ -66,6 +66,7 @@ typedef std::unordered_map<std::string_view, MetadataTag> MetadataMap;
 
 enum AstKind {
     AST_FUNC,
+    AST_GLVAR,
     AST_STRUCT,
 
     AST_BLOCK,
@@ -278,6 +279,7 @@ struct StructFieldAttr {
 };
 
 struct AstDef : public AstNode {
+    size_t parent_file_number;
     Metadata metadata;
 
     union {
@@ -289,19 +291,14 @@ struct AstDef : public AstNode {
         } an_Func;
         struct {
             Symbol* symbol;
+            AstExpr* init_expr;
+            bool const_init;
+        } an_GlVar;
+        struct {
+            Symbol* symbol;
             std::span<StructFieldAttr> field_attrs;
         } an_Struct;
     };
 };
-
-struct AstGlobalVar : public AstNode {
-    SourceFile* src_file;
-    Metadata metadata;
-    
-    Symbol* symbol;
-    AstExpr* init_expr;
-    bool const_init;
-};
-
 
 #endif

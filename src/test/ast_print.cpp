@@ -562,6 +562,17 @@ static void printStruct(AstDef* node) {
     // TODO: print field attrs
 }   
 
+static void printGlobalVar(AstDef* node) {
+    std::cout << std::format("GlobalVarDef(span={}, meta=", spanToStr(node->span));
+    printMetadata(node->metadata);
+
+    auto* symbol = node->an_GlVar.symbol;
+    std::cout << std::format("type={}, name={}, init=", typeToStr(symbol->type), symbol->name);
+    printExpr(node->an_GlVar.init_expr);
+
+    std::cout << ')';
+}
+
 static void printDef(AstDef* def) {
     switch (def->kind) {
     case AST_FUNC:
@@ -570,21 +581,14 @@ static void printDef(AstDef* def) {
     case AST_STRUCT:
         printStruct(def);
         break;
+    case AST_GLVAR:
+        printGlobalVar(def);
     default:
          Panic("ast printing not implemented for {}", (int)def->kind);
     }
 }
 
-static void printGlobalVar(AstGlobalVar* node) {
-    std::cout << std::format("GlobalVarDef(span={}, meta=", spanToStr(node->span));
-    printMetadata(node->metadata);
 
-    auto* symbol = node->symbol;
-    std::cout << std::format("type={}, name={}, init=", typeToStr(symbol->type), symbol->name);
-    printExpr(node->init_expr);
-
-    std::cout << ')';
-}
 
 /* -------------------------------------------------------------------------- */
 
@@ -593,18 +597,13 @@ static void printGlobalVar(AstGlobalVar* node) {
 
 void PrintModuleAst(const Module& mod) {
     std::cout << FULL_LINE;
-    std::cout << "module: " << mod.name << "\n\n";
+    std::cout << "module: " << mod.name;
 
     for (auto& src_file : mod.files) {
-        std::cout << "source file: " << src_file.display_path << '\n';
-        for (auto* def : src_file.defs) {
-            printDef(def);
-            std::cout << "\n\n";
-        }
-
-        for (auto* global_var : mod.global_vars) {
-            if (global_var->src_file->abs_path == src_file.abs_path) {
-                printGlobalVar(global_var);
+        std::cout << "\n\nsource file: " << src_file.display_path << "\n\n";
+        for (auto* def : mod.defs) {
+            if (def->parent_file_number == src_file.file_number) {
+                printDef(def);
                 std::cout << "\n\n";
             }
         }

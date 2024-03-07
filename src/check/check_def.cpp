@@ -23,12 +23,6 @@ struct SpecialMetadataInfo {
     bool expect_body;
 };
 
-enum {
-    META_FUNC,
-    META_VAR,
-    META_STRUCT
-};
-
 static std::unordered_map<std::string_view, SpecialMetadataInfo> special_metadata_table[] = {
     {
         { "extern", { {}, false, false } },
@@ -42,7 +36,7 @@ static std::unordered_map<std::string_view, SpecialMetadataInfo> special_metadat
     {}  // Structs
 };
 
-bool Checker::checkMetadata(const std::span<MetadataTag>& metadata, int meta_kind) {
+bool Checker::checkMetadata(const Metadata& metadata, AstKind meta_kind) {
     auto& special_meta = special_metadata_table[meta_kind];
     bool expect_body = true;
     for (auto& tag : metadata) {
@@ -72,7 +66,7 @@ bool Checker::checkMetadata(const std::span<MetadataTag>& metadata, int meta_kin
 /* -------------------------------------------------------------------------- */
 
 void Checker::checkFuncDef(AstDef* node) {    
-    bool expect_body = checkMetadata(node->metadata, META_FUNC);
+    bool expect_body = checkMetadata(node->metadata, node->kind);
     if (expect_body && node->an_Func.body == nullptr) {
         error(node->span, "function {} must have a body", node->an_Func.symbol->name);
     } else if (!expect_body && node->an_Func.body != nullptr) {
@@ -99,16 +93,18 @@ void Checker::checkFuncDef(AstDef* node) {
     popScope();
 }
 
-void Checker::checkGlobalVar(AstGlobalVar* node) {
-    bool expect_init = checkMetadata(node->metadata, META_VAR);
-    if (!expect_init && node->init_expr != nullptr) {
-        error(node->span, "external global variable {} cannot have an initializer", node->symbol->name);
+void Checker::checkGlobalVar(AstDef* node) {
+    auto& gl_var = node->an_GlVar;
+
+    bool expect_init = checkMetadata(node->metadata, node->kind);
+    if (!expect_init && gl_var.init_expr != nullptr) {
+        error(node->span, "external global variable {} cannot have an initializer", gl_var.symbol->name);
     }
 
-    if (node->init_expr) {
-        checkExpr(node->init_expr, node->symbol->type);
+    if (gl_var.init_expr) {
+        checkExpr(gl_var.init_expr, gl_var.symbol->type);
 
-        mustSubType(node->init_expr->span, node->init_expr->type, node->symbol->type);
+        mustSubType(gl_var.init_expr->span, gl_var.init_expr->type, gl_var.symbol->type);
 
         finishExpr();
     }
@@ -129,10 +125,10 @@ bool Checker::checkForInfType(Type* type, TypeCycle& cycle) {
     switch (type->kind) {
     case TYPE_NAMED: 
         if (type->ty_Named.mod_id == mod.id) {
-            auto it = explore_table.find(type->ty_Named.name);
+            auto it = type_explore_table.find(type->ty_Named.name);
 
-            if (it == explore_table.end()) {
-                explore_table.emplace(type->ty_Named.name, true);
+            if (it == type_explore_table.end()) {
+                type_explore_table.emplace(type->ty_Named.name, true);
 
                 bool is_cycle = checkForInfType(type->ty_Named.type, cycle);
                 if (is_cycle && !cycle.done) {
@@ -143,7 +139,7 @@ bool Checker::checkForInfType(Type* type, TypeCycle& cycle) {
                     }
                 }
 
-                explore_table[type->ty_Named.name] = false;
+                type_explore_table[type->ty_Named.name] = false;
                 return is_cycle;
             } else if (it->second) {
                 // Cycle!

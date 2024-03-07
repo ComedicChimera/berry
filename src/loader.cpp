@@ -123,6 +123,7 @@ void Loader::LoadAll(const std::string& root_mod) {
     }
 
     checkForImportCycles();
+    resolveNamedTypes();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -278,7 +279,7 @@ void Loader::resolveImports(const fs::path& local_path, Module& mod) {
         }
 
         for (auto& loc : dep.import_locs) {
-            ReportCompileError(loc.src_file.display_path, loc.span, "could not find module {}", fmt_mod_path);
+            ReportCompileError(mod.files[loc.file_number].display_path, loc.span, "could not find module {}", fmt_mod_path);
         }
     }
 }
@@ -375,7 +376,7 @@ void Loader::checkForImportCycles() {
             if (findCycle(mod, colors, cycle)) {
                 for (auto& loc : cycle.bad_dep->import_locs) {
                     ReportCompileError(
-                        loc.src_file.display_path,
+                        mod.files[loc.file_number].display_path,
                         loc.span,
                         "import of module {} creates cycle",
                         cycle.bad_dep->mod->name
@@ -396,6 +397,79 @@ void Loader::checkForImportCycles() {
                 }
 
                 ReportFatal("import cycle detected:\n\t{}", fmt_cycle);
+            }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+static bool resolveNamedInDep(Type* type, Module::Dependency& dep) {
+    auto& named = type->ty_Named;
+
+    auto it = dep.mod->symbol_table.find(named.name);
+    if (it != dep.mod->symbol_table.end()) {
+        auto& sentry = it->second;
+        if ((sentry.symbol->flags & SYM_EXPORTED) == 0) {
+            return false;
+        }
+
+        named.mod_id = dep.mod->id;
+        named.mod_name = dep.mod->name;
+        named.type = sentry.symbol->type->ty_Named.type;
+
+        dep.usages.insert(sentry.def_number);
+        return true;
+    }
+
+    return false;
+}
+
+void Loader::resolveNamedTypes() {
+    for (auto& mod : *this) {
+        auto& core_dep = mod.deps.back();
+
+        for (auto& pair : mod.named_table.internal_refs) {
+            auto& ref = pair.second;
+            auto& named = ref.named_type->ty_Named;
+
+            auto it = mod.symbol_table.find(named.name);
+            if (it != mod.symbol_table.end()) {
+                named.mod_id = mod.id;
+                named.mod_name = mod.name;
+                named.type = it->second.symbol->type->ty_Named.type;
+                continue;
+            }
+
+            if (!resolveNamedInDep(ref.named_type, core_dep)) {
+                for (auto& loc : ref.locs) {
+                    ReportCompileError(
+                        mod.files[loc.file_number].display_path,
+                        loc.span,
+                        "undefined symbol: {}", 
+                        named.name
+                    );
+                }
+            }        
+        }
+
+        for (size_t dep_id = 0; dep_id < mod.named_table.external_refs.size(); dep_id++) {
+            auto& dep = mod.deps[dep_id];
+
+            for (auto& pair : mod.named_table.external_refs[dep_id]) {
+                auto* named_type = pair.second.named_type;
+                
+                if (!resolveNamedInDep(named_type, dep)) {
+                    for (auto& loc : pair.second.locs) {
+                        ReportCompileError(
+                            mod.files[loc.file_number].display_path,
+                            loc.span,
+                            "module {} has no exported symbol named {}", 
+                            dep.mod->name, 
+                            named_type->ty_Named.name
+                        );
+                    }
+                }
             }
         }
     }

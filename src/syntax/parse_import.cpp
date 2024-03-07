@@ -69,7 +69,7 @@ size_t Parser::findOrAddModuleDep(const std::vector<Token>& tok_mod_path) {
         mod_path.emplace_back(std::move(tok.value));
     }
     
-    Module::ImportLoc import_loc { src_file, SpanOver(tok_mod_path.front().span, tok_mod_path.back().span) };
+    SourceLoc import_loc { src_file.file_number, SpanOver(tok_mod_path.front().span, tok_mod_path.back().span) };
     bool paths_matched = true;
     int i = 0;
     for (auto& dep : src_file.parent->deps) {

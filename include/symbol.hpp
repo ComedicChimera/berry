@@ -54,7 +54,15 @@ struct Symbol {
 
 struct SourceFile;
 struct AstDef;
-struct AstGlobalVar;
+
+// SourceLoc represents a source text location with respect to a known module.
+struct SourceLoc {
+    // file_number is the number of the file.
+    size_t file_number;
+
+    // span is the span in source text.
+    TextSpan span;        
+};
 
 // NamedTypeTable stores all the named types used by a given module.  It is an
 // extra bit of bookkeeping used to facilitate out-of-order resolution.
@@ -65,8 +73,8 @@ struct NamedTypeTable {
         // named_type refers to the named type that is still unresolved.
         Type* named_type;
 
-        // spans is the source locations of the named type reference.
-        std::vector<TextSpan> spans;
+        // locs is the source locations of the named type reference.
+        std::vector<SourceLoc> locs;
     };
 
     // internal_refs are all the refs which refer to types within the current
@@ -90,32 +98,20 @@ struct Module {
     // files is the list of files contained in the module.
     std::vector<SourceFile> files;
 
-    // global_vars is the global variable ASTs comprising the module.  These are
-    // arranged in the order that their initializers should be generated.
-    std::vector<AstGlobalVar*> global_vars;
+    // defs stores the definition ASTs comprising the module.
+    std::vector<AstDef*> defs;
 
     // SymbolTableEntry is an entry in the module's global symbol table.
     struct SymbolTableEntry {
         // symbol is the symbol contained in the entry.
         Symbol* symbol;
 
-        // file_number and def_number identify the global definition
-        // corresponding to the symbol.  For global variables, file_number is
-        // unused (set to 0).
-        size_t file_number, def_number;
+        // def_number identifies the global definition for the symbol.
+        size_t def_number;
     };
 
     // symbol_table is the module's global symbol table.
     std::unordered_map<std::string_view, SymbolTableEntry> symbol_table;
-
-    // ImportLoc represents a location where a dependency is imported.
-    struct ImportLoc {
-        // src_file is the file that performs the import.
-        SourceFile& src_file;
-
-        // span is the span of the module path in the import stmt.
-        TextSpan span;        
-    };
 
     // Dependency represents a module dependency.
     struct Dependency {
@@ -127,13 +123,14 @@ struct Module {
         // is its own entry in the mod_path vector.
         std::vector<std::string> mod_path;
 
-        // usages stores the exported symbols accesses through this dependency.
-        std::unordered_set<std::string_view> usages;
+        // usages stores the definition numbers exported symbols accessed
+        // through this dependency.
+        std::unordered_set<size_t> usages;
 
         // import_locs lists the locations where the dependency is imported.
-        std::vector<ImportLoc> import_locs;
+        std::vector<SourceLoc> import_locs;
 
-        Dependency(std::vector<std::string>&& mod_path_, ImportLoc&& loc)
+        Dependency(std::vector<std::string>&& mod_path_, SourceLoc&& loc)
         : mod(nullptr)
         , mod_path(std::move(mod_path_))
         , import_locs({std::move(loc)})
@@ -148,8 +145,17 @@ struct Module {
     // deps stores the module's dependencies.
     std::vector<Dependency> deps;
 
-    // named_table stores the module's named type dependencies.
+    // named_table stores the module's named type dependencies.  This is an
+    // extra bit of bookkeeping used to resolve out-of-order named types
+    // efficiently. It is a bit clunky, and I don't love it, but it seems like
+    // the best way to handle the situation without a lot of extra complication.
+    // The whole out-of-order declaration thing is very irritating to deal with.
     NamedTypeTable named_table;
+
+    // init_order is the order in which the module's global variables should be
+    // initialized.  This is computed when the module is checked and used by the
+    // backend to generate initialization code.
+    std::vector<size_t> init_order;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -159,7 +165,7 @@ struct SourceFile {
     // parent is the module the file is apart of.
     Module* parent;
 
-    // file_number uniquely identifies the file within its parent module.
+    // file_number uniquely identifies the source file within its parent module.
     size_t file_number;
     
     // abs_path is the absolute path to the file.
@@ -167,9 +173,6 @@ struct SourceFile {
 
     // display_path is the path displayed to the user to identify the file.
     std::string display_path;
-
-    // defs is the definition ASTs comprising the source file
-    std::vector<AstDef*> defs;
 
     // import_table stores the package's imports.
     std::unordered_map<std::string_view, size_t> import_table;

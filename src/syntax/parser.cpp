@@ -95,7 +95,6 @@ void Parser::defineGlobal(Symbol* symbol, size_t def_number) {
     if (it == src_file.parent->symbol_table.end()) {
         src_file.parent->symbol_table.emplace(symbol->name, Module::SymbolTableEntry{
             symbol,
-            src_file.file_number,
             def_number
         });
     } else {

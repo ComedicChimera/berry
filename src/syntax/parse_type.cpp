@@ -149,6 +149,6 @@ Type* Parser::parseNamedTypeLabel() {
         ref->named_type = named_type;
     }
         
-    ref->spans.push_back(prev.span);
+    ref->locs.emplace_back(src_file.file_number, prev.span);
     return ref->named_type;
 }

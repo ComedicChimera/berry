@@ -38,9 +38,24 @@ class Checker {
     // in every module except the core module itself.
     Module::Dependency* core_dep;
 
-    // explore_table keeps track of which named types have been expanded to
-    // check for infinite recursive types.
-    std::unordered_map<std::string_view, bool> explore_table;
+    // type_explore_table keeps track of which named types have been expanded to
+    // check for infinite recursive types.  The entries in this table correspond
+    // directly to graph colors in three-color DFS:
+    // No entry = White
+    // True entry = Grey
+    // False entry = Black
+    std::unordered_map<std::string_view, bool> type_explore_table;
+
+    // InitNode is a node in the init_graph.
+    struct InitNode {
+        std::vector<size_t> edges;
+        GColor color;
+        bool is_global_var;
+    };
+
+    // init_graph is used to determine global variable initialization ordering
+    // and to check for initialization cycles.
+    std::vector<InitNode> init_graph;
 
 public:
     // Creates a new checker for src_file allocating in arena.
@@ -50,14 +65,10 @@ public:
     void CheckModule();
 
 private:
-    void resolveNamedTypes();
-
-    /* ---------------------------------------------------------------------- */
-    
     void checkDef(AstDef* def);
-    bool checkMetadata(const std::span<MetadataTag>& metadata, int meta_kind);
+    bool checkMetadata(const Metadata& metadata, AstKind meta_kind);
     void checkFuncDef(AstDef* node);
-    void checkGlobalVar(AstGlobalVar* node);
+    void checkGlobalVar(AstDef* node);
 
     struct TypeCycle {
         std::vector<Type*> nodes;

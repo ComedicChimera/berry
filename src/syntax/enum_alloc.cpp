@@ -6,6 +6,7 @@ static AstDef size_ref_def { };
 
 static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_def.an_Func),
+    sizeof(size_ref_def.an_GlVar),
     sizeof(size_ref_def.an_Struct),
 
     sizeof(size_ref_stmt.an_Block),
@@ -48,7 +49,7 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
 #define LARGEST_STMT_VARIANT_SIZE sizeof(size_ref_stmt.an_For)
 #define LARGEST_EXPR_VARIANT_SIZE sizeof(size_ref_expr.an_Field)
 
-std::span<MetadataTag> Parser::moveMetadataToArena(MetadataMap&& meta_map) {
+Metadata Parser::moveMetadataToArena(MetadataMap&& meta_map) {
     auto n_meta = meta_map.size();
     auto* metadata = (MetadataTag*)arena.Alloc(sizeof(MetadataTag) * n_meta);
 
@@ -59,7 +60,7 @@ std::span<MetadataTag> Parser::moveMetadataToArena(MetadataMap&& meta_map) {
     }
 
     meta_map.clear();
-    return std::span<MetadataTag>(metadata, n_meta);
+    return Metadata(metadata, n_meta);
 }
 
 AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, MetadataMap&& meta_map) {
@@ -71,6 +72,7 @@ AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, MetadataMap&& meta_
     auto* def = (AstDef*)arena.Alloc(full_size);
     def->kind = kind;
     def->span = span;
+    def->parent_file_number = src_file.file_number;
     def->metadata = moveMetadataToArena(std::move(meta_map));
 
     return def;
