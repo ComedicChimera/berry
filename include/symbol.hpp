@@ -22,7 +22,8 @@ enum {
     SYM_FUNC = 1,   // Function
     SYM_TYPE = 2,   // Type Definition
 
-    SYM_EXPORTED = 4  // Symbol is publically visible
+    SYM_EXPORTED = 4,   // Symbol is publically visible
+    SYM_COMPTIME = 8    // Symbol is compile-time constant
 };
 typedef int SymbolFlags;
 

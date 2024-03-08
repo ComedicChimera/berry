@@ -23,10 +23,8 @@ AstStmt* Parser::parseStmt() {
 
     switch (tok.kind) {
     case TOK_LET:
-        stmt = parseLocalVarDef(false);
-        break;
     case TOK_CONST:
-        stmt = parseLocalVarDef(true);
+        stmt = parseLocalVarDef();
         break;
     case TOK_BREAK:
         next();
@@ -157,7 +155,7 @@ AstStmt* Parser::parseForLoop() {
 
     AstStmt* var_def { nullptr };
     if (has(TOK_LET)) {
-        var_def = parseLocalVarDef(false);
+        var_def = parseLocalVarDef();
     }
 
     want(TOK_SEMI);
@@ -201,8 +199,9 @@ AstStmt* Parser::maybeParseElse() {
 
 /* -------------------------------------------------------------------------- */
 
-AstStmt* Parser::parseLocalVarDef(bool immut) {
+AstStmt* Parser::parseLocalVarDef() {
     auto start_span = tok.span;
+    bool comptime = tok.kind == TOK_CONST;
     want(TOK_LET);
 
     auto name_tok = wantAndGet(TOK_IDENT);
@@ -228,9 +227,9 @@ AstStmt* Parser::parseLocalVarDef(bool immut) {
         src_file.parent->id,
         arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
-        SYM_VAR,
+        comptime ? SYM_VAR | SYM_COMPTIME : SYM_VAR,
         type,
-        immut
+        comptime
     );
 
     auto* alocal = allocStmt(AST_LOCAL_VAR, SpanOver(start_span, end_span));

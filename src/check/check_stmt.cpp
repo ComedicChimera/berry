@@ -128,7 +128,12 @@ void Checker::checkLocalVar(AstStmt* node) {
     auto& alocal = node->an_LocalVar;
 
     if (alocal.init != nullptr) {
+        is_comptime_expr = true;
         checkExpr(alocal.init, alocal.symbol->type); 
+
+        if (alocal.symbol->flags & SYM_COMPTIME && !is_comptime_expr) {
+            error(node->span, "constant initializer must be computable at compile-time");
+        }
 
         if (alocal.symbol->type == nullptr) {
             alocal.symbol->type = alocal.init->type;
@@ -144,7 +149,7 @@ void Checker::checkLocalVar(AstStmt* node) {
 
 void Checker::mustBeAssignable(AstExpr* expr) {
     if (!expr->IsLValue()) {
-        error(expr->span, "cannot assign to an r-value");
+        error(expr->span, "cannot assign to an unaddressable value");
     }
 
     if (expr->immut) {

@@ -52,7 +52,7 @@ private:
     void parseDef(MetadataMap &&meta, bool exported);
     void parseFuncDef(MetadataMap &&meta, bool exported);
     void parseFuncParams(std::vector<Symbol *> &params);
-    void parseGlobalVarDef(MetadataMap &&meta, bool exported, bool immut);
+    void parseGlobalVarDef(MetadataMap &&meta, bool exported);
     void parseStructDef(MetadataMap &&meta, bool exported);
 
     /* ---------------------------------------------------------------------- */
@@ -66,7 +66,7 @@ private:
     AstStmt* parseForLoop();
     AstStmt* maybeParseElse();
 
-    AstStmt* parseLocalVarDef(bool immut);
+    AstStmt* parseLocalVarDef();
     AstStmt* parseExprAssignStmt();
 
     /* ---------------------------------------------------------------------- */

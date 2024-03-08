@@ -56,6 +56,10 @@ class Checker {
     // and to check for initialization cycles.
     std::vector<InitNode> init_graph;
 
+    // is_comptime_expr is a flag set by `checkExpr` to indicate whether the
+    // given expression is comptime.  
+    bool is_comptime_expr { false };
+
 public:
     // Creates a new checker for src_file allocating in arena.
     Checker(Arena& arena, Module& mod);

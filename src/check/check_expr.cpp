@@ -25,6 +25,10 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
     case AST_ADDR:
         checkExpr(node->an_Addr.elem);
 
+        if (!node->an_Addr.elem->IsLValue()) {
+            error(node->span, "cannot take address of unaddressable value");
+        }
+
         node->type = AllocType(arena, TYPE_PTR);
         node->type->ty_Ptr.elem_type = node->an_Addr.elem->type;
         break;
@@ -86,7 +90,6 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
     default:
         Panic("checking not implemented for expr {}", (int)node->kind);
     }
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -107,6 +110,8 @@ void Checker::checkDeref(AstExpr* node) {
 }
 
 void Checker::checkCall(AstExpr* node) {
+    is_comptime_expr = false;
+
     auto& call = node->an_Call;
 
     checkExpr(call.func);
@@ -200,6 +205,10 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
                     fatal(node->span, "cannot use type as value");
                 } else if (expect_type && (imported_sym->flags & SYM_TYPE)) {
                     fatal(node->span, "expected type not value");
+                }
+
+                if ((imported_sym->flags & SYM_COMPTIME) == 0) {
+                    is_comptime_expr = false;
                 }
                 
                 fld.imported_sym = imported_sym;
@@ -310,6 +319,10 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node, bool expect_ty
         fatal(node->span, "expected type not value");
     }
 
+    if ((sym->flags & SYM_COMPTIME) == 0) {
+        is_comptime_expr = false;
+    }
+
     node->an_Ident.symbol = sym;
     node->type = sym->type;
     node->immut = sym->immut;
@@ -351,10 +364,22 @@ void Checker::checkArray(AstExpr* node, Type* infer_type) {
 }
 
 void Checker::checkNewExpr(AstExpr* node) {
+    node->an_New.alloc_mode = A_ALLOC_STACK;
+
     auto* size_expr = node->an_New.size_expr;
     if (size_expr) {
         // TODO: platform int type
+        bool outer_is_comptime = is_comptime_expr;
+        is_comptime_expr = true;
         checkExpr(size_expr, &prim_i64_type);
+
+        if (!is_comptime_expr) {
+            node->an_New.alloc_mode = A_ALLOC_HEAP;
+            outer_is_comptime = false;
+        }
+
+        is_comptime_expr = outer_is_comptime;
+
         mustIntType(size_expr->span, size_expr->type);
 
         node->type = AllocType(arena, TYPE_ARRAY);
@@ -364,11 +389,9 @@ void Checker::checkNewExpr(AstExpr* node) {
         node->type->ty_Ptr.elem_type = node->an_New.elem_type;
     }
 
-    // TODO: check for non-comptime sizes/dynamic allocation
-    if (enclosing_return_type == nullptr) {
+    
+    if (enclosing_return_type == nullptr && node->an_New.alloc_mode == A_ALLOC_STACK) {
         node->an_New.alloc_mode = A_ALLOC_GLOBAL;
-    } else {
-        node->an_New.alloc_mode = A_ALLOC_STACK;
     }
 }
 
