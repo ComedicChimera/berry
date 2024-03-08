@@ -3,12 +3,50 @@
 This file lists some of the *planned* features for Berry.  These are mostly just
 design ideas I have had as I have been working on it.
 
+## Constructors
+
+Constructors are special functions that can be defined for any type using an
+interface binding. They use the syntax:
+
+```
+constructor() Type {
+
+}
+```
+
+where `Type` can either be the type being constructed or a pointer to it.  For
+example, the constructor for a `List[T]` returns `*List[T]`.  Note that unlike
+most OOP languages, constructors in Berry are just special functions: they are
+responsible for creating the instance of the type.  Using the `List[T]` example,
+the constructor for a list would look like:
+
+```
+constructor() *List[T] {
+    return new List{
+        .arr = new T[LIST_INIT_SIZE],
+        ._len = 0
+    };
+}
+```
+
+Constructors are invoked by directly calling the type you want to construct:
+
+```
+let list = List[int]();  // Calls the List constructor
+```
+
+Constructors can be overloaded like regular functions: a type can have multiple
+constructors with different signatures.
+
+Note that because we are now supporting constructors, static methods are no
+longer "necessary" or idiomatic.  They will be removed as a planned feature.
+
 ## Conditional Binding
 
 Create chaining contexts using specialized `if` statements and `while` loops.
 These syntax and semantics replace the old notion of a "context manager".
 
-```berry
+```
 if x <- fn() {
     // ...
 } else Err(e) {
@@ -30,7 +68,7 @@ return value of the enclosing function.
 
 The question-mark operator works much like it does in Rust.
 
-```berry
+```
 next()?; // Fails to enclosing chain context
 ```
 
@@ -50,7 +88,7 @@ To make over multiple possibilities in a case clause, match expression or
 test-match expression, we use pipes `|` in the patterns rather than `,` (to
 allow for implicit, ergonomic tuple unpacking).
 
-```berry
+```
 // Match Case
 match peek()? {
 case '\r' | '\t' | '\v' | '\f' | ' ' | '\n':
@@ -179,10 +217,6 @@ func List[T].Foo() {
     // Members are accessible w/o need for explicit self-reference.
 }
 
-static func List[T].StaticFoo() {
-    // Static method
-}
-
 func List[T = int].Foo() {
     // Generic Specialization
 }
@@ -194,9 +228,6 @@ Option B: "Interface/Java Style":
 interf for List[T] {
     // Regular Method
     func Foo();
-
-    // Static method
-    static func Foo();
 }
 
 interf for List[T = int] {
