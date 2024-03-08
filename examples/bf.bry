@@ -46,9 +46,9 @@ func lex_op(file: *fs.File) Result[OpKind] {
 }
 
 func parse_ops(file: *fs.File) Result[[]Op] {
-	let ops = List[Op].new();
+	let ops = List[Op]();
 
-	let backpatches = List[int].new();
+	let backpatches = List[int]();
 	let curr_op = Op{.Add, 0};
 	while op_kind <- lex_op() {
 		match op_kind {
@@ -96,7 +96,7 @@ func parse_ops(file: *fs.File) Result[[]Op] {
 }
 
 func interpret(ops: []Op) Result[unit] {
-	let mem = List[u8].new();
+	let mem = List[u8]();
 	let ptr = 0, ip = 0;
 	
 	for ; ip < ops.len(); i++ {
