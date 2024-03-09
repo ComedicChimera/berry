@@ -70,8 +70,8 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
     case AST_STATIC_GET: {
         auto& afield = node->an_Field;
 
-        auto* ll_value = loaded_imports[afield.root->an_Ident.dep_id][afield.imported_sym->export_num];
-        if (!expect_addr && afield.imported_sym->kind == SYM_VAR && !shouldPtrWrap(node->type)) {
+        auto* ll_value = loaded_imports[afield.root->an_Ident.dep_id][afield.imported_sym->name];
+        if (!expect_addr && (afield.imported_sym->flags & SYM_VAR) && !shouldPtrWrap(node->type)) {
             return irb.CreateLoad(genType(node->type), ll_value);
         }
 

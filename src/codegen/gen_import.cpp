@@ -2,20 +2,20 @@
 
 void CodeGenerator::genImports() {
     size_t i = 0;
-    for (auto& dep : bry_mod.deps) {
-        for (auto export_num : dep.usages) {
-            auto& entry = dep.mod->export_table[export_num];
+    for (auto& dep : src_mod.deps) {
+        for (auto def_num : dep.usages) {
+            auto* def = dep.mod->defs[def_num];
 
-            switch (entry.def->kind) {
+            switch (def->kind) {
             case AST_FUNC:
-                loaded_imports[i].emplace(export_num, genImportFunc(*dep.mod, entry.def));
+                loaded_imports[i].emplace(def->an_Func.symbol->name, genImportFunc(*dep.mod, def));
                 break;
-            case AST_GLOBAL_VAR:
-                loaded_imports[i].emplace(export_num, genImportGlobalVar(*dep.mod, entry.def));
+            case AST_GLVAR:
+                loaded_imports[i].emplace(def->an_GlVar.symbol->name, genImportGlobalVar(*dep.mod, def));
                 break;
-            case AST_STRUCT_DEF:
+            case AST_STRUCT:
                 // TODO: handle struct metadata
-                genType(entry.def->an_StructDef.symbol->type);
+                genType(def->an_Struct.symbol->type);
                 break;
             }
         }
@@ -58,7 +58,7 @@ llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, AstDef* node) {
 }
 
 llvm::Value* CodeGenerator::genImportGlobalVar(Module& imported_mod, AstDef* node) {
-    auto* symbol = node->an_GlobalVar.symbol;
+    auto* symbol = node->an_GlVar.symbol;
 
     auto* ll_type = genType(symbol->type);
 

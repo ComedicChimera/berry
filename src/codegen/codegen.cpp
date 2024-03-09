@@ -9,23 +9,26 @@ void CodeGenerator::GenerateModule() {
 
     genImports();
 
-    for (auto& file : bry_mod.files) {
+    for (auto& file : src_mod.files) {
         debug.EmitFileInfo(file);
-        debug.SetCurrentFile(file);
+    }
 
-        for (auto* def : file.defs) {
-            genTopDecl(def);
-        }
+    for (auto* def : src_mod.defs) {
+        debug.SetCurrentFile(src_mod.files[def->parent_file_number]);
+
+        genTopDecl(def);
     }
 
     genRuntimeStubs();
 
-    for (auto& file : bry_mod.files) {
-        debug.SetCurrentFile(file);
+    for (size_t def_num : src_mod.init_order) {
+        genGlobalVarInit(src_mod.defs[def_num]);
+    }
 
-        for (auto* def : file.defs) {
-            genPredicates(def);
-        }
+    for (auto* def : src_mod.defs) {
+        debug.SetCurrentFile(src_mod.files[def->parent_file_number]);
+
+        genPredicates(def);
     }
 
     finishModule();    
@@ -49,7 +52,7 @@ void CodeGenerator::genRuntimeStubs() {
     ll_init_func = llvm::Function::Create(
         rt_stub_func_type, 
         llvm::Function::ExternalLinkage, 
-        std::format("__berry_init_mod${}", bry_mod.id), 
+        std::format("__berry_init_mod${}", src_mod.id), 
         mod
     );
     ll_init_block = llvm::BasicBlock::Create(ctx, "entry", ll_init_func);
@@ -85,11 +88,11 @@ void CodeGenerator::finishModule() {
     setCurrentBlock(ll_init_block);
 
     // Call user specified init function if there is any.
-    auto it = bry_mod.symbol_table.find("init");
-    if (it != bry_mod.symbol_table.end()) {
-        auto sym = it->second;
+    auto it = src_mod.symbol_table.find("init");
+    if (it != src_mod.symbol_table.end()) {
+        auto sym = it->second.symbol;
         if (
-            sym->kind == SYM_FUNC && 
+            (sym->flags & SYM_FUNC) && 
             sym->type->kind == TYPE_FUNC &&
             sym->type->ty_Func.param_types.size() == 0 && 
             sym->type->ty_Func.return_type->kind == TYPE_UNIT
@@ -100,7 +103,7 @@ void CodeGenerator::finishModule() {
             );
         }
     }
-    
+
     // End the init block.
     irb.CreateRetVoid();
 
@@ -171,6 +174,7 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
         return llvm::FunctionType::get(ll_return_type, ll_param_types, false);
     } break;
     case TYPE_ARRAY: 
+    case TYPE_STRING:
         return ll_array_type;
     case TYPE_STRUCT:
         return genNamedBaseType(type, alloc_type, "");     

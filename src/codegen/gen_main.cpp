@@ -6,15 +6,15 @@ struct InitGenerator {
     llvm::IRBuilder<>& irb;
     std::vector<bool>& visited;
 
-    void GenInitCalls(Module& bry_mod) {
+    void GenInitCalls(Module& src_mod) {
         // Make sure we don't visit modules multiple times.
-        if (visited[bry_mod.id])
+        if (visited[src_mod.id])
             return;
 
-        visited[bry_mod.id] = true;
+        visited[src_mod.id] = true;
 
         // Generate the init calls for all the child modules of this one first.
-        for (auto& dep : bry_mod.deps) {
+        for (auto& dep : src_mod.deps) {
             GenInitCalls(*dep.mod);
         }
 
@@ -22,7 +22,7 @@ struct InitGenerator {
         auto* ll_init_func = llvm::Function::Create(
             rt_stub_func_type,
             llvm::Function::ExternalLinkage,
-            std::format("__berry_init_mod${}", bry_mod.id),
+            std::format("__berry_init_mod${}", src_mod.id),
             main_mod
         );
 
@@ -70,8 +70,8 @@ void Loader::GenerateMainModule(llvm::Module& main_mod, bool needs_user_main) {
             ReportFatal("input module does not have a main function");
         }
 
-        auto* sym = it->second;
-        if (sym->kind != SYM_FUNC || sym->type->kind != TYPE_FUNC) {
+        auto* sym = it->second.symbol;
+        if ((sym->flags & SYM_FUNC) || sym->type->kind != TYPE_FUNC) {
             ReportFatal("input module does not have a main function");
         }
 

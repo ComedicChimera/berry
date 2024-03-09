@@ -472,15 +472,15 @@ llvm::Value* CodeGenerator::genIdent(AstExpr* node, bool expect_addr) {
     Assert(symbol != nullptr, "unresolved symbol in codegen");
 
     llvm::Value* ll_value;
-    if (symbol->parent_id != bry_mod.id) {
-        Assert(symbol->export_num != UNEXPORTED, "unexported core symbol used in codegen");
+    if (symbol->parent_id != src_mod.id) {
+        Assert((symbol->flags & SYM_EXPORTED) == 0, "unexported core symbol used in codegen");
         
-        ll_value = loaded_imports.back()[symbol->export_num];
+        ll_value = loaded_imports.back()[symbol->name];
     } else {
         ll_value = symbol->llvm_value;
     }
     
-    if (symbol->kind == SYM_VAR && !expect_addr && !shouldPtrWrap(node->type)) {
+    if ((symbol->flags & SYM_VAR) && !expect_addr && !shouldPtrWrap(node->type)) {
         return irb.CreateLoad(genType(node->type), ll_value);
     } else {
         return ll_value;

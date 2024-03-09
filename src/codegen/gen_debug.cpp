@@ -127,11 +127,11 @@ void DebugGenerator::EmitGlobalVariableInfo(AstDef* node, llvm::GlobalVariable* 
 
     auto* ll_di_gv = db.createGlobalVariableExpression(
         curr_file,
-        node->an_GlobalVar.symbol->name,
+        node->an_GlVar.symbol->name,
         is_external ? "external" : "private",
         curr_file,
         node->span.start_line,
-        GetDIType(node->an_GlobalVar.symbol->type),
+        GetDIType(node->an_GlVar.symbol->type),
         !is_external
     );
 
@@ -247,7 +247,7 @@ llvm::DIType* DebugGenerator::GetDIType(Type* type, uint call_conv) {
             call_conv
         );
     }
-    case TYPE_ARRAY: case TYPE_STRUCT: case TYPE_NAMED:
+    case TYPE_ARRAY: case TYPE_STRUCT: case TYPE_NAMED: case TYPE_STRING:
         // TODO: unimplemented
         return prim_type_table[1];
     }

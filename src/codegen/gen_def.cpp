@@ -11,12 +11,12 @@ void CodeGenerator::genTopDecl(AstDef* def) {
     case AST_FUNC:
         genFuncProto(def);
         break;
-    case AST_GLOBAL_VAR:
+    case AST_GLVAR:
         genGlobalVarDecl(def);
         break;
-    case AST_STRUCT_DEF:
+    case AST_STRUCT:
         // TODO: handle struct metadata
-        genType(def->an_StructDef.symbol->type, true);
+        genType(def->an_Struct.symbol->type, true);
         break;
     default:
         Panic("top declaration codegen not implemented for {}", (int)def->kind);
@@ -30,10 +30,7 @@ void CodeGenerator::genPredicates(AstDef* def) {
             genFuncBody(def);
         }
         break;
-    case AST_GLOBAL_VAR:
-        genGlobalVarInit(def);
-        break;
-    case AST_STRUCT_DEF:
+    case AST_STRUCT:
         // Nothing to do here :)
         break;
     default:
@@ -52,7 +49,7 @@ void CodeGenerator::genFuncProto(AstDef* node) {
     auto* ll_func_type = llvm::dyn_cast<llvm::FunctionType>(ll_type);
 
     bool should_mangle = true;
-    bool exported = symbol->export_num != UNEXPORTED;
+    bool exported = symbol->flags & SYM_EXPORTED;
     llvm::CallingConv::ID cconv = llvm::CallingConv::C;
     for (auto& tag : node->metadata) {
         if (tag.name == "extern" || tag.name == "abientry") {
@@ -146,19 +143,20 @@ void CodeGenerator::genFuncBody(AstDef* node) {
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::genGlobalVarDecl(AstDef* node) {
-    auto* symbol = node->an_GlobalVar.symbol;
+    auto* symbol = node->an_GlVar.symbol;
 
     auto* ll_type = genType(symbol->type);
 
     // TODO: handle metadata
     Assert(node->metadata.size() == 0, "metadata for global variables not implemented");
     
-    bool exported = symbol->export_num != UNEXPORTED;
+    bool exported = symbol->flags & SYM_EXPORTED;
     auto gv = new llvm::GlobalVariable(
         mod, 
         ll_type, 
-        false, 
+        symbol->immut, 
         exported ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage, 
+        // TODO: gen comptime inits
         llvm::Constant::getNullValue(ll_type), 
         mangleName(symbol->name)
     );
@@ -168,7 +166,7 @@ void CodeGenerator::genGlobalVarDecl(AstDef* node) {
 }
 
 void CodeGenerator::genGlobalVarInit(AstDef* node) {
-    if (!node->an_GlobalVar.init) {
+    if (!node->an_GlVar.init_expr || node->an_GlVar.const_init) {
         return;
     }
 
@@ -178,7 +176,7 @@ void CodeGenerator::genGlobalVarInit(AstDef* node) {
     setCurrentBlock(ll_init_block);
 
     ll_enclosing_func = ll_init_func;
-    genStoreExpr(node->an_GlobalVar.init, node->an_GlobalVar.symbol->llvm_value);
+    genStoreExpr(node->an_GlVar.init_expr, node->an_GlVar.symbol->llvm_value);
     ll_enclosing_func = nullptr;
     
     ll_init_block = getCurrentBlock();
@@ -189,7 +187,7 @@ void CodeGenerator::genGlobalVarInit(AstDef* node) {
 /* -------------------------------------------------------------------------- */
 
 std::string CodeGenerator::mangleName(std::string_view name) {
-    return std::format("_br7${}.{}.{}", bry_mod.id, bry_mod.name, name);
+    return std::format("_br7${}.{}.{}", src_mod.id, src_mod.name, name);
 }
 
 std::string CodeGenerator::mangleName(Module& imported_bry_mod, std::string_view name) {
