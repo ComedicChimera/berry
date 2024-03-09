@@ -18,7 +18,7 @@ don't always get time (or energy) to work on it.
 
 - [x] Target 4: Modules and Multi-File Projects
 
-- [ ] Target 5: Structs
+- [x] Target 5: Structs
 
 - [ ] Target 6: Constants and Global Initializers
     * Init Ordering and Cycle Detection
