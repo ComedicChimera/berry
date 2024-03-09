@@ -18,12 +18,17 @@ namespace llvm {
 
 // SymbolFlags enumerates the possible flags that can be set on symbols.
 enum {
-    SYM_VAR = 0,    // Variable
-    SYM_FUNC = 1,   // Function
-    SYM_TYPE = 2,   // Type Definition
+    // Symbol Kinds
+    SYM_VAR = 1,    // Variable
+    SYM_FUNC = 2,   // Function
+    SYM_TYPE = 4,   // Type Definition
+    SYM_CONST = 8,  // Constant 
 
-    SYM_EXPORTED = 4,   // Symbol is publically visible
-    SYM_COMPTIME = 8    // Symbol is compile-time constant
+    // Symbol Modifiers
+    SYM_EXPORTED = 16,  // Symbol is publically visible
+
+    // Useful Flag Combinations (for condition checking)
+    SYM_COMPTIME = SYM_FUNC | SYM_TYPE | SYM_CONST  // Symbol is compile-time constant
 };
 typedef int SymbolFlags;
 

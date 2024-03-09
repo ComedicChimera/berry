@@ -203,7 +203,7 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
 
                 if (!expect_type && (imported_sym->flags & SYM_TYPE)) {
                     fatal(node->span, "cannot use type as value");
-                } else if (expect_type && (imported_sym->flags & SYM_TYPE)) {
+                } else if (expect_type && (imported_sym->flags & SYM_TYPE) == 0) {
                     fatal(node->span, "expected type not value");
                 }
 
@@ -315,7 +315,7 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node, bool expect_ty
     
     if (!expect_type && (sym->flags & SYM_TYPE)) {
         fatal(node->span, "cannot use type as value");
-    } else if (expect_type && (sym->flags & SYM_TYPE)) {
+    } else if (expect_type && (sym->flags & SYM_TYPE) == 0) {
         fatal(node->span, "expected type not value");
     }
 

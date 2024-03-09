@@ -227,7 +227,7 @@ AstStmt* Parser::parseLocalVarDef() {
         src_file.parent->id,
         arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
-        comptime ? SYM_VAR | SYM_COMPTIME : SYM_VAR,
+        comptime ? SYM_CONST : SYM_VAR,
         type,
         comptime
     );

@@ -115,15 +115,11 @@ void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
     func_type->ty_Func.param_types = arena.MoveVec(std::move(param_types));
     func_type->ty_Func.return_type = return_type;
 
-    SymbolFlags flags = SYM_FUNC | SYM_COMPTIME;
-    if (exported)
-        flags |= SYM_EXPORTED;
-
     Symbol* symbol = arena.New<Symbol>(
         src_file.parent->id,
         arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
-        flags,
+        exported ? SYM_FUNC | SYM_EXPORTED : SYM_FUNC,
         func_type,
         true
     );
@@ -188,11 +184,9 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
     auto end_span = tok.span;
     want(TOK_SEMI);
 
-    SymbolFlags flags = SYM_VAR;
+    SymbolFlags flags = comptime ? SYM_CONST : SYM_VAR;
     if (exported)
         flags |= SYM_EXPORTED;
-    if (comptime)
-        flags |= SYM_COMPTIME;
 
     Symbol* symbol = arena.New<Symbol>(
         src_file.parent->id,
@@ -272,15 +266,11 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
     named_type->ty_Named.name = arena.MoveStr(std::move(name_tok.value));
     named_type->ty_Named.type = struct_type;
 
-    SymbolFlags flags = SYM_TYPE | SYM_COMPTIME;
-    if (exported)
-        flags |= SYM_EXPORTED;
-
     auto* symbol = arena.New<Symbol>(
         src_file.parent->id,
         named_type->ty_Named.name,
         name_tok.span,
-        flags,
+        exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
         named_type,
         false
     );

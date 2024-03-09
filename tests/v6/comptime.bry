@@ -72,7 +72,7 @@ func main() {
     std.puts(name);
     std.putr('\n');
 
-    std.pur(first_char as i32);
+    std.putr(first_char as i32);
     std.putr('\n');
 
     std.puts(first_name);
