@@ -1,42 +1,5 @@
 #include "codegen.hpp"
 
-void CodeGenerator::genStoreExpr(AstExpr* node, llvm::Value* dest) {
-    auto src = genExpr(node, false, dest);
-    if (src != nullptr) {
-        auto* ll_type = genType(node->type, true);
-        if (node->IsLValue() && shouldPtrWrap(ll_type)) {
-            genStructCopy(ll_type, src, dest);
-        } else {
-            irb.CreateStore(src, dest);
-        }
-    }
-}
-
-void CodeGenerator::genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest) {
-    auto pref_align = layout.getPrefTypeAlign(llvm_struct_type);
-
-    irb.CreateMemCpy(
-        dest,
-        pref_align,
-        src,
-        pref_align,
-        getPlatformIntConst(getLLVMTypeByteSize(llvm_struct_type))
-    );
-}
-
-llvm::Value* CodeGenerator::genStackAlloc(Type* type) {
-    auto* curr_block = getCurrentBlock();
-    setCurrentBlock(var_block);
-
-    auto* llvm_value = irb.CreateAlloca(genType(type, true));
-
-    setCurrentBlock(curr_block);
-
-    return llvm_value;
-}
-
-/* -------------------------------------------------------------------------- */
-
 llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value* alloc_loc) {
     debug.SetDebugLocation(node->span);
 

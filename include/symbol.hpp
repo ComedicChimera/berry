@@ -28,7 +28,7 @@ enum {
     SYM_EXPORTED = 16,  // Symbol is publically visible
 
     // Useful Flag Combinations (for condition checking)
-    SYM_COMPTIME = SYM_FUNC | SYM_TYPE | SYM_CONST  // Symbol is compile-time constant
+    SYM_COMPTIME = SYM_FUNC | SYM_TYPE | SYM_CONST // Symbol is compile-time constant
 };
 typedef int SymbolFlags;
 

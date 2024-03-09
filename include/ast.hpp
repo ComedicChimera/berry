@@ -167,6 +167,7 @@ struct AstExpr : public AstNode {
         struct {
             AstExpr* func;
             std::span<AstExpr*> args;
+            AstAllocMode alloc_mode;
         } an_Call;
 
         struct {

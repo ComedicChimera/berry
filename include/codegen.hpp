@@ -169,6 +169,12 @@ public:
     void GenerateModule();
 
 private:
+    void createBuiltinGlobals();
+    void genRuntimeStubs();
+    void finishModule();
+
+    /* ---------------------------------------------------------------------- */
+
     void genImports();
     llvm::Value* genImportFunc(Module &imported_mod, AstDef* node);
     llvm::Value* genImportGlobalVar(Module &imported_mod, AstDef* node);
@@ -195,11 +201,11 @@ private:
     void genAssign(AstStmt* node);
     void genIncDec(AstStmt* node);
 
-    /* ---------------------------------------------------------------------- */
+    LoopContext& getLoopCtx();
+    void pushLoopContext(llvm::BasicBlock *break_block, llvm::BasicBlock* continue_block);
+    void popLoopContext();
 
-    void genStoreExpr(AstExpr* node, llvm::Value* dest);
-    void genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest);
-    llvm::Value* genStackAlloc(Type* type);
+    /* ---------------------------------------------------------------------- */
 
     llvm::Value* genExpr(AstExpr* expr, bool expect_addr = false, llvm::Value* alloc_loc = nullptr);
     llvm::Value* genCast(AstExpr* node);
@@ -220,9 +226,34 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    void createBuiltinGlobals();
-    void genRuntimeStubs();
-    void finishModule();
+    void genStoreExpr(AstExpr* node, llvm::Value* dest);
+    void genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest);
+
+    inline llvm::Value* genAlloc(Type* type, AstAllocMode mode) { return genAlloc(genType(type, true), mode); }
+    llvm::Value* genAlloc(llvm::Type* llvm_type, AstAllocMode mode);
+
+    llvm::Value* getArrayData(llvm::Value* array);
+    llvm::Value* getArrayLen(llvm::Value *array);
+    llvm::Value* getArrayDataPtr(llvm::Value* array_ptr);
+    llvm::Value* getArrayLenPtr(llvm::Value* array_ptr);
+    void genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len = false);
+    
+    llvm::Constant* getNullValue(Type *type);
+    llvm::Constant* getNullValue(llvm::Type* ll_type);
+    llvm::Constant* getInt32Const(uint32_t value);
+    llvm::Constant* getInt8Const(uint8_t value);
+    llvm::Constant* getPlatformIntConst(uint64_t value);
+    llvm::Constant* makeLLVMIntLit(Type *int_type, uint64_t value);
+    llvm::Constant* makeLLVMFloatLit(Type *float_type, double value);
+
+    /* ---------------------------------------------------------------------- */
+
+    llvm::BasicBlock* getCurrentBlock();
+    void setCurrentBlock(llvm::BasicBlock *block);
+    llvm::BasicBlock* appendBlock();
+    bool currentHasTerminator();
+    bool hasPredecessor(llvm::BasicBlock* block = nullptr);
+    void deleteCurrentBlock(llvm::BasicBlock* new_current);
 
     /* ---------------------------------------------------------------------- */
 
@@ -232,39 +263,6 @@ private:
     bool shouldPtrWrap(Type* type);
     bool shouldPtrWrap(llvm::Type* type);
     uint64_t getLLVMTypeByteSize(llvm::Type* llvm_type);
-
-    /* ---------------------------------------------------------------------- */
-
-    llvm::BasicBlock *getCurrentBlock();
-    void setCurrentBlock(llvm::BasicBlock *block);
-    llvm::BasicBlock *appendBlock();
-    bool currentHasTerminator();
-    bool hasPredecessor(llvm::BasicBlock* block = nullptr);
-    void deleteCurrentBlock(llvm::BasicBlock* new_current);
-
-    /* ---------------------------------------------------------------------- */
-
-    llvm::Value* getArrayData(llvm::Value* array);
-    llvm::Value* getArrayLen(llvm::Value *array);
-    llvm::Value* getArrayDataPtr(llvm::Value* array_ptr);
-    llvm::Value *getArrayLenPtr(llvm::Value* array_ptr);
-    void genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len = false);
-
-    /* ---------------------------------------------------------------------- */
-
-    llvm::Constant *getNullValue(Type *type);
-    llvm::Constant* getNullValue(llvm::Type* ll_type);
-    llvm::Constant* getInt32Const(uint32_t value);
-    llvm::Constant* getInt8Const(uint8_t value);
-    llvm::Constant* getPlatformIntConst(uint64_t value);
-    llvm::Value* makeLLVMIntLit(Type *int_type, uint64_t value);
-    llvm::Value* makeLLVMFloatLit(Type *float_type, double value);
-
-    /* ---------------------------------------------------------------------- */
-
-    LoopContext& getLoopCtx();
-    void pushLoopContext(llvm::BasicBlock *break_block, llvm::BasicBlock* continue_block);
-    void popLoopContext();
 };
 
 #endif

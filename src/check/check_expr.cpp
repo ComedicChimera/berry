@@ -131,6 +131,8 @@ void Checker::checkCall(AstExpr* node) {
     }
 
     node->type = func_type->ty_Func.return_type;
+
+    call.alloc_mode = enclosing_return_type ? A_ALLOC_STACK : A_ALLOC_GLOBAL;
 }
 
 void Checker::checkIndex(AstExpr* node) {
@@ -355,16 +357,11 @@ void Checker::checkArray(AstExpr* node, Type* infer_type) {
     node->type = AllocType(arena, TYPE_ARRAY);
     node->type->ty_Array.elem_type = first_type;
 
-    // Move array literal to global memory if necessary.
-    if (enclosing_return_type == nullptr) {
-        arr.alloc_mode = A_ALLOC_GLOBAL;
-    } else {
-        arr.alloc_mode = A_ALLOC_STACK;
-    }
+    arr.alloc_mode = enclosing_return_type ? A_ALLOC_STACK : A_ALLOC_GLOBAL;
 }
 
 void Checker::checkNewExpr(AstExpr* node) {
-    node->an_New.alloc_mode = A_ALLOC_STACK;
+    node->an_New.alloc_mode = enclosing_return_type ? A_ALLOC_STACK : A_ALLOC_GLOBAL;
 
     auto* size_expr = node->an_New.size_expr;
     if (size_expr) {
@@ -387,11 +384,6 @@ void Checker::checkNewExpr(AstExpr* node) {
     } else {
         node->type = AllocType(arena, TYPE_PTR);
         node->type->ty_Ptr.elem_type = node->an_New.elem_type;
-    }
-
-    
-    if (enclosing_return_type == nullptr && node->an_New.alloc_mode == A_ALLOC_STACK) {
-        node->an_New.alloc_mode = A_ALLOC_GLOBAL;
     }
 }
 
@@ -456,11 +448,7 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
             mustSubType(field_inits[i]->span, field_inits[i]->type, struct_type->ty_Struct.fields[i].type);
         }
 
-        if (enclosing_return_type == nullptr) {
-            node->an_StructLitPos.alloc_mode = A_ALLOC_GLOBAL;
-        } else {
-            node->an_StructLitPos.alloc_mode = A_ALLOC_STACK;
-        }
+        node->an_StructLitPos.alloc_mode = enclosing_return_type ? A_ALLOC_STACK : A_ALLOC_GLOBAL;
     } else { // Named
         // O(n^2) kekw
         bool found_match = false;
@@ -489,11 +477,7 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
             }
         }
 
-        if (enclosing_return_type == nullptr) {
-            node->an_StructLitNamed.alloc_mode = A_ALLOC_GLOBAL;
-        } else {
-            node->an_StructLitNamed.alloc_mode = A_ALLOC_STACK;
-        }
+        node->an_StructLitNamed.alloc_mode = enclosing_return_type ? A_ALLOC_STACK : A_ALLOC_GLOBAL;
     }
 
     if (node->kind == AST_STRUCT_LIT_NAMED || node->kind == AST_STRUCT_LIT_POS) {

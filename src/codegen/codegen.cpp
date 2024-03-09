@@ -124,6 +124,40 @@ void CodeGenerator::finishModule() {
 
 /* -------------------------------------------------------------------------- */
 
+llvm::BasicBlock* CodeGenerator::getCurrentBlock() {
+    return irb.GetInsertBlock();
+}
+
+void CodeGenerator::setCurrentBlock(llvm::BasicBlock* block) {
+    irb.SetInsertPoint(block);
+}
+
+llvm::BasicBlock* CodeGenerator::appendBlock() {
+    Assert(ll_enclosing_func != nullptr, "append basic block without enclosing function");
+
+    return llvm::BasicBlock::Create(ctx, "", ll_enclosing_func);
+}
+
+bool CodeGenerator::currentHasTerminator() {
+    return getCurrentBlock()->getTerminator() != nullptr;
+}
+
+bool CodeGenerator::hasPredecessor(llvm::BasicBlock* block) {
+    if (block == nullptr) 
+        block = getCurrentBlock();
+
+    return block->hasNPredecessorsOrMore(1);
+}
+
+void CodeGenerator::deleteCurrentBlock(llvm::BasicBlock* new_current) {
+    auto* old_current = getCurrentBlock();
+    setCurrentBlock(new_current);
+    
+    old_current->eraseFromParent();
+}
+
+/* -------------------------------------------------------------------------- */
+
 llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
     type = type->Inner();
 
@@ -238,54 +272,4 @@ uint64_t CodeGenerator::getLLVMTypeByteSize(llvm::Type* llvm_type) {
     }
 
     return bit_size / 8 + 1;
-}
-
-/* -------------------------------------------------------------------------- */
-
-CodeGenerator::LoopContext& CodeGenerator::getLoopCtx() {
-    Assert(loop_ctx_stack.size() > 0, "loop control statement missing loop context in codegen");
-    return loop_ctx_stack.back();
-}
-
-void CodeGenerator::pushLoopContext(llvm::BasicBlock* break_block, llvm::BasicBlock* continue_block) {
-    loop_ctx_stack.emplace_back(break_block, continue_block);
-}
-
-void CodeGenerator::popLoopContext() {
-    Assert(loop_ctx_stack.size() > 0, "pop on empty loop context stack in codegen");
-    loop_ctx_stack.pop_back();
-}
-
-/* -------------------------------------------------------------------------- */
-
-llvm::BasicBlock* CodeGenerator::getCurrentBlock() {
-    return irb.GetInsertBlock();
-}
-
-void CodeGenerator::setCurrentBlock(llvm::BasicBlock* block) {
-    irb.SetInsertPoint(block);
-}
-
-llvm::BasicBlock* CodeGenerator::appendBlock() {
-    Assert(ll_enclosing_func != nullptr, "append basic block without enclosing function");
-
-    return llvm::BasicBlock::Create(ctx, "", ll_enclosing_func);
-}
-
-bool CodeGenerator::currentHasTerminator() {
-    return getCurrentBlock()->getTerminator() != nullptr;
-}
-
-bool CodeGenerator::hasPredecessor(llvm::BasicBlock* block) {
-    if (block == nullptr) 
-        block = getCurrentBlock();
-
-    return block->hasNPredecessorsOrMore(1);
-}
-
-void CodeGenerator::deleteCurrentBlock(llvm::BasicBlock* new_current) {
-    auto* old_current = getCurrentBlock();
-    setCurrentBlock(new_current);
-    
-    old_current->eraseFromParent();
 }

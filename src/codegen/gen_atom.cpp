@@ -26,7 +26,7 @@ llvm::Value* CodeGenerator::genCall(AstExpr* node, llvm::Value* alloc_loc) {
             irb.CreateCall(ll_func_type, func_ptr, args);
             return nullptr;
         } else {
-            auto* ret_val = genStackAlloc(node->type);
+            auto* ret_val = genAlloc(node->type, node->an_Call.alloc_mode);
             args.insert(args.begin(), ret_val);
             irb.CreateCall(ll_func_type, func_ptr, args);
             return ret_val;
@@ -298,25 +298,14 @@ llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
             return array;
         }
     } else {
-        if (anew.alloc_mode == A_ALLOC_HEAP) {
-            Panic("heap allocation not implemented in codegen");
-        } else if (anew.alloc_mode == A_ALLOC_GLOBAL) {
-            addr_val = new llvm::GlobalVariable(
-                mod,
-                ll_elem_type,
-                false,
-                llvm::GlobalValue::PrivateLinkage,
-                getNullValue(ll_elem_type)
-            );
-        } else {
-            addr_val = genStackAlloc(anew.elem_type);
-            irb.CreateMemSet(
-                addr_val,
-                getInt8Const(0),
-                layout.getTypeAllocSize(ll_elem_type),
-                layout.getPrefTypeAlign(ll_elem_type)
-            );
-        }
+        addr_val = genAlloc(ll_elem_type, anew.alloc_mode);
+
+        irb.CreateMemSet(
+            addr_val,
+            getInt8Const(0),
+            layout.getTypeAllocSize(ll_elem_type),
+            layout.getPrefTypeAlign(ll_elem_type)
+        );
 
         return addr_val;
     }
@@ -344,20 +333,7 @@ llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) 
     }
 
     if (needs_alloc) {
-        // Should always be safe to do this :)
-        if (node->an_StructLitPos.alloc_mode == A_ALLOC_GLOBAL) {
-            alloc_loc = new llvm::GlobalVariable(
-                mod,
-                ll_struct_type,
-                false,
-                llvm::GlobalValue::PrivateLinkage,
-                getNullValue(ll_struct_type)
-            );
-        } else if (node->an_StructLitPos.alloc_mode == A_ALLOC_STACK) {
-            alloc_loc = genStackAlloc(node->an_StructLitPos.root->type);
-        } else {
-            Panic("heap allocation is not implemented yet");
-        }
+        alloc_loc = genAlloc(ll_struct_type, node->an_StructLitPos.alloc_mode);
     }
 
     if (node->kind == AST_STRUCT_LIT_POS || node->kind == AST_STRUCT_PTR_LIT_POS) {
@@ -489,6 +465,55 @@ llvm::Value* CodeGenerator::genIdent(AstExpr* node, bool expect_addr) {
 
 /* -------------------------------------------------------------------------- */
 
+void CodeGenerator::genStoreExpr(AstExpr* node, llvm::Value* dest) {
+    auto src = genExpr(node, false, dest);
+    if (src != nullptr) {
+        auto* ll_type = genType(node->type, true);
+        if (node->IsLValue() && shouldPtrWrap(ll_type)) {
+            genStructCopy(ll_type, src, dest);
+        } else {
+            irb.CreateStore(src, dest);
+        }
+    }
+}
+
+void CodeGenerator::genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest) {
+    auto pref_align = layout.getPrefTypeAlign(llvm_struct_type);
+
+    irb.CreateMemCpy(
+        dest,
+        pref_align,
+        src,
+        pref_align,
+        getPlatformIntConst(getLLVMTypeByteSize(llvm_struct_type))
+    );
+}
+
+llvm::Value* CodeGenerator::genAlloc(llvm::Type* llvm_type, AstAllocMode mode) {
+    if (mode == A_ALLOC_STACK) {
+        auto* curr_block = getCurrentBlock();
+        setCurrentBlock(var_block);
+
+        auto* alloc_value = irb.CreateAlloca(llvm_type);
+
+        setCurrentBlock(curr_block);
+
+        return alloc_value;
+    } else if (mode == A_ALLOC_GLOBAL) {
+        new llvm::GlobalVariable(
+            mod,
+            llvm_type,
+            false,
+            llvm::GlobalValue::PrivateLinkage,
+            getNullValue(llvm_type)
+        );
+    } else {
+        Panic("heap allocation is not yet implemented");
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
 void CodeGenerator::genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len) {
     auto* is_ge_zero = irb.CreateICmpSGE(ndx, llvm::Constant::getNullValue(ndx->getType()));
     llvm::Value* is_lt_len;
@@ -553,7 +578,7 @@ llvm::Constant* CodeGenerator::getPlatformIntConst(uint64_t value) {
     return llvm::Constant::getIntegerValue(llvm::Type::getInt64Ty(ctx), ap_int);
 }
 
-llvm::Value* CodeGenerator::makeLLVMIntLit(Type* int_type, uint64_t value) {
+llvm::Constant* CodeGenerator::makeLLVMIntLit(Type* int_type, uint64_t value) {
     if (int_type->kind == TYPE_BOOL) {
         llvm::APInt ap_int(1, value, false);
         return llvm::Constant::getIntegerValue(llvm::Type::getInt1Ty(ctx), ap_int);
@@ -565,7 +590,7 @@ llvm::Value* CodeGenerator::makeLLVMIntLit(Type* int_type, uint64_t value) {
     }
 }
 
-llvm::Value* CodeGenerator::makeLLVMFloatLit(Type* float_type, double value) {
+llvm::Constant* CodeGenerator::makeLLVMFloatLit(Type* float_type, double value) {
     Assert(float_type->kind == TYPE_FLOAT, "invalid type {} to make a float literal in codegen", float_type->ToString());
 
     if (float_type->ty_Float.bit_size == 64) {

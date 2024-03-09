@@ -227,7 +227,7 @@ void CodeGenerator::genForLoop(AstStmt* node) {
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::genLocalVar(AstStmt* node) {
-    auto* ll_var = genStackAlloc(node->an_LocalVar.symbol->type);
+    auto* ll_var = genAlloc(node->an_LocalVar.symbol->type, A_ALLOC_STACK);
     node->an_LocalVar.symbol->llvm_value = ll_var;
 
     debug.EmitLocalVariableInfo(node, ll_var);
@@ -276,4 +276,20 @@ void CodeGenerator::genIncDec(AstStmt* node) {
     
     genStoreExpr(&binop, lhs_addr);
     // TODO: debug value intrinsic
+}
+
+/* -------------------------------------------------------------------------- */
+
+CodeGenerator::LoopContext& CodeGenerator::getLoopCtx() {
+    Assert(loop_ctx_stack.size() > 0, "loop control statement missing loop context in codegen");
+    return loop_ctx_stack.back();
+}
+
+void CodeGenerator::pushLoopContext(llvm::BasicBlock* break_block, llvm::BasicBlock* continue_block) {
+    loop_ctx_stack.emplace_back(break_block, continue_block);
+}
+
+void CodeGenerator::popLoopContext() {
+    Assert(loop_ctx_stack.size() > 0, "pop on empty loop context stack in codegen");
+    loop_ctx_stack.pop_back();
 }
