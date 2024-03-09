@@ -25,6 +25,8 @@ const v2: Vec2 = .{1, 2};
 const v3: Vec3 = .{x=8, y=4, z=2};
 const first_component_sum: i64 = v2.x + v3.x;
 
+let glvar_v3 = v3;
+
 func print_array(arr: []i64) {
     for let i = 0; i < arr._len; i++ {
         if (i > 0) {
@@ -91,4 +93,13 @@ func main() {
 
     std.putint(first_component_sum);
     std.putr('\n');
+
+    let local_v3 = v3;
+    local_v3.x++;
+    glvar_v3.y = local_v3.z + glvar_v3.x;
+    
+    print_vec3(glvar_v3);
+    print_vec3(local_v3);
+
+
 }
