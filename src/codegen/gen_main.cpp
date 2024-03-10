@@ -70,7 +70,7 @@ void Loader::GenerateMainModule(llvm::Module& main_mod, bool needs_user_main) {
             ReportFatal("input module does not have a main function");
         }
 
-        auto* sym = it->second.symbol;
+        auto* sym = it->second;
         if ((sym->flags & SYM_FUNC) || sym->type->kind != TYPE_FUNC) {
             ReportFatal("input module does not have a main function");
         }

@@ -120,11 +120,12 @@ void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
         arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
         exported ? SYM_FUNC | SYM_EXPORTED : SYM_FUNC,
+        src_file.parent->defs.size(),
         func_type,
         true
     );
 
-    defineGlobal(symbol, src_file.parent->defs.size());
+    defineGlobal(symbol);
 
     auto* afunc = allocDef(AST_FUNC, SpanOver(start_span, end_span), std::move(meta));
     afunc->an_Func.symbol = symbol;
@@ -146,6 +147,7 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
                 arena.MoveStr(std::move(name_tok.value)),
                 name_tok.span,
                 SYM_VAR,
+                0,
                 type,
                 false
             );
@@ -193,11 +195,12 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
         arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
         flags,
+        src_file.parent->defs.size(),
         type,
         comptime  
     );
 
-    defineGlobal(symbol, src_file.parent->defs.size());
+    defineGlobal(symbol);
 
     auto* aglobal = allocDef(AST_GLVAR, SpanOver(start_span, end_span), std::move(meta));
     aglobal->an_GlVar.symbol = symbol;
@@ -271,11 +274,12 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
         named_type->ty_Named.name,
         name_tok.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
+        src_file.parent->defs.size(),
         named_type,
         false
     );
 
-    defineGlobal(symbol, src_file.parent->defs.size());
+    defineGlobal(symbol);
 
     auto* astruct = allocDef(AST_STRUCT, SpanOver(start_span, prev.span), std::move(meta));
     astruct->an_Struct.symbol = symbol;

@@ -90,13 +90,10 @@ bool Parser::shouldParseStructLit() {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::defineGlobal(Symbol* symbol, size_t def_number) {
+void Parser::defineGlobal(Symbol* symbol) {
     auto it = src_file.parent->symbol_table.find(symbol->name);
     if (it == src_file.parent->symbol_table.end()) {
-        src_file.parent->symbol_table.emplace(symbol->name, Module::SymbolTableEntry{
-            symbol,
-            def_number
-        });
+        src_file.parent->symbol_table.emplace(symbol->name, symbol);
     } else {
         error(
             symbol->span, 

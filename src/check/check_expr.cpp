@@ -192,14 +192,13 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
         if (dep != nullptr) {
             auto* mod = dep->mod;
 
-            auto sentry_it = mod->symbol_table.find(fld.field_name);
-            if (sentry_it != mod->symbol_table.end()) {
-                auto& sentry = sentry_it->second;
-                if ((sentry.symbol->flags & SYM_EXPORTED) == 0) {
+            auto sym_it = mod->symbol_table.find(fld.field_name);
+            if (sym_it != mod->symbol_table.end()) {
+                auto* imported_sym = sym_it->second;
+                if ((imported_sym->flags & SYM_EXPORTED) == 0) {
                     fatal(node->span, "symbol {} is not exported by module {}", fld.field_name, mod->name);
                 }
 
-                auto* imported_sym = sentry.symbol;
                 node->type = imported_sym->type;
                 node->immut = imported_sym->immut;
 
@@ -215,7 +214,7 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
                 
                 fld.imported_sym = imported_sym;
                 node->kind = AST_STATIC_GET;
-                dep->usages.insert(sentry.def_number);
+                dep->usages.insert(imported_sym->def_number);
                 return;
             } else {
                 fatal(node->span, "module {} has no symbol named {}", mod->name, fld.field_name);
@@ -301,15 +300,15 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node, bool expect_ty
 
         auto it = mod.symbol_table.find(name);
         if (it != mod.symbol_table.end()) {
-            sym = it->second.symbol;
+            sym = it->second;
 
-            init_graph.back().edges.insert(it->second.def_number);
+            init_graph.back().edges.insert(sym->def_number);
         } else if (
             core_dep != nullptr && 
             (it = core_dep->mod->symbol_table.find(name)) != core_dep->mod->symbol_table.end()
         ) {
-            sym = it->second.symbol;
-            core_dep->usages.insert(it->second.def_number);
+            sym = it->second;
+            core_dep->usages.insert(sym->def_number);
         } else {
             fatal(node->span, "undefined symbol: {}", name);
         }

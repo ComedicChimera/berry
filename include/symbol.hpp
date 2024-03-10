@@ -46,6 +46,10 @@ struct Symbol {
     // flags are the flags associated with the symbol.
     SymbolFlags flags;
 
+    // def_number is the number of the global definition of the symbol. For
+    // local symbols, this field is not used.
+    size_t def_number;
+
     // type is the data type of the symbol.
     Type* type { nullptr };
 
@@ -107,17 +111,8 @@ struct Module {
     // defs stores the definition ASTs comprising the module.
     std::vector<AstDef*> defs;
 
-    // SymbolTableEntry is an entry in the module's global symbol table.
-    struct SymbolTableEntry {
-        // symbol is the symbol contained in the entry.
-        Symbol* symbol;
-
-        // def_number identifies the global definition for the symbol.
-        size_t def_number;
-    };
-
     // symbol_table is the module's global symbol table.
-    std::unordered_map<std::string_view, SymbolTableEntry> symbol_table;
+    std::unordered_map<std::string_view, Symbol*> symbol_table;
 
     // Dependency represents a module dependency.
     struct Dependency {

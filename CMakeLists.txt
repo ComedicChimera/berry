@@ -15,6 +15,7 @@ set(SRCS
     "driver.cpp"
     "loader.cpp"
     "linker.cpp"
+    "comptime.cpp"
        
     "syntax/token.cpp"
     "syntax/lexer.cpp" 

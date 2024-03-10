@@ -8,10 +8,10 @@ void CodeGenerator::genImports() {
 
             switch (def->kind) {
             case AST_FUNC:
-                loaded_imports[i].emplace(def->an_Func.symbol->name, genImportFunc(*dep.mod, def));
+                loaded_imports[i].emplace(def->an_Func.symbol->def_number, genImportFunc(*dep.mod, def));
                 break;
             case AST_GLVAR:
-                loaded_imports[i].emplace(def->an_GlVar.symbol->name, genImportGlobalVar(*dep.mod, def));
+                loaded_imports[i].emplace(def->an_GlVar.symbol->def_number, genImportGlobalVar(*dep.mod, def));
                 break;
             case AST_STRUCT:
                 // TODO: handle struct metadata

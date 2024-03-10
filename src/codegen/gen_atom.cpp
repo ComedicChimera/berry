@@ -451,7 +451,7 @@ llvm::Value* CodeGenerator::genIdent(AstExpr* node, bool expect_addr) {
     if (symbol->parent_id != src_mod.id) {
         Assert((symbol->flags & SYM_EXPORTED) == 0, "unexported core symbol used in codegen");
         
-        ll_value = loaded_imports.back()[symbol->name];
+        ll_value = loaded_imports.back()[symbol->def_number];
     } else {
         ll_value = symbol->llvm_value;
     }

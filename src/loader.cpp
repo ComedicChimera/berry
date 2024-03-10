@@ -409,16 +409,16 @@ static bool resolveNamedInDep(Type* type, Module::Dependency& dep) {
 
     auto it = dep.mod->symbol_table.find(named.name);
     if (it != dep.mod->symbol_table.end()) {
-        auto& sentry = it->second;
-        if ((sentry.symbol->flags & SYM_EXPORTED) == 0) {
+        auto* symbol = it->second;
+        if ((symbol->flags & SYM_EXPORTED) == 0) {
             return false;
         }
 
         named.mod_id = dep.mod->id;
         named.mod_name = dep.mod->name;
-        named.type = sentry.symbol->type->ty_Named.type;
+        named.type = symbol->type->ty_Named.type;
 
-        dep.usages.insert(sentry.def_number);
+        dep.usages.insert(symbol->def_number);
         return true;
     }
 
@@ -437,7 +437,7 @@ void Loader::resolveNamedTypes() {
             if (it != mod.symbol_table.end()) {
                 named.mod_id = mod.id;
                 named.mod_name = mod.name;
-                named.type = it->second.symbol->type->ty_Named.type;
+                named.type = it->second->type->ty_Named.type;
                 continue;
             }
 

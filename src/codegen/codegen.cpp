@@ -90,7 +90,7 @@ void CodeGenerator::finishModule() {
     // Call user specified init function if there is any.
     auto it = src_mod.symbol_table.find("init");
     if (it != src_mod.symbol_table.end()) {
-        auto sym = it->second.symbol;
+        auto sym = it->second;
         if (
             (sym->flags & SYM_FUNC) && 
             sym->type->kind == TYPE_FUNC &&

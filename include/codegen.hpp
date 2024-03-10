@@ -139,7 +139,7 @@ class CodeGenerator {
 
     // loaded_imports stores the imports that are loaded.  The first index is
     // the dependency ID and the second index is the definition number.
-    std::vector<std::unordered_map<std::string_view, llvm::Value*>> loaded_imports;
+    std::vector<std::unordered_map<size_t, llvm::Value*>> loaded_imports;
 
     // cconv_name_to_id maps Berry calling convention names to their LLVM IDs.
     std::unordered_map<std::string_view, llvm::CallingConv::ID> cconv_name_to_id {
