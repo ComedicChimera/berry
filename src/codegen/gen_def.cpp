@@ -156,10 +156,8 @@ void CodeGenerator::genGlobalVarDecl(AstDef* node) {
     
     auto* ll_type = genType(symbol->type, true);
     if (symbol->flags & SYM_COMPTIME) {
-        if (!shouldPtrWrap(ll_type)) {
-            symbol->llvm_value = genComptime(aglobal.const_value, A_ALLOC_GLOBAL);
-            return;
-        }
+        symbol->llvm_value = genComptime(aglobal.const_value);
+        return;
     }
 
     // TODO: handle metadata
@@ -169,7 +167,7 @@ void CodeGenerator::genGlobalVarDecl(AstDef* node) {
     if (aglobal.const_value == nullptr)
         init_value = llvm::Constant::getNullValue(ll_type);
     else
-        init_value = genComptime(aglobal.const_value, A_ALLOC_GLOBAL);
+        init_value = genComptime(aglobal.const_value);
     
     bool exported = symbol->flags & SYM_EXPORTED;
     auto gv = new llvm::GlobalVariable(

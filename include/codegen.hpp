@@ -87,6 +87,7 @@ enum ConstKind {
     CONST_PTR,
     CONST_FUNC,
     CONST_ARRAY,
+    CONST_ZERO_ARRAY,
     CONST_STRING,
     CONST_STRUCT,
 
@@ -109,8 +110,25 @@ struct ConstValue {
         bool v_bool;
         size_t v_ptr;
         Symbol* v_func;
-        std::string_view v_str;
-        std::span<ConstValue*> v_comp;
+        struct {
+            std::span<ConstValue*> elems;
+            Type* elem_type;
+            llvm::Constant* alloc_loc;
+        } v_array;
+        struct {
+            size_t num_elems;
+            Type* elem_type;
+            llvm::Constant* alloc_loc;
+        } v_zarr;
+        struct {
+            std::string_view value;
+            llvm::Constant* alloc_loc;
+        } v_str;
+        struct {
+            std::span<ConstValue*> fields;
+            Type* struct_type;
+            llvm::Constant* alloc_loc;
+        } v_struct;
     };
 };
 
@@ -256,7 +274,8 @@ private:
     ConstValue* getComptimeNull(Type *type);
     ConstValue* allocComptime(ConstKind kind);
 
-    llvm::Constant* genComptime(ConstValue* value, AstAllocMode alloc_mode);
+    llvm::Constant* genComptime(ConstValue* value, bool inside=false);
+    llvm::Constant* genComptimeArray(ConstValue *value);
 
     /* ---------------------------------------------------------------------- */
 

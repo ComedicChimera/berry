@@ -237,12 +237,8 @@ void CodeGenerator::genLocalVar(AstStmt* node) {
         else
             const_value = getComptimeNull(symbol->type);
 
-        if (shouldPtrWrap(symbol->type)) {
-            symbol->llvm_value = genComptime(const_value, A_ALLOC_STACK);
-            return;
-        }
-
-        symbol->flags ^= SYM_CONST | SYM_VAR;
+        symbol->llvm_value = genComptime(const_value);
+        return;
     }
 
     auto* ll_var = genAlloc(symbol->type, A_ALLOC_STACK);
