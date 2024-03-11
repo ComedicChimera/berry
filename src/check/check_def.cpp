@@ -109,7 +109,7 @@ void Checker::checkGlobalVar(AstDef* node) {
             error(node->span, "constant initializer must be computable at compile-time");
         }
 
-        gl_var.const_init = is_comptime_expr;
+        gl_var.const_value = is_comptime_expr ? CONST_VALUE_MARKER : nullptr;
 
         mustSubType(gl_var.init_expr->span, gl_var.init_expr->type, gl_var.symbol->type);
 

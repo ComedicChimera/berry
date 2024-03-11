@@ -13,6 +13,10 @@ void CodeGenerator::GenerateModule() {
         debug.EmitFileInfo(file);
     }
 
+    for (size_t def_num : src_mod.init_order) {
+        genGlobalVarDecl(src_mod.defs[def_num]);
+    }
+
     for (auto* def : src_mod.defs) {
         debug.SetCurrentFile(src_mod.files[def->parent_file_number]);
 

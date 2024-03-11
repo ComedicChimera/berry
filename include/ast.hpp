@@ -225,6 +225,10 @@ struct AstCondBranch {
     AstStmt* body;
 };
 
+struct ConstValue;
+
+#define CONST_VALUE_MARKER ((ConstValue*)1)
+
 struct AstStmt : public AstNode {
     union {
         struct {
@@ -250,7 +254,7 @@ struct AstStmt : public AstNode {
 
         struct {
             Symbol* symbol;
-            AstExpr* init;
+            AstExpr* init_expr;
         } an_LocalVar;
         struct {
             AstExpr* lhs;
@@ -293,7 +297,7 @@ struct AstDef : public AstNode {
         struct {
             Symbol* symbol;
             AstExpr* init_expr;
-            bool const_init;
+            ConstValue* const_value;
         } an_GlVar;
         struct {
             Symbol* symbol;

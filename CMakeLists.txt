@@ -15,7 +15,6 @@ set(SRCS
     "driver.cpp"
     "loader.cpp"
     "linker.cpp"
-    "comptime.cpp"
        
     "syntax/token.cpp"
     "syntax/lexer.cpp" 
@@ -47,6 +46,7 @@ set(SRCS
     "codegen/gen_import.cpp"
     "codegen/gen_atom.cpp"
     "codegen/gen_main.cpp"
+    "codegen/gen_comptime.cpp"
 
     "test/arena_test.cpp"
     "test/ast_print.cpp"

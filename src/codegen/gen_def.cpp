@@ -12,7 +12,7 @@ void CodeGenerator::genTopDecl(AstDef* def) {
         genFuncProto(def);
         break;
     case AST_GLVAR:
-        genGlobalVarDecl(def);
+        // Nothing to do :)
         break;
     case AST_STRUCT:
         // TODO: handle struct metadata
@@ -30,8 +30,8 @@ void CodeGenerator::genPredicates(AstDef* def) {
             genFuncBody(def);
         }
         break;
-    case AST_STRUCT:
-        // Nothing to do here :)
+    case AST_STRUCT: case AST_GLVAR:
+        // Nothing to do :)
         break;
     default:
         Panic("predicate codegen not implemented for {}", (int)def->kind);
@@ -143,12 +143,33 @@ void CodeGenerator::genFuncBody(AstDef* node) {
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::genGlobalVarDecl(AstDef* node) {
-    auto* symbol = node->an_GlVar.symbol;
+    auto& aglobal = node->an_GlVar;
+    auto* symbol = aglobal.symbol;
 
-    auto* ll_type = genType(symbol->type);
+    if (aglobal.init_expr == nullptr) {
+        aglobal.const_value = getComptimeNull(symbol->type);
+    } else if (aglobal.const_value == CONST_VALUE_MARKER) {
+        aglobal.const_value = evalComptime(aglobal.init_expr);
+    }
+
+    debug.SetCurrentFile(src_mod.files[node->parent_file_number]);
+    
+    auto* ll_type = genType(symbol->type, true);
+    if (symbol->flags & SYM_COMPTIME) {
+        if (!shouldPtrWrap(ll_type)) {
+            symbol->llvm_value = genComptime(aglobal.const_value, A_ALLOC_GLOBAL);
+            return;
+        }
+    }
 
     // TODO: handle metadata
     Assert(node->metadata.size() == 0, "metadata for global variables not implemented");
+
+    llvm::Constant* init_value;
+    if (aglobal.const_value == nullptr)
+        init_value = llvm::Constant::getNullValue(ll_type);
+    else
+        init_value = genComptime(aglobal.const_value, A_ALLOC_GLOBAL);
     
     bool exported = symbol->flags & SYM_EXPORTED;
     auto gv = new llvm::GlobalVariable(
@@ -156,17 +177,20 @@ void CodeGenerator::genGlobalVarDecl(AstDef* node) {
         ll_type, 
         symbol->immut, 
         exported ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage, 
-        // TODO: gen comptime inits
-        llvm::Constant::getNullValue(ll_type), 
+        init_value, 
         mangleName(symbol->name)
     );
     debug.EmitGlobalVariableInfo(node, gv);
+
+    if (symbol->flags & SYM_CONST) {
+        symbol->flags ^= SYM_VAR | SYM_CONST;
+    }
 
     symbol->llvm_value = gv;
 }
 
 void CodeGenerator::genGlobalVarInit(AstDef* node) {
-    if (!node->an_GlVar.init_expr || node->an_GlVar.const_init) {
+    if (!node->an_GlVar.init_expr || node->an_GlVar.const_value) {
         return;
     }
 

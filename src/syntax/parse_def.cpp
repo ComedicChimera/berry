@@ -205,7 +205,7 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
     auto* aglobal = allocDef(AST_GLVAR, SpanOver(start_span, end_span), std::move(meta));
     aglobal->an_GlVar.symbol = symbol;
     aglobal->an_GlVar.init_expr = init_expr;
-    aglobal->an_GlVar.const_init = false;
+    aglobal->an_GlVar.const_value = nullptr;
 
     src_file.parent->defs.push_back(aglobal);
 }

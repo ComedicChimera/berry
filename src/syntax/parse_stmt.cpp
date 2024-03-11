@@ -207,20 +207,20 @@ AstStmt* Parser::parseLocalVarDef() {
     auto name_tok = wantAndGet(TOK_IDENT);
 
     Type* type = nullptr;
-    AstExpr* init { nullptr };
+    AstExpr* init_expr { nullptr };
     TextSpan end_span;
     if (has(TOK_COLON)) {
         type = parseTypeExt();
 
         if (has(TOK_ASSIGN)) {
-            init = parseInitializer();
-            end_span = init->span;
+            init_expr = parseInitializer();
+            end_span = init_expr->span;
         } else {
             end_span = prev.span;
         }
     } else {
-        init = parseInitializer();
-        end_span = init->span;
+        init_expr = parseInitializer();
+        end_span = init_expr->span;
     }
 
     Symbol* symbol = arena.New<Symbol>(
@@ -235,7 +235,7 @@ AstStmt* Parser::parseLocalVarDef() {
 
     auto* alocal = allocStmt(AST_LOCAL_VAR, SpanOver(start_span, end_span));
     alocal->an_LocalVar.symbol = symbol;
-    alocal->an_LocalVar.init = init;
+    alocal->an_LocalVar.init_expr = init_expr;
     return alocal;
 }
 

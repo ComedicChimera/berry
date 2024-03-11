@@ -127,18 +127,18 @@ void Checker::checkFor(AstStmt* node) {
 void Checker::checkLocalVar(AstStmt* node) {
     auto& alocal = node->an_LocalVar;
 
-    if (alocal.init != nullptr) {
+    if (alocal.init_expr != nullptr) {
         is_comptime_expr = true;
-        checkExpr(alocal.init, alocal.symbol->type); 
+        checkExpr(alocal.init_expr, alocal.symbol->type); 
 
         if (alocal.symbol->flags & SYM_COMPTIME && !is_comptime_expr) {
             error(node->span, "constant initializer must be computable at compile-time");
         }
 
         if (alocal.symbol->type == nullptr) {
-            alocal.symbol->type = alocal.init->type;
+            alocal.symbol->type = alocal.init_expr->type;
         } else {
-            mustSubType(alocal.init->span, alocal.init->type, alocal.symbol->type);
+            mustSubType(alocal.init_expr->span, alocal.init_expr->type, alocal.symbol->type);
         }
 
         finishExpr();

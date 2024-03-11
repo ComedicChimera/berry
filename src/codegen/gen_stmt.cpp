@@ -227,13 +227,31 @@ void CodeGenerator::genForLoop(AstStmt* node) {
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::genLocalVar(AstStmt* node) {
-    auto* ll_var = genAlloc(node->an_LocalVar.symbol->type, A_ALLOC_STACK);
-    node->an_LocalVar.symbol->llvm_value = ll_var;
+    auto& alocal = node->an_LocalVar;
+    auto* symbol = alocal.symbol;
+
+    if (symbol->flags & SYM_CONST) {
+        ConstValue* const_value;
+        if (alocal.init_expr)
+            const_value = evalComptime(alocal.init_expr);
+        else
+            const_value = getComptimeNull(symbol->type);
+
+        if (shouldPtrWrap(symbol->type)) {
+            symbol->llvm_value = genComptime(const_value, A_ALLOC_STACK);
+            return;
+        }
+
+        symbol->flags ^= SYM_CONST | SYM_VAR;
+    }
+
+    auto* ll_var = genAlloc(symbol->type, A_ALLOC_STACK);
+    symbol->llvm_value = ll_var;
 
     debug.EmitLocalVariableInfo(node, ll_var);
 
-    if (node->an_LocalVar.init != nullptr) {
-        genStoreExpr(node->an_LocalVar.init, ll_var);
+    if (alocal.init_expr != nullptr) {
+        genStoreExpr(alocal.init_expr, ll_var);
     }
 }
 
