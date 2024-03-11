@@ -323,7 +323,6 @@ llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value) {
 
     llvm::Constant* gv;
     if (alloc_loc == nullptr) {
-
         llvm::Constant* ll_array;
         if (value->kind == CONST_ARRAY) {
             std::vector<llvm::Constant*> ll_elems;
@@ -344,6 +343,12 @@ llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value) {
             ll_array, 
             std::format("__$const{}", const_id_counter++)
         );
+
+        if (value->kind == CONST_ARRAY) {
+            value->v_array.alloc_loc = gv;
+        } else {
+            value->v_zarr.alloc_loc = gv;
+        }
     } else {
         gv = mod.getGlobalVariable(alloc_loc->getName());
 
