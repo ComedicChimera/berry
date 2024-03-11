@@ -90,6 +90,9 @@ class CodeGenerator {
     // src_mod is the source module being compiled.
     Module& src_mod;
 
+    // mainb is the main builder for the compilation task.
+    MainBuilder& mainb;
+
     /* ---------------------------------------------------------------------- */
 
     // ll_enclosing_func is the enclosing LLVM function.
@@ -150,11 +153,16 @@ class CodeGenerator {
 
 public:
     // Creates a new code generator using ctx and outputting to mod.
-    CodeGenerator(llvm::LLVMContext& ctx, llvm::Module& mod, Module& src_mod, bool debug)
-    : ctx(ctx), mod(mod), irb(ctx)
+    CodeGenerator(
+        llvm::LLVMContext& ctx, 
+        llvm::Module& mod, 
+        Module& src_mod, 
+        bool debug,
+        MainBuilder& mainb
+    )
+    : ctx(ctx), mod(mod), src_mod(src_mod), debug(debug, mod, irb), mainb(mainb)
+    , irb(ctx)
     , layout(mod.getDataLayout())
-    , debug(debug, mod, irb)
-    , src_mod(src_mod)
     , ll_enclosing_func(nullptr)
     , var_block(nullptr)
     , ll_array_type(nullptr)
@@ -263,6 +271,23 @@ private:
     bool shouldPtrWrap(Type* type);
     bool shouldPtrWrap(llvm::Type* type);
     uint64_t getLLVMTypeByteSize(llvm::Type* llvm_type);
+};
+
+/* -------------------------------------------------------------------------- */
+
+class MainBuilder {
+    llvm::LLVMContext& ctx;
+    llvm::Module& main_mod;
+
+    llvm::Function* rt_main_func;
+    llvm::FunctionType* rt_stub_func_type;
+    llvm::IRBuilder<> irb;
+
+public:
+    MainBuilder(llvm::LLVMContext& ctx, llvm::Module& main_mod);
+    void GenInitCall(llvm::Function* init_func);
+    void GenUserMainCall(Module& root_mod);
+    void FinishMain();
 };
 
 #endif

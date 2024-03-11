@@ -64,8 +64,6 @@ static fs::path findBerryPath() {
     return berry_path;
 }
 
-/* -------------------------------------------------------------------------- */
-
 static std::string createDisplayPath(const fs::path& local_path, const fs::path& abs_path) {
     std::error_code ec;
     auto display_path = local_path.filename() / fs::relative(abs_path, local_path, ec);
@@ -126,6 +124,16 @@ void Loader::LoadAll(const std::string& root_mod) {
     resolveNamedTypes();
 }
 
+std::vector<Module*> Loader::SortModulesByDepGraph() {
+    std::vector<Module*> ordered;
+    std::vector<bool> visited(mod_table.size(), false);
+    
+    sortModule(runtime_mod, ordered, visited);
+    sortModule(root_mod, ordered, visited);
+
+    return ordered;
+}
+
 /* -------------------------------------------------------------------------- */
 
 Module& Loader::loadDefaults() {
@@ -137,7 +145,7 @@ Module& Loader::loadDefaults() {
     auto& core_mod = loadModule(std_path, std_path / "core");
     Assert(core_mod.deps.size() == 0, "core module must have no dependencies");
 
-    loadModule(std_path, std_path / "runtime");
+    runtime_mod = &loadModule(std_path, std_path / "runtime");
     return core_mod;
 }
 
@@ -515,4 +523,19 @@ std::string Loader::getModuleName(SourceFile& src_file) {
     } catch (CompileError& err) {
         return "";
     }
+}
+
+/* -------------------------------------------------------------------------- */
+
+void Loader::sortModule(Module* mod, std::vector<Module*>& ordered, std::vector<bool>& visited) {
+    if (visited[mod->id])
+        return;
+
+    visited[mod->id] = true;
+
+    for (auto& dep : mod->deps) {
+        sortModule(dep.mod, ordered, visited);
+    }
+
+    ordered.push_back(mod);
 }

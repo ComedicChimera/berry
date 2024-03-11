@@ -103,32 +103,44 @@ private:
     }
 
     void emit() {
+        // Create the platform target machine.
         initTargets();
-
         auto* tm = createTargetMachine();
-
+                       
         // The modules in this vector have to be unique pointers because it
         // seems like for whatever reason, the LLVM api deletes both the copy
         // and the move constructor of llvm::Module, so it is impossible to
         // store them directly in a vector.  This is my hypothesis anyway; at
         // any rate, any version of this code that stores the LLVM modules as
         // values won't compile (results a slurry of C++ template errors).
-        llvm::LLVMContext ll_ctx;
+        llvm::LLVMContext ll_ctx; 
         std::vector<std::unique_ptr<llvm::Module>> ll_mods;
-        for (auto& mod : loader) {
-            auto& ll_mod = ll_mods.emplace_back(std::make_unique<llvm::Module>(std::format("m{}-{}", mod.id, mod.name), ll_ctx));
+
+        // Create the main module.
+        auto& main_mod = *ll_mods.emplace_back(std::make_unique<llvm::Module>("_$berry_main", ll_ctx));
+        main_mod.setDataLayout(tm->createDataLayout());
+        main_mod.setTargetTriple(tm->getTargetTriple().str());
+
+        MainBuilder mainb(ll_ctx, main_mod);
+
+        // Generate all the user modules.
+        auto sorted_mods = loader.SortModulesByDepGraph();
+        for (auto* mod : sorted_mods) {
+            auto& ll_mod = ll_mods.emplace_back(std::make_unique<llvm::Module>(std::format("m{}-{}", mod->id, mod->name), ll_ctx));
             ll_mod->setDataLayout(tm->createDataLayout());
             ll_mod->setTargetTriple(tm->getTargetTriple().str());
 
-            CodeGenerator cg(ll_ctx, *ll_mod, mod, cfg.should_emit_debug);
+            CodeGenerator cg(ll_ctx, *ll_mod, *mod, cfg.should_emit_debug, mainb);
             cg.GenerateModule();
         }
 
-        auto& main_mod = ll_mods.emplace_back(std::make_unique<llvm::Module>("_$berry_main", ll_ctx));
-        main_mod->setDataLayout(tm->createDataLayout());
-        main_mod->setTargetTriple(tm->getTargetTriple().str());
-        loader.GenerateMainModule(*main_mod, cfg.out_fmt == OUTFMT_EXE);
+        if (cfg.out_fmt == OUTFMT_EXE) {
+            mainb.GenUserMainCall(loader.GetRootModule());
+        }
 
+        mainb.FinishMain();
+
+        // Emit the modules to LLVM if that is our output format.
         std::error_code ec;
         if (cfg.out_fmt == OUTFMT_LLVM) {
             for (auto& ll_mod : ll_mods) {
@@ -148,6 +160,7 @@ private:
             return;
         }
 
+        // Otherwise, generate the appropriate output code using the target machine.
         bool is_asm = cfg.out_fmt == OUTFMT_ASM;
 
         std::string file_ext;

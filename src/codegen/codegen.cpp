@@ -120,6 +120,9 @@ void CodeGenerator::finishModule() {
         mod.print(llvm::errs(), nullptr);
         exit(1);
     }
+
+    // Add the init function call to rt_main.
+    mainb.GenInitCall(ll_init_func);
 }
 
 /* -------------------------------------------------------------------------- */
