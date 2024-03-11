@@ -58,6 +58,9 @@ llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, AstDef* node) {
 }
 
 llvm::Value* CodeGenerator::genImportGlobalVar(Module& imported_mod, AstDef* node) {
+    if (node->an_GlVar.symbol->flags & SYM_COMPTIME)
+        return genComptime(node->an_GlVar.const_value, A_ALLOC_GLOBAL);
+
     auto* symbol = node->an_GlVar.symbol;
 
     auto* ll_type = genType(symbol->type);

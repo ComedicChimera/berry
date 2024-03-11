@@ -77,16 +77,17 @@ enum ConstKind {
     CONST_U8,
     CONST_I16,
     CONST_U16,
-    CONST_I32 ,
+    CONST_I32,
     CONST_U32,
     CONST_I64,
-    CONST_U64 ,
-    CONST_F32 ,
-    CONST_F64 ,
+    CONST_U64,
+    CONST_F32,
+    CONST_F64,
     CONST_BOOL,
     CONST_PTR,
     CONST_FUNC,
-    CONST_ARRAY ,
+    CONST_ARRAY,
+    CONST_STRING,
     CONST_STRUCT,
 
     CONSTS_COUNT
@@ -106,9 +107,10 @@ struct ConstValue {
         float v_f32 ;
         double v_f64 ;
         bool v_bool;
-        ConstValue* v_ptr;
-        std::string_view v_func;
-        std::vector<ConstValue*> v_comp;
+        size_t v_ptr;
+        Symbol* v_func;
+        std::string_view v_str;
+        std::span<ConstValue*> v_comp;
     };
 };
 
@@ -136,6 +138,9 @@ class CodeGenerator {
 
     // mainb is the main builder for the compilation task.
     MainBuilder& mainb;
+
+    // arena is the arena used by the code generator.
+    Arena& arena;
 
     /* ---------------------------------------------------------------------- */
 
@@ -202,9 +207,11 @@ public:
         llvm::Module& mod, 
         Module& src_mod, 
         bool debug,
-        MainBuilder& mainb
+        MainBuilder& mainb,
+        Arena& arena
     )
-    : ctx(ctx), mod(mod), src_mod(src_mod), debug(debug, mod, irb), mainb(mainb)
+    : ctx(ctx), mod(mod), src_mod(src_mod), debug(debug, mod, irb)
+    , mainb(mainb), arena(arena)
     , irb(ctx)
     , layout(mod.getDataLayout())
     , ll_enclosing_func(nullptr)
@@ -247,6 +254,7 @@ private:
     
     ConstValue* evalComptime(AstExpr* node);
     ConstValue* getComptimeNull(Type *type);
+    ConstValue* allocComptime(ConstKind kind);
 
     llvm::Constant* genComptime(ConstValue* value, AstAllocMode alloc_mode);
 

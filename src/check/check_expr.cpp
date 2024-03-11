@@ -23,6 +23,8 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
         node->type = mustApplyUnaryOp(node->span, node->an_Unop.op, node->an_Unop.operand->type);
         break;
     case AST_ADDR:
+        is_comptime_expr = false;
+
         checkExpr(node->an_Addr.elem);
 
         if (!node->an_Addr.elem->IsLValue()) {
@@ -95,6 +97,8 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
 /* -------------------------------------------------------------------------- */
 
 void Checker::checkDeref(AstExpr* node) {
+    is_comptime_expr = false;
+
     auto* ptr = node->an_Deref.ptr;
     checkExpr(ptr);
 
@@ -102,7 +106,7 @@ void Checker::checkDeref(AstExpr* node) {
     if (ptr_type->Inner()->kind == TYPE_PTR) {
         node->type = ptr_type->ty_Ptr.elem_type;
 
-        // TODO: pointer constancy
+        // TODO: is this ever necessary (pointers to immutable values are illegal)
         node->immut = ptr->immut;
     } else {
         fatal(ptr->span, "expected a pointer type but got {}", ptr->type->ToString());
@@ -265,6 +269,8 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
     case TYPE_ARRAY:
     case TYPE_STRING:
         if (fld.field_name == "_ptr") {
+            is_comptime_expr = false;
+
             node->type = AllocType(arena, TYPE_PTR);
             node->type->ty_Ptr.elem_type = root_type->ty_Array.elem_type;
             return;
@@ -381,6 +387,8 @@ void Checker::checkNewExpr(AstExpr* node) {
         node->type = AllocType(arena, TYPE_ARRAY);
         node->type->ty_Array.elem_type = node->an_New.elem_type;
     } else {
+        is_comptime_expr = false;
+
         node->type = AllocType(arena, TYPE_PTR);
         node->type->ty_Ptr.elem_type = node->an_New.elem_type;
     }
@@ -482,6 +490,8 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
     if (node->kind == AST_STRUCT_LIT_NAMED || node->kind == AST_STRUCT_LIT_POS) {
         node->type = root_node->type;
     } else {
+        is_comptime_expr = false;
+
         node->type = AllocType(arena, TYPE_PTR);
         node->type->ty_Ptr.elem_type = root_node->type;
     }

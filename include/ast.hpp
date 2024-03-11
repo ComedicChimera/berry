@@ -161,7 +161,6 @@ struct AstExpr : public AstNode {
             union {
                 size_t field_index;
                 Symbol* imported_sym;
-
             };
         } an_Field;
         struct {

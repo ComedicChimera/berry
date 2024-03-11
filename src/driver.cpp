@@ -130,7 +130,7 @@ private:
             ll_mod->setDataLayout(tm->createDataLayout());
             ll_mod->setTargetTriple(tm->getTargetTriple().str());
 
-            CodeGenerator cg(ll_ctx, *ll_mod, *mod, cfg.should_emit_debug, mainb);
+            CodeGenerator cg(ll_ctx, *ll_mod, *mod, cfg.should_emit_debug, mainb, arena);
             cg.GenerateModule();
         }
 
