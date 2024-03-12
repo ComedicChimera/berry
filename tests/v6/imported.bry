@@ -1,0 +1,11 @@
+import io.std;
+import comptime;
+
+func main() {
+    std.putint(comptime.z);
+    std.putr('\n');
+
+    comptime.print_vec2(comptime.v2);
+
+    comptime.print_vec3(comptime.v3);
+}

@@ -274,8 +274,8 @@ private:
     ConstValue* getComptimeNull(Type *type);
     ConstValue* allocComptime(ConstKind kind);
 
-    llvm::Constant* genComptime(ConstValue* value, bool inside=false);
-    llvm::Constant* genComptimeArray(ConstValue *value);
+    llvm::Constant* genComptime(ConstValue* value, bool exported, bool inside=false);
+    llvm::Constant* genComptimeArray(ConstValue* value, bool exported);
 
     /* ---------------------------------------------------------------------- */
 

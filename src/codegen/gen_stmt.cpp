@@ -237,7 +237,7 @@ void CodeGenerator::genLocalVar(AstStmt* node) {
         else
             const_value = getComptimeNull(symbol->type);
 
-        symbol->llvm_value = genComptime(const_value);
+        symbol->llvm_value = genComptime(const_value, false);
         return;
     }
 

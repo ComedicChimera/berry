@@ -245,7 +245,7 @@ ConstValue* CodeGenerator::allocComptime(ConstKind kind) {
 
 /* -------------------------------------------------------------------------- */
 
-llvm::Constant* CodeGenerator::genComptime(ConstValue* value, bool inside) {
+llvm::Constant* CodeGenerator::genComptime(ConstValue* value, bool exported, bool inside) {
     switch (value->kind) {
     case CONST_I8: return makeLLVMIntLit(&prim_i8_type, value->v_i8);
     case CONST_U8: return makeLLVMIntLit(&prim_u8_type, value->v_u8);
@@ -287,7 +287,7 @@ llvm::Constant* CodeGenerator::genComptime(ConstValue* value, bool inside) {
     } break;
     case CONST_ARRAY:
     case CONST_ZERO_ARRAY:
-        return genComptimeArray(value);
+        return genComptimeArray(value, exported);
     case CONST_STRING:
     case CONST_STRUCT:
     default:
@@ -298,7 +298,7 @@ llvm::Constant* CodeGenerator::genComptime(ConstValue* value, bool inside) {
 
 static size_t const_id_counter = 0;
 
-llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value) {
+llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value, bool exported) {
     llvm::Constant* alloc_loc;
     size_t num_elems;
     llvm::ArrayType* ll_arr_data_type;
@@ -327,7 +327,7 @@ llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value) {
         if (value->kind == CONST_ARRAY) {
             std::vector<llvm::Constant*> ll_elems;
             for (auto* elem : value->v_array.elems) {
-                ll_elems.push_back(genComptime(elem, true));
+                ll_elems.push_back(genComptime(elem, false, true));
             }
 
             ll_array = llvm::ConstantArray::get(ll_arr_data_type, ll_elems);
@@ -339,7 +339,7 @@ llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value) {
             mod, 
             ll_arr_data_type, 
             true, 
-            llvm::GlobalValue::ExternalLinkage, 
+            exported ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage, 
             ll_array, 
             std::format("__$const{}", const_id_counter++)
         );
