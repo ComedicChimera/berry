@@ -113,20 +113,24 @@ struct ConstValue {
         struct {
             std::span<ConstValue*> elems;
             Type* elem_type;
+            size_t mod_id;
             llvm::Constant* alloc_loc;
         } v_array;
         struct {
             size_t num_elems;
             Type* elem_type;
+            size_t mod_id;
             llvm::Constant* alloc_loc;
         } v_zarr;
         struct {
             std::string_view value;
+            size_t mod_id;
             llvm::Constant* alloc_loc;
         } v_str;
         struct {
             std::span<ConstValue*> fields;
             Type* struct_type;
+            size_t mod_id;
             llvm::Constant* alloc_loc;
         } v_struct;
     };
@@ -274,8 +278,12 @@ private:
     ConstValue* getComptimeNull(Type *type);
     ConstValue* allocComptime(ConstKind kind);
 
-    llvm::Constant* genComptime(ConstValue* value, bool exported, bool inside=false);
+    llvm::Constant* genComptime(ConstValue* value, bool exported, bool inner=false);
     llvm::Constant* genComptimeArray(ConstValue* value, bool exported);
+    llvm::Constant* genComptimeZeroArray(ConstValue* value, bool exported);
+    llvm::Constant* genComptimeString(ConstValue* value, bool exported);
+    llvm::Constant* genComptimeStruct(ConstValue* value, bool exported, bool inner);
+    llvm::Constant* genInnerComptimeStruct(ConstValue *value, bool exported);
 
     /* ---------------------------------------------------------------------- */
 
@@ -307,7 +315,7 @@ private:
     llvm::Value* genArrayLit(AstExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genNewExpr(AstExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genStructLit(AstExpr* node, llvm::Value* alloc_loc);
-    llvm::Value* genStrLit(AstExpr *node, llvm::Value *alloc_loc);
+    llvm::Value *genStrLit(AstExpr *node, llvm::Value *alloc_loc);
     llvm::Value* genIdent(AstExpr* node, bool expect_addr);
 
     /* ---------------------------------------------------------------------- */
@@ -331,6 +339,7 @@ private:
     llvm::Constant* getPlatformIntConst(uint64_t value);
     llvm::Constant* makeLLVMIntLit(Type *int_type, uint64_t value);
     llvm::Constant* makeLLVMFloatLit(Type *float_type, double value);
+    std::string decodeStrLit(std::string_view lit_val);
 
     /* ---------------------------------------------------------------------- */
 

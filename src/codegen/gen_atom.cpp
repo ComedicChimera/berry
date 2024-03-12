@@ -361,50 +361,6 @@ llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) 
     return needs_alloc ? alloc_loc : nullptr;
 }
 
-/* -------------------------------------------------------------------------- */
-
-static std::string decodeStrLit(std::string_view lit_val) {
-    std::string decoded;
-
-    for (int i = 0; i < lit_val.size(); i++) {
-        auto c = lit_val[i];
-
-        if (c == '\\') {
-            c = lit_val[++i];
-            switch (c) {
-            case 'a':
-                c = '\a';
-                break;
-            case 'b':
-                c = '\b';
-                break;
-            case 'f':
-                c = '\f';
-                break;
-            case 'n':
-                c = '\n';
-                break;
-            case 'r':
-                c = '\r';
-                break;
-            case 't':
-                c = '\t';
-                break;
-            case 'v':
-                c = '\v';
-                break;
-            case '0':
-                c = '\0';
-                break;
-            }
-        }
-
-        decoded.push_back(c);
-    }
-
-    return decoded;
-}
-
 llvm::Value* CodeGenerator::genStrLit(AstExpr* node, llvm::Value* alloc_loc) {
     auto decoded = decodeStrLit(node->an_String.value);
     auto* str_constant = llvm::ConstantDataArray::getString(ctx, decoded, false);
@@ -600,4 +556,46 @@ llvm::Constant* CodeGenerator::makeLLVMFloatLit(Type* float_type, double value) 
         llvm::APFloat ap_float((float)value);
         return llvm::ConstantFP::get(ctx, ap_float);
     }
+}
+
+std::string CodeGenerator::decodeStrLit(std::string_view lit_val) {
+    std::string decoded;
+
+    for (int i = 0; i < lit_val.size(); i++) {
+        auto c = lit_val[i];
+
+        if (c == '\\') {
+            c = lit_val[++i];
+            switch (c) {
+            case 'a':
+                c = '\a';
+                break;
+            case 'b':
+                c = '\b';
+                break;
+            case 'f':
+                c = '\f';
+                break;
+            case 'n':
+                c = '\n';
+                break;
+            case 'r':
+                c = '\r';
+                break;
+            case 't':
+                c = '\t';
+                break;
+            case 'v':
+                c = '\v';
+                break;
+            case '0':
+                c = '\0';
+                break;
+            }
+        }
+
+        decoded.push_back(c);
+    }
+
+    return decoded;
 }
