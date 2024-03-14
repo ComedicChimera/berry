@@ -5,10 +5,32 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
 
     switch (node->kind) {
     case AST_CAST:
+        // TODO
+        break;
     case AST_BINOP:
+        // TODO
+        break;
     case AST_UNOP:
-    case AST_INDEX:
+        // TODO
+        break;
+    case AST_INDEX: {
+        auto* array = evalComptime(node->an_Index.array);
+
+        if (array->kind == CONST_ARRAY) {
+            auto index = evalComptimeIndexValue(node->an_Index.index, array->v_array.elems.size());
+
+            value = array->v_array.elems[index];
+        } else if (array->kind == CONST_ZERO_ARRAY) {
+            evalComptimeIndexValue(node->an_Index.index, array->v_zarr.num_elems);
+
+            value = getComptimeNull(array->v_zarr.elem_type);
+        } else {
+            Panic("invalid comptime index expr");
+        }
+    } break;
     case AST_SLICE:
+        value = evalComptimeSlice(node);
+        break;
     case AST_FIELD: {
         auto* root_value = evalComptime(node->an_Field.root);
 
@@ -42,7 +64,20 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
             value = def->an_GlVar.const_value;
         }
     } break;
-    case AST_NEW:
+    case AST_NEW: {
+        Assert(node->an_New.size_expr != nullptr, "new without fixed size is not comptime");
+
+        uint64_t size;
+        if (!evalComptimeSize(node->an_New.size_expr, &size)) {
+            comptimeEvalError(node->an_New.size_expr->span, "negative array size");
+        }
+        
+        value = allocComptime(CONST_ZERO_ARRAY);
+        value->v_zarr.num_elems = size;
+        value->v_zarr.elem_type = node->an_New.elem_type->Inner();
+        value->v_zarr.mod_id = src_mod.id;
+        value->v_zarr.alloc_loc = nullptr;
+    } break;
     case AST_ARRAY: {
         value = allocComptime(CONST_ARRAY);
 
@@ -57,7 +92,11 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         value->v_array.alloc_loc = nullptr;
     } break;
     case AST_STRUCT_LIT_POS:
-    case AST_STRUCT_LIT_NAMED:  
+        // TODO
+        break;
+    case AST_STRUCT_LIT_NAMED: 
+        // TODO
+        break; 
     case AST_IDENT: {
         auto* symbol = node->an_Ident.symbol;
         Assert(symbol->flags & SYM_COMPTIME, "comptime eval with non-comptime symbol");
@@ -126,6 +165,126 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
 
     return value;
 }
+
+ConstValue* CodeGenerator::evalComptimeSlice(AstExpr* node) {
+    // NOTE: This particular method of comptime evaluation results in a
+    // duplication of the sliced data in the final binary.  At some point, there
+    // should be a more efficient method implemented for this, but it requires
+    // far more complexity than it seems to be worth to solve at this point.
+    // Comptimes are not addressable anyway, so the only observable difference
+    // is in the size of the output binary.
+
+    auto* array = evalComptime(node->an_Slice.array);
+
+    ConstValue* value;
+    if (array->kind == CONST_ARRAY) {
+        auto start_index = 
+            node->an_Slice.start_index 
+            ? evalComptimeIndexValue(node->an_Slice.start_index, array->v_array.elems.size()) 
+            : 0;
+
+        auto end_index =
+            node->an_Slice.end_index
+            ? evalComptimeIndexValue(node->an_Slice.end_index, array->v_array.elems.size() + 1)
+            : array->v_array.elems.size();
+
+        if (start_index > end_index)
+            comptimeEvalError(node->span, "lower slice index greater than upper slice index");
+
+        value = allocComptime(CONST_ARRAY);
+        value->v_array.elems = array->v_array.elems.subspan(start_index, end_index - start_index);
+        value->v_array.elem_type = array->v_array.elem_type;
+        value->v_array.mod_id = src_mod.id;
+        value->v_array.alloc_loc = nullptr;
+    } else if (array->kind == CONST_ZERO_ARRAY) {
+        auto start_index = 
+            node->an_Slice.start_index 
+            ? evalComptimeIndexValue(node->an_Slice.start_index, array->v_zarr.num_elems) 
+            : 0;
+
+        auto end_index =
+            node->an_Slice.end_index
+            ? evalComptimeIndexValue(node->an_Slice.end_index, array->v_zarr.num_elems + 1)
+            : array->v_zarr.num_elems;
+
+        if (start_index > end_index)
+            comptimeEvalError(node->span, "lower slice index greater than upper slice index");
+
+        value = allocComptime(CONST_ZERO_ARRAY);
+        value->v_zarr.num_elems = end_index - start_index;
+        value->v_zarr.elem_type = array->v_zarr.elem_type;
+        value->v_zarr.mod_id = src_mod.id;
+        value->v_zarr.alloc_loc = nullptr;
+    } else {
+        Panic("invalid comptime slice expr");
+    }
+
+    return value;
+}
+
+uint64_t CodeGenerator::evalComptimeIndexValue(AstExpr* node, uint64_t len) {
+    uint64_t index;
+    if (!evalComptimeSize(node, &index)) {
+        comptimeEvalError(node->span, "array index out of bounds");
+    }
+
+    if (index >= len) {
+        comptimeEvalError(node->span, "array index out of bounds");
+    }
+
+    return index;
+}
+
+bool CodeGenerator::evalComptimeSize(AstExpr* node, uint64_t* out_size) {
+    auto* size_const = evalComptime(node);
+
+    switch (size_const->kind) {
+    case CONST_U8:
+        *out_size = size_const->v_u8;
+        break;
+    case CONST_U16:
+        *out_size = size_const->v_u16;
+        break;
+    case CONST_U32:
+        *out_size = size_const->v_u32;
+        break;
+    case CONST_U64:
+        *out_size = size_const->v_u64;
+        break;
+    case CONST_I8:
+        if (size_const->v_i8 < 0)
+            return false;
+
+        *out_size = size_const->v_i8;
+        break;
+    case CONST_I16:
+        if (size_const->v_i16 < 0)
+            return false;
+
+        *out_size = size_const->v_i16;
+        break;
+    case CONST_I32:
+        if (size_const->v_i32 < 0)
+            return false;
+
+        *out_size = size_const->v_i32;
+        break;
+    case CONST_I64:
+        if (size_const->v_i64 < 0)
+            return false;
+
+        *out_size = size_const->v_i64;
+        break;
+    }
+
+    return true;
+}
+
+void CodeGenerator::comptimeEvalError(const TextSpan& span, const std::string& message) {
+    // TODO
+}
+
+/* -------------------------------------------------------------------------- */
 
 ConstValue* CodeGenerator::getComptimeNull(Type* type) {
     type = type->Inner();

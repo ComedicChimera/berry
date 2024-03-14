@@ -275,6 +275,11 @@ private:
     /* ---------------------------------------------------------------------- */
     
     ConstValue* evalComptime(AstExpr* node);
+    ConstValue* evalComptimeSlice(AstExpr* node);
+    uint64_t evalComptimeIndexValue(AstExpr *node, uint64_t len);
+    bool evalComptimeSize(AstExpr* node, uint64_t* out_size);
+    void comptimeEvalError(const TextSpan& span, const std::string& message);
+
     ConstValue* getComptimeNull(Type *type);
     ConstValue* allocComptime(ConstKind kind);
 
