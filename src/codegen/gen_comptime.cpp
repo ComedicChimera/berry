@@ -11,7 +11,7 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         // TODO
         break;
     case AST_UNOP:
-        // TODO
+        value = evalComptimeUnaryOp(node);
         break;
     case AST_INDEX: {
         auto* array = evalComptime(node->an_Index.array);
@@ -92,10 +92,10 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         value->v_array.alloc_loc = nullptr;
     } break;
     case AST_STRUCT_LIT_POS:
-        // TODO
+        value = evalComptimeStructLitPos(node);
         break;
     case AST_STRUCT_LIT_NAMED: 
-        // TODO
+        value = evalComptimeStructLitNamed(node);
         break; 
     case AST_IDENT: {
         auto* symbol = node->an_Ident.symbol;
@@ -163,6 +163,158 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         break;
     }
 
+    return value;
+}
+
+ConstValue* CodeGenerator::evalComptimeUnaryOp(AstExpr* node) {
+    auto* operand = evalComptime(node->an_Unop.operand);
+
+    ConstValue* value = nullptr;;
+    switch (node->an_Unop.op) {
+    case AOP_NEG:
+        switch (operand->kind) {
+        case CONST_I8:
+            value = allocComptime(CONST_I8);
+            value->v_i8 = -value->v_i8;
+            break;
+        case CONST_U8:
+            value = allocComptime(CONST_U8);
+            value->v_u8 = -value->v_u8;
+            break;
+        case CONST_I16:
+            value = allocComptime(CONST_I16);
+            value->v_i16 = -value->v_i16;
+            break;
+        case CONST_U16:
+            value = allocComptime(CONST_U16);
+            value->v_u16 = -value->v_u16;
+            break;
+        case CONST_I32:
+            value = allocComptime(CONST_I32);
+            value->v_i32 = -value->v_i32;
+            break;
+        case CONST_U32:
+            value = allocComptime(CONST_U32);
+            value->v_u32 = -value->v_u32;
+            break;
+        case CONST_I64:
+            value = allocComptime(CONST_I64);
+            value->v_i64 = -value->v_i64;
+            break;
+        case CONST_U64:
+            value = allocComptime(CONST_U64);
+            value->v_u64 = -value->v_u64;
+            break;
+        case CONST_F32:
+            value = allocComptime(CONST_F32);
+            value->v_f32 = -value->v_f32;
+            break;
+        case CONST_F64:
+            value = allocComptime(CONST_F64);
+            value->v_f64 = -value->v_f64;
+            break;
+        }
+        break;
+    case AOP_BWNEG:
+        switch (operand->kind) {
+        case CONST_I8:
+            value = allocComptime(CONST_I8);
+            value->v_i8 = ~operand->v_i8;
+            break;
+        case CONST_U8:
+            value = allocComptime(CONST_U8);
+            value->v_u8 = ~operand->v_u8;
+            break;
+        case CONST_I16:
+            value = allocComptime(CONST_I16);
+            value->v_i16 = ~operand->v_i16;
+            break;
+        case CONST_U16:
+            value = allocComptime(CONST_U16);
+            value->v_u16 = ~operand->v_u16;
+            break;
+        case CONST_I32:
+            value = allocComptime(CONST_I32);
+            value->v_i32 = ~operand->v_i32;
+            break;
+        case CONST_U32:
+            value = allocComptime(CONST_U32);
+            value->v_u32 = ~operand->v_u32;
+            break;
+        case CONST_I64:
+            value = allocComptime(CONST_I64);
+            value->v_i64 = ~operand->v_i64;
+            break;
+        case CONST_U64:
+            value = allocComptime(CONST_U64);
+            value->v_u64 = ~operand->v_u64;
+            break;
+        }
+
+        break;
+    case AOP_NOT:
+        if (operand->kind == CONST_BOOL) {
+            value = allocComptime(CONST_BOOL);
+            value->v_bool = !operand->v_bool;
+        }
+
+        break;
+    }
+
+    Assert(value != nullptr, "unimplemented comptime unary operator");
+    return value;
+}
+
+ConstValue* CodeGenerator::evalComptimeStructLitPos(AstExpr* node) {
+    auto* struct_type = node->an_StructLitPos.root->type->Inner();
+
+    if (struct_type->kind == TYPE_NAMED) {
+        struct_type = struct_type->ty_Named.type;
+    }
+
+    Assert(struct_type->kind == TYPE_STRUCT, "struct lit has non struct type root");
+
+    std::vector<ConstValue*> field_values;
+    for (auto& field : node->an_StructLitPos.field_inits) {
+        field_values.push_back(evalComptime(field));
+    }
+
+    for (size_t i = field_values.size() - 1; i < struct_type->ty_Struct.fields.size(); i++) {
+        field_values.push_back(getComptimeNull(struct_type->ty_Struct.fields[i].type));
+    }
+
+    auto* value = allocComptime(CONST_STRUCT);
+    value->v_struct.fields = arena.MoveVec(std::move(field_values));
+    value->v_struct.struct_type = struct_type;
+    value->v_struct.mod_id = src_mod.id;
+    value->v_struct.alloc_loc = nullptr;
+    return value;
+}
+
+ConstValue* CodeGenerator::evalComptimeStructLitNamed(AstExpr* node) {
+    auto* struct_type = node->an_StructLitPos.root->type->Inner();
+
+    if (struct_type->kind == TYPE_NAMED) {
+        struct_type = struct_type->ty_Named.type;
+    }
+
+    Assert(struct_type->kind == TYPE_STRUCT, "struct lit has non struct type root");
+
+    std::vector<ConstValue*> field_values(struct_type->ty_Struct.fields.size(), nullptr);
+    for (auto& field : node->an_StructLitNamed.field_inits) {
+        field_values[field.field_index] = evalComptime(field.expr);
+    }
+
+    for (size_t i = 0; i < field_values.size(); i++) {
+        if (field_values[i] == nullptr)
+            field_values[i] = getComptimeNull(struct_type->ty_Struct.fields[i].type);
+    }
+
+    auto* value = allocComptime(CONST_STRUCT);
+    value->v_struct.fields = arena.MoveVec(std::move(field_values));
+    value->v_struct.struct_type = struct_type;
+    value->v_struct.mod_id = src_mod.id;
+    value->v_struct.alloc_loc = nullptr;
     return value;
 }
 
