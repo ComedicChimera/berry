@@ -347,7 +347,8 @@ ConstValue* CodeGenerator::evalComptimeBinaryOp(AstExpr* node) {
     case AOP_BWXOR:
         COMPTIME_INT_BINOP(^);
         break;
-    // TODO: comparions ops
+    case AOP_EQ:
+        break;
     }
 
     if (value == nullptr)
