@@ -5,7 +5,7 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
 
     switch (node->kind) {
     case AST_CAST:
-        // TODO
+        value = evalComptimeCast(node);
         break;
     case AST_BINOP:
         value = evalComptimeBinaryOp(node);
@@ -162,6 +162,120 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         Panic("comptime evaluation not implemented for AST node");
         break;
     }
+
+    return value;
+}
+
+#define COMPTIME_INT_CAST(DEST_, TYPE_) switch (src->kind) { \
+    case CONST_I8: \
+        value->DEST_ = (TYPE_)src->v_i8; \
+        break; \
+    case CONST_U8: \
+        value->DEST_ = (TYPE_)src->v_u8; \
+        break; \
+    case CONST_I16: \
+        value->DEST_ = (TYPE_)src->v_i16; \
+        break; \
+    case CONST_U16: \
+        value->DEST_ = (TYPE_)src->v_u16; \
+        break; \
+    case CONST_I32: \
+        value->DEST_ = (TYPE_)src->v_i32; \
+        break; \
+    case CONST_U32: \
+        value->DEST_ = (TYPE_)src->v_u32; \
+        break; \
+    case CONST_I64: \
+        value->DEST_ = (TYPE_)src->v_i64; \
+        break; \
+    case CONST_U64: \
+        value->DEST_ = (TYPE_)src->v_u64; \
+        break; \
+    }
+
+ConstValue* CodeGenerator::evalComptimeCast(AstExpr* node) {
+    auto* src = evalComptime(node->an_Cast.src);
+
+    auto* dest_type = node->type->Inner();
+    if (tctx.Equal(node->an_Cast.src->type, dest_type)) {
+        return src;
+    }
+
+    ConstValue* value;
+    switch (dest_type->kind) {
+    case TYPE_BOOL:
+        value = allocComptime(CONST_BOOL);
+        COMPTIME_INT_CAST(v_bool, bool);
+        break;
+    case TYPE_INT:
+        // TODO
+        break;
+    case TYPE_FLOAT:
+        if (dest_type->ty_Float.bit_size == 32) {
+            value = allocComptime(CONST_F32);
+            if (src->kind == CONST_F64) {
+                value->v_f32 = (float)src->v_f64;
+            } else {
+                COMPTIME_INT_CAST(v_f32, float);
+            }
+        } else {
+            value = allocComptime(CONST_F64);
+            if (src->kind == CONST_F32) {
+                value->v_f64 = (double)src->v_f32;
+            } else {
+                COMPTIME_INT_CAST(v_f64, double);
+            }
+        }
+        break;
+    case TYPE_PTR:
+        if (src->kind == CONST_PTR) {
+            return src;
+        } else {
+            COMPTIME_INT_CAST(v_ptr, size_t);
+        }
+        break;
+    case TYPE_ARRAY:
+        if (src->kind == CONST_STRING) {
+            value = allocComptime(CONST_ARRAY);
+
+            std::vector<ConstValue*> values;
+            for (auto ch : src->v_str.value) {
+                auto* ch_value = allocComptime(CONST_U8);
+                ch_value->v_u8 = ch;
+                values.push_back(ch_value);
+            }
+
+            value->v_array.elems = arena.MoveVec(std::move(values));
+            value->v_array.elem_type = &prim_u8_type;
+            value->v_array.mod_id = src_mod.id;
+            value->v_array.alloc_loc = nullptr;
+        }
+        break;
+    case TYPE_STRING:
+        value = allocComptime(CONST_STRING);
+
+        if (src->kind == CONST_ARRAY) {
+            std::string str_data;
+            for (auto* cv : src->v_array.elems) {
+                str_data.push_back(cv->v_u8);
+            }
+
+            value->v_str.value = arena.MoveStr(std::move(str_data));
+        } else if (src->kind == CONST_ZERO_ARRAY) {
+            std::string str_data(src->v_zarr.num_elems, 0);
+            
+            value->v_str.value = arena.MoveStr(std::move(str_data));
+        } else {
+            Panic("unimplemented comptime cast");
+        }
+
+        value->v_str.mod_id = src_mod.id;
+        value->v_str.alloc_loc = nullptr;
+        break;
+    }
+
+    if (value == nullptr)
+        Panic("unimplemented comptime cast");
 
     return value;
 }

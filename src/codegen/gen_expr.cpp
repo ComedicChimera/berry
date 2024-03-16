@@ -134,6 +134,14 @@ llvm::Value* CodeGenerator::genCast(AstExpr* node) {
             return irb.CreateIntToPtr(src_val, ll_dtype);
         }
         break;
+    case TYPE_ARRAY:
+        if (src_kind == TYPE_STRING)
+            return src_val;
+        break;
+    case TYPE_STRING:
+        if (src_kind == TYPE_ARRAY)
+            return src_val;
+        break;            
     }
 
     Panic("unimplemented cast in codegen");

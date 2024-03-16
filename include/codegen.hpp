@@ -275,6 +275,7 @@ private:
     /* ---------------------------------------------------------------------- */
     
     ConstValue* evalComptime(AstExpr* node);
+    ConstValue* evalComptimeCast(AstExpr* node);
     ConstValue* evalComptimeBinaryOp(AstExpr* node);
     ConstValue* evalComptimeUnaryOp(AstExpr* node);
     ConstValue* evalComptimeStructLitPos(AstExpr* node);
