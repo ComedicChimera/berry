@@ -8,7 +8,7 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         // TODO
         break;
     case AST_BINOP:
-        // TODO
+        value = evalComptimeBinaryOp(node);
         break;
     case AST_UNOP:
         value = evalComptimeUnaryOp(node);
@@ -162,6 +162,196 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         Panic("comptime evaluation not implemented for AST node");
         break;
     }
+
+    return value;
+}
+
+#define COMPTIME_NUM_BINOP(OP_) Assert(lhs->kind == rhs->kind, "invalid comptime binary op"); \
+    switch (lhs->kind) { \
+    case CONST_I8: \
+        value = allocComptime(CONST_I8); \
+        value->v_i8 = lhs->v_i8 OP_ rhs->v_i8; \
+        break; \
+    case CONST_U8: \
+        value = allocComptime(CONST_U8); \
+        value->v_u8 = lhs->v_u8 OP_ rhs->v_u8; \
+        break; \
+    case CONST_I16: \
+        value = allocComptime(CONST_I16); \
+        value->v_i16 = lhs->v_i16 OP_ rhs->v_i16; \
+        break; \
+    case CONST_U16: \
+        value = allocComptime(CONST_U16); \
+        value->v_u16 = lhs->v_u16 OP_ rhs->v_u16; \
+        break; \
+    case CONST_I32: \
+        value = allocComptime(CONST_I32); \
+        value->v_i32 = lhs->v_i32 OP_ rhs->v_i32; \
+        break; \
+    case CONST_U32: \
+        value = allocComptime(CONST_U32); \
+        value->v_u32 = lhs->v_u32 OP_ rhs->v_u32; \
+        break; \
+    case CONST_I64: \
+        value = allocComptime(CONST_I64); \
+        value->v_i64 = lhs->v_i64 OP_ rhs->v_i64; \
+        break; \
+    case CONST_U64: \
+        value = allocComptime(CONST_U64); \
+        value->v_u64 = lhs->v_u64 OP_ rhs->v_u64; \
+        break; \
+    case CONST_F32: \
+        value = allocComptime(CONST_F32); \
+        value->v_f32 = lhs->v_f32 OP_ rhs->v_f32; \
+        break; \
+    case CONST_F64: \
+        value = allocComptime(CONST_F64); \
+        value->v_f64 = lhs->v_f64 OP_ rhs->v_f64; \
+        break; \
+    }
+
+#define COMPTIME_INT_BINOP(OP_) Assert(lhs->kind == rhs->kind, "invalid comptime binary op"); \
+    switch (lhs->kind) { \
+    case CONST_I8: \
+        value = allocComptime(CONST_I8); \
+        value->v_i8 = lhs->v_i8 OP_ rhs->v_i8; \
+        break; \
+    case CONST_U8: \
+        value = allocComptime(CONST_U8); \
+        value->v_u8 = lhs->v_u8 OP_ rhs->v_u8; \
+        break; \
+    case CONST_I16: \
+        value = allocComptime(CONST_I16); \
+        value->v_i16 = lhs->v_i16 OP_ rhs->v_i16; \
+        break; \
+    case CONST_U16: \
+        value = allocComptime(CONST_U16); \
+        value->v_u16 = lhs->v_u16 OP_ rhs->v_u16; \
+        break; \
+    case CONST_I32: \
+        value = allocComptime(CONST_I32); \
+        value->v_i32 = lhs->v_i32 OP_ rhs->v_i32; \
+        break; \
+    case CONST_U32: \
+        value = allocComptime(CONST_U32); \
+        value->v_u32 = lhs->v_u32 OP_ rhs->v_u32; \
+        break; \
+    case CONST_I64: \
+        value = allocComptime(CONST_I64); \
+        value->v_i64 = lhs->v_i64 OP_ rhs->v_i64; \
+        break; \
+    case CONST_U64: \
+        value = allocComptime(CONST_U64); \
+        value->v_u64 = lhs->v_u64 OP_ rhs->v_u64; \
+        break; \
+    }
+
+static bool checkComptimeNonzero(ConstValue* value) {
+    switch (value->kind) {
+    case CONST_I8:
+        if (value->v_i8 == 0)
+            return true;
+        break;
+    case CONST_U8:
+        if (value->v_u8 == 0)
+            return true;
+        break;
+    case CONST_I16:
+        if (value->v_i16 == 0)
+            return true;
+        break;
+    case CONST_U16:
+        if (value->v_u16 == 0)
+            return true;
+        break;
+    case CONST_I32:
+        if (value->v_i32 == 0)
+            return true;
+        break;
+    case CONST_U32:
+        if (value->v_u32 == 0)
+            return true;
+        break;
+    case CONST_I64:
+        if (value->v_i64 == 0)
+            return true;
+        break;
+    case CONST_U64:
+        if (value->v_u64 == 0)
+            return true;
+        break;
+    }
+
+    return false;
+}
+
+ConstValue* CodeGenerator::evalComptimeBinaryOp(AstExpr* node) {
+    auto* lhs = evalComptime(node->an_Binop.lhs);
+
+    if (node->an_Binop.op == AOP_LGAND) {
+        if (lhs->kind == CONST_BOOL) {
+            return lhs->v_bool ? evalComptime(node->an_Binop.rhs) : lhs;
+        }
+    } else if (node->an_Binop.op == AOP_LGOR) {
+        if (lhs->kind == CONST_BOOL) {
+            return lhs->v_bool ? lhs : evalComptime(node->an_Binop.rhs);
+        }
+    }
+
+    auto* rhs = evalComptime(node->an_Binop.rhs);
+
+    ConstValue* value = nullptr;
+    switch (node->an_Binop.op) {
+    case AOP_ADD:
+        COMPTIME_NUM_BINOP(+);
+        break;
+    case AOP_SUB:
+        COMPTIME_NUM_BINOP(-);
+        break;
+    case AOP_MUL:
+        COMPTIME_NUM_BINOP(*);
+        break;
+    case AOP_DIV:
+        if (checkComptimeNonzero(rhs)) {
+            comptimeEvalError(node->an_Binop.rhs->span, "integer divide by zero");
+        }
+        COMPTIME_NUM_BINOP(/);
+        break;
+    case AOP_MOD:
+        if (checkComptimeNonzero(rhs)) {
+            comptimeEvalError(node->an_Binop.rhs->span, "integer divide by zero");
+        }
+        
+        if (rhs->kind == CONST_F32) {
+            value = allocComptime(CONST_F32);
+            value->v_f32 = fmod(lhs->v_f32, rhs->v_f32);
+        } else if (rhs->kind == CONST_F64) {
+            value = allocComptime(CONST_F64);
+            value->v_f64 = fmod(lhs->v_f64, rhs->v_f64);
+        } else {
+            COMPTIME_INT_BINOP(%);
+        }
+        break;
+    case AOP_SHL:
+        COMPTIME_INT_BINOP(<<);
+        break;
+    case AOP_SHR:
+        COMPTIME_INT_BINOP(>>);
+        break;
+    case AOP_BWAND:
+        COMPTIME_INT_BINOP(&);
+        break;
+    case AOP_BWOR:
+        COMPTIME_INT_BINOP(|);
+        break;
+    case AOP_BWXOR:
+        COMPTIME_INT_BINOP(^);
+        break;
+    // TODO: comparions ops
+    }
+
+    if (value == nullptr)
+        Panic("unimplemented comptime binary op");
 
     return value;
 }
