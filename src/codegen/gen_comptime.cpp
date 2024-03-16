@@ -246,6 +246,41 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         break; \
     }
 
+#define COMPTIME_COMP_NUM_BINOP(OP_) Assert(lhs->kind == rhs->kind, "invalid comptime binary op"); \
+    value = allocComptime(CONST_BOOL); \
+    switch (lhs->kind) { \
+    case CONST_I8: \
+        value->v_bool = lhs->v_i8 OP_ rhs->v_i8; \
+        break; \
+    case CONST_U8: \
+        value->v_bool = lhs->v_u8 OP_ rhs->v_u8; \
+        break; \
+    case CONST_I16: \
+        value->v_bool = lhs->v_i16 OP_ rhs->v_i16; \
+        break; \
+    case CONST_U16: \
+        value->v_bool = lhs->v_u16 OP_ rhs->v_u16; \
+        break; \
+    case CONST_I32: \
+        value->v_bool = lhs->v_i32 OP_ rhs->v_i32; \
+        break; \
+    case CONST_U32: \
+        value->v_bool = lhs->v_u32 OP_ rhs->v_u32; \
+        break; \
+    case CONST_I64: \
+        value->v_bool = lhs->v_i64 OP_ rhs->v_i64; \
+        break; \
+    case CONST_U64: \
+        value->v_bool = lhs->v_u64 OP_ rhs->v_u64; \
+        break; \
+    case CONST_F32: \
+        value->v_bool = lhs->v_f32 OP_ rhs->v_f32; \
+        break;  \
+    case CONST_F64: \
+        value->v_bool = lhs->v_f64 OP_ rhs->v_f64; \
+        break; \
+    }
+
 static bool checkComptimeNonzero(ConstValue* value) {
     switch (value->kind) {
     case CONST_I8:
@@ -348,6 +383,22 @@ ConstValue* CodeGenerator::evalComptimeBinaryOp(AstExpr* node) {
         COMPTIME_INT_BINOP(^);
         break;
     case AOP_EQ:
+        COMPTIME_COMP_NUM_BINOP(==);
+        break;
+    case AOP_NE:
+        COMPTIME_COMP_NUM_BINOP(!=);
+        break;
+    case AOP_LT:
+        COMPTIME_COMP_NUM_BINOP(<);
+        break;
+    case AOP_GT:
+        COMPTIME_COMP_NUM_BINOP(>);
+        break;
+    case AOP_LE:
+        COMPTIME_COMP_NUM_BINOP(<=);
+        break;
+    case AOP_GE:
+        COMPTIME_COMP_NUM_BINOP(>=);
         break;
     }
 
