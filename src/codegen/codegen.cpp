@@ -14,11 +14,16 @@ void CodeGenerator::GenerateModule() {
     }
 
     for (size_t def_num : src_mod.init_order) {
-        genGlobalVarDecl(src_mod.defs[def_num]);
+        auto* def = src_mod.defs[def_num];
+        src_file = &src_mod.files[def->parent_file_number];
+
+        genGlobalVarDecl(def);
     }
 
     for (auto* def : src_mod.defs) {
-        debug.SetCurrentFile(src_mod.files[def->parent_file_number]);
+        auto& def_src_file = src_mod.files[def->parent_file_number];
+        src_file = &def_src_file;
+        debug.SetCurrentFile(def_src_file);
 
         genTopDecl(def);
     }
@@ -26,11 +31,16 @@ void CodeGenerator::GenerateModule() {
     genRuntimeStubs();
 
     for (size_t def_num : src_mod.init_order) {
-        genGlobalVarInit(src_mod.defs[def_num]);
+        auto* def = src_mod.defs[def_num];
+        src_file = &src_mod.files[def->parent_file_number];
+
+        genGlobalVarInit(def);
     }
 
     for (auto* def : src_mod.defs) {
-        debug.SetCurrentFile(src_mod.files[def->parent_file_number]);
+        auto& def_src_file = src_mod.files[def->parent_file_number];
+        src_file = &def_src_file;
+        debug.SetCurrentFile(def_src_file);
 
         genPredicates(def);
     }

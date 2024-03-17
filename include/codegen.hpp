@@ -158,6 +158,9 @@ class CodeGenerator {
     // src_mod is the source module being compiled.
     Module& src_mod;
 
+    // src_file is the source file whose definition is being processed.
+    SourceFile* src_file;
+
     // mainb is the main builder for the compilation task.
     MainBuilder& mainb;
 
@@ -293,7 +296,7 @@ private:
     llvm::Constant* genComptimeZeroArray(ConstValue* value, bool exported);
     llvm::Constant* genComptimeString(ConstValue* value, bool exported);
     llvm::Constant* genComptimeStruct(ConstValue* value, bool exported, bool inner);
-    llvm::Constant* genInnerComptimeStruct(ConstValue *value, bool exported);
+    llvm::Constant* genComptimeInnerStruct(ConstValue *value, bool exported);
 
     /* ---------------------------------------------------------------------- */
 

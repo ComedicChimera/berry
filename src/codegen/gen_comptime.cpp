@@ -852,7 +852,8 @@ bool CodeGenerator::evalComptimeSize(AstExpr* node, uint64_t* out_size) {
 }
 
 void CodeGenerator::comptimeEvalError(const TextSpan& span, const std::string& message) {
-    // TODO
+    ReportCompileError(src_file->display_path, span, "evaluating compile time expression: {}", message);
+    throw CompileError{};
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1148,12 +1149,12 @@ llvm::Constant* CodeGenerator::genComptimeString(ConstValue* value, bool exporte
 
 llvm::Constant* CodeGenerator::genComptimeStruct(ConstValue* value, bool exported, bool inner) {
     if (inner || !shouldPtrWrap(value->v_struct.struct_type)) {
-        return genInnerComptimeStruct(value, exported);
+        return genComptimeInnerStruct(value, exported);
     }
 
     llvm::Constant* gv;
     if (value->v_struct.alloc_loc == nullptr) {
-        auto* struct_const = genInnerComptimeStruct(value, exported);
+        auto* struct_const = genComptimeInnerStruct(value, exported);
         gv = new llvm::GlobalVariable(
             mod,
             struct_const->getType(),
@@ -1180,7 +1181,7 @@ llvm::Constant* CodeGenerator::genComptimeStruct(ConstValue* value, bool exporte
     return gv;
 }
 
-llvm::Constant* CodeGenerator::genInnerComptimeStruct(ConstValue* value, bool exported) {
+llvm::Constant* CodeGenerator::genComptimeInnerStruct(ConstValue* value, bool exported) {
     std::vector<llvm::Constant*> field_values;  
     for (auto* field : value->v_struct.fields) {
         field_values.push_back(genComptime(field, exported, true));
