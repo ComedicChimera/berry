@@ -193,6 +193,31 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         break; \
     }
 
+#define COMPTIME_TO_INT_CAST(DEST_, TYPE_) switch (src->kind) { \
+    case CONST_I8: \
+        value->DEST_ = (TYPE_)src->v_i8; \
+    case CONST_U8: \
+        value->DEST_ = (TYPE_)src->v_u8; \
+    case CONST_I16: \
+        value->DEST_ = (TYPE_)src->v_i16; \
+    case CONST_U16: \
+        value->DEST_ = (TYPE_)src->v_u16; \
+    case CONST_I32: \
+        value->DEST_ = (TYPE_)src->v_i32; \
+    case CONST_U32: \
+        value->DEST_ = (TYPE_)src->v_u32; \
+    case CONST_I64: \
+        value->DEST_ = (TYPE_)src->v_i64; \
+    case CONST_U64: \
+        value->DEST_ = (TYPE_)src->v_u64; \
+    case CONST_F32: \
+        value->DEST_ = (TYPE_)src->v_f32; \
+    case CONST_F64: \
+        value->DEST_ = (TYPE_)src->v_f64; \
+    case CONST_BOOL: \
+        value->DEST_ = (TYPE_)src->v_bool; \
+    }
+
 ConstValue* CodeGenerator::evalComptimeCast(AstExpr* node) {
     auto* src = evalComptime(node->an_Cast.src);
 
@@ -208,7 +233,45 @@ ConstValue* CodeGenerator::evalComptimeCast(AstExpr* node) {
         COMPTIME_INT_CAST(v_bool, bool);
         break;
     case TYPE_INT:
-        // TODO
+        if (dest_type->ty_Int.is_signed) {
+            switch (dest_type->ty_Int.bit_size) {
+            case 8:
+                value = allocComptime(CONST_I8);
+                COMPTIME_TO_INT_CAST(v_i8, int8_t);
+                break;
+            case 16:
+                value = allocComptime(CONST_I16);
+                COMPTIME_TO_INT_CAST(v_i16, int16_t);
+                break;
+            case 32:
+                value = allocComptime(CONST_I32);
+                COMPTIME_TO_INT_CAST(v_i32, int32_t);
+                break;
+            case 64:
+                value = allocComptime(CONST_I64);
+                COMPTIME_TO_INT_CAST(v_i64, int64_t);
+                break;
+            }
+        } else {
+            switch (dest_type->ty_Int.bit_size) {
+            case 8:
+                value = allocComptime(CONST_U8);
+                COMPTIME_TO_INT_CAST(v_u8, uint8_t);
+                break;
+            case 16:
+                value = allocComptime(CONST_U16);
+                COMPTIME_TO_INT_CAST(v_u16, uint16_t);
+                break;
+            case 32:
+                value = allocComptime(CONST_U32);
+                COMPTIME_TO_INT_CAST(v_u32, uint32_t);
+                break;
+            case 64:
+                value = allocComptime(CONST_U64);
+                COMPTIME_TO_INT_CAST(v_u64, uint64_t);
+                break;
+            }
+        }
         break;
     case TYPE_FLOAT:
         if (dest_type->ty_Float.bit_size == 32) {
