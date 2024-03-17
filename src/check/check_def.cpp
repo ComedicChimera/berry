@@ -7,6 +7,9 @@ void Checker::checkDef(AstDef* def) {
     case AST_FUNC:
         checkFuncDef(def);
         break;
+    case AST_GLVAR:
+        checkGlobalVar(def);
+        break;
     case AST_STRUCT:
         checkStructDef(def);
         break;

@@ -39,7 +39,7 @@ llvm::Value* CodeGenerator::genCall(AstExpr* node, llvm::Value* alloc_loc) {
 llvm::Value* CodeGenerator::genIndexExpr(AstExpr* node, bool expect_addr) {
     auto& aindex = node->an_Index;
 
-    Assert(aindex.array->type->Inner()->kind == TYPE_ARRAY, "index on non-array type in codegen");
+    // Assert(aindex.array->type->Inner()->kind == TYPE_ARRAY, "index on non-array type in codegen");
 
     auto* array_val = genExpr(aindex.array);
     auto* index_val = genExpr(aindex.index);
@@ -59,7 +59,7 @@ llvm::Value* CodeGenerator::genIndexExpr(AstExpr* node, bool expect_addr) {
 llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) {
     auto& aslice = node->an_Slice;
 
-    Assert(aslice.array->type->Inner()->kind == TYPE_ARRAY, "slice on non-array type in codegen");
+    // Assert(aslice.array->type->Inner()->kind == TYPE_ARRAY, "slice on non-array type in codegen");
 
     auto* array_val = genExpr(aslice.array);
     auto* len_val = getArrayLen(array_val);
@@ -142,6 +142,7 @@ llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
                 { getInt32Const(0), getInt32Const(afield.field_index)}
             );
         case TYPE_ARRAY:
+        case TYPE_STRING:
             if (afield.field_name == "_ptr") {
                 return getArrayDataPtr(root_ptr);
             } else if (afield.field_name == "_len") {
@@ -181,6 +182,7 @@ llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
                 return irb.CreateExtractValue(root_val, afield.field_index);
             }
         case TYPE_ARRAY:
+        case TYPE_STRING:
             if (afield.field_name == "_ptr") {
                 return getArrayData(root_val);
             } else if (afield.field_name == "_len") {
@@ -456,7 +458,7 @@ llvm::Value* CodeGenerator::genAlloc(llvm::Type* llvm_type, AstAllocMode mode) {
 
         return alloc_value;
     } else if (mode == A_ALLOC_GLOBAL) {
-        new llvm::GlobalVariable(
+        return new llvm::GlobalVariable(
             mod,
             llvm_type,
             false,
@@ -465,6 +467,7 @@ llvm::Value* CodeGenerator::genAlloc(llvm::Type* llvm_type, AstAllocMode mode) {
         );
     } else {
         Panic("heap allocation is not yet implemented");
+        return nullptr;
     }
 }
 

@@ -8,70 +8,6 @@
 
 #include "ast.hpp"
 
-// DebugGenerator generates debug information for a Berry module.  It is called
-// by the CodeGenerator and acts as its "companion".
-class DebugGenerator {
-    bool no_emit;
-    
-    llvm::Module& mod;
-    llvm::IRBuilder<>& irb;
-
-    llvm::DIBuilder db;
-    std::vector<llvm::DIScope*> lexical_blocks;
-
-    llvm::DIFile* curr_file;
-
-    llvm::DIType* prim_type_table[16];
-
-    int disable_count;
-
-public:
-    DebugGenerator(bool should_emit, llvm::Module& mod, llvm::IRBuilder<>& irb)
-    : no_emit(!should_emit)
-    , mod(mod)
-    , irb(irb)
-    , db(mod)
-    , curr_file(nullptr)
-    {
-        buildTypeTable();
-
-        disable_count = should_emit ? 0 : -1;
-    }
-
-    /* ---------------------------------------------------------------------- */
-
-    void PushDisable();
-    void PopDisable();
-
-    /* ---------------------------------------------------------------------- */
-
-    void EmitFileInfo(SourceFile& src_file);
-    void SetCurrentFile(SourceFile &src_file);
-    void FinishModule();
-
-    /* ---------------------------------------------------------------------- */
-
-    void BeginFuncBody(AstDef* fd, llvm::Function* ll_func);
-    void EndFuncBody();
-    void EmitGlobalVariableInfo(AstDef* node, llvm::GlobalVariable* ll_gv);
-    void EmitLocalVariableInfo(AstStmt* node, llvm::Value* ll_var);
-
-    /* ---------------------------------------------------------------------- */
-
-    void SetDebugLocation(const TextSpan &span);
-    void ClearDebugLocation();
-    llvm::DILocation* GetDebugLoc(llvm::DIScope* scope, const TextSpan& span);
-
-    /* ---------------------------------------------------------------------- */
-
-    llvm::DIType *GetDIType(Type *type, uint call_conv = llvm::dwarf::DW_CC_normal);
-
-private:
-    void buildTypeTable();
-};
-
-/* -------------------------------------------------------------------------- */
-
 enum ConstKind {
     CONST_I8,
     CONST_U8,
@@ -134,6 +70,86 @@ struct ConstValue {
             llvm::Constant* alloc_loc;
         } v_struct;
     };
+};
+
+/* -------------------------------------------------------------------------- */
+
+class MainBuilder {
+    llvm::LLVMContext& ctx;
+    llvm::Module& main_mod;
+
+    llvm::Function* rt_main_func;
+    llvm::FunctionType* rt_stub_func_type;
+    llvm::IRBuilder<> irb;
+
+public:
+    MainBuilder(llvm::LLVMContext& ctx, llvm::Module& main_mod);
+    void GenInitCall(llvm::Function* init_func);
+    void GenUserMainCall(Module& root_mod);
+    void FinishMain();
+};
+
+
+// DebugGenerator generates debug information for a Berry module.  It is called
+// by the CodeGenerator and acts as its "companion".
+class DebugGenerator {
+    bool no_emit;
+    
+    llvm::Module& mod;
+    llvm::IRBuilder<>& irb;
+
+    llvm::DIBuilder db;
+    std::vector<llvm::DIScope*> lexical_blocks;
+
+    llvm::DIFile* curr_file;
+
+    llvm::DIType* prim_type_table[16];
+
+    int disable_count;
+
+public:
+    DebugGenerator(bool should_emit, llvm::Module& mod, llvm::IRBuilder<>& irb)
+    : no_emit(!should_emit)
+    , mod(mod)
+    , irb(irb)
+    , db(mod)
+    , curr_file(nullptr)
+    {
+        buildTypeTable();
+
+        disable_count = should_emit ? 0 : -1;
+    }
+
+    /* ---------------------------------------------------------------------- */
+
+    void PushDisable();
+    void PopDisable();
+
+    /* ---------------------------------------------------------------------- */
+
+    void EmitFileInfo(SourceFile& src_file);
+    void SetCurrentFile(SourceFile &src_file);
+    void FinishModule();
+
+    /* ---------------------------------------------------------------------- */
+
+    void BeginFuncBody(AstDef* fd, llvm::Function* ll_func);
+    void EndFuncBody();
+    void EmitGlobalVariableInfo(AstDef* node, llvm::GlobalVariable* ll_gv);
+    void EmitLocalVariableInfo(AstStmt* node, llvm::Value* ll_var);
+
+    /* ---------------------------------------------------------------------- */
+
+    void SetDebugLocation(const TextSpan &span);
+    void ClearDebugLocation();
+    llvm::DILocation* GetDebugLoc(llvm::DIScope* scope, const TextSpan& span);
+
+    /* ---------------------------------------------------------------------- */
+
+    llvm::DIType *GetDIType(Type *type, uint call_conv = llvm::dwarf::DW_CC_normal);
+
+private:
+    void buildTypeTable();
 };
 
 /* -------------------------------------------------------------------------- */
@@ -291,12 +307,20 @@ private:
     ConstValue* getComptimeNull(Type *type);
     ConstValue* allocComptime(ConstKind kind);
 
-    llvm::Constant* genComptime(ConstValue* value, bool exported, bool inner=false);
-    llvm::Constant* genComptimeArray(ConstValue* value, bool exported);
-    llvm::Constant* genComptimeZeroArray(ConstValue* value, bool exported);
-    llvm::Constant* genComptimeString(ConstValue* value, bool exported);
-    llvm::Constant* genComptimeStruct(ConstValue* value, bool exported, bool inner);
-    llvm::Constant* genComptimeInnerStruct(ConstValue *value, bool exported);
+    enum {
+        CTG_NONE = 0,
+        CTG_CONST = 1,
+        CTG_EXPORTED = 2,
+        CTG_UNWRAPPED = 4
+    };
+    typedef int ComptimeGenFlags;
+
+    llvm::Constant* genComptime(ConstValue* value, ComptimeGenFlags flags);
+    llvm::Constant* genComptimeArray(ConstValue* value, ComptimeGenFlags flags);
+    llvm::Constant* genComptimeZeroArray(ConstValue* value, ComptimeGenFlags flags);
+    llvm::Constant* genComptimeString(ConstValue* value, ComptimeGenFlags flags);
+    llvm::Constant* genComptimeStruct(ConstValue* value, ComptimeGenFlags flags);
+    llvm::Constant* genComptimeInnerStruct(ConstValue *value, ComptimeGenFlags flags);
 
     /* ---------------------------------------------------------------------- */
 
@@ -371,23 +395,6 @@ private:
     bool shouldPtrWrap(Type* type);
     bool shouldPtrWrap(llvm::Type* type);
     uint64_t getLLVMTypeByteSize(llvm::Type* llvm_type);
-};
-
-/* -------------------------------------------------------------------------- */
-
-class MainBuilder {
-    llvm::LLVMContext& ctx;
-    llvm::Module& main_mod;
-
-    llvm::Function* rt_main_func;
-    llvm::FunctionType* rt_stub_func_type;
-    llvm::IRBuilder<> irb;
-
-public:
-    MainBuilder(llvm::LLVMContext& ctx, llvm::Module& main_mod);
-    void GenInitCall(llvm::Function* init_func);
-    void GenUserMainCall(Module& root_mod);
-    void FinishMain();
 };
 
 #endif

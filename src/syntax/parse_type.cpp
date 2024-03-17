@@ -45,6 +45,7 @@ Type* Parser::parseTypeLabel() {
         next();
         return &prim_unit_type;
     case TOK_STRING:
+        next();
         return &prim_string_type;
     case TOK_STAR: {
         next();

@@ -25,7 +25,7 @@ pub const v2: Vec2 = .{1, 2};
 pub const v3: Vec3 = .{x=8, y=4, z=2};
 const first_component_sum: i64 = v2.x + v3.x;
 
-let glvar_v3 = v3;
+let glvar_v3: Vec3 = v3;
 
 func print_array(arr: []i64) {
     for let i = 0; i < arr._len; i++ {
@@ -105,6 +105,6 @@ func main() {
     std.putint(k);
     std.putr('\n');
 
-    const w = .Vec3{1, 2, 3};
+    const w = Vec3{1, 2, 3};
     print_vec3(w);
 }

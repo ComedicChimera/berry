@@ -201,8 +201,13 @@ AstStmt* Parser::maybeParseElse() {
 
 AstStmt* Parser::parseLocalVarDef() {
     auto start_span = tok.span;
-    bool comptime = tok.kind == TOK_CONST;
-    want(TOK_LET);
+    bool comptime = false;
+    if (has(TOK_CONST)) {
+        next();
+        comptime = true;
+    } else {
+        want(TOK_LET);
+    }
 
     auto name_tok = wantAndGet(TOK_IDENT);
 

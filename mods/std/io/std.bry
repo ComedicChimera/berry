@@ -21,7 +21,7 @@ func write(b: []u8) {
         out_cursor++;
 
         let curr_rune = b[i] as i32;
-        if curr_rune == '\n' || curr_rune == '\r' {
+        if curr_rune == '\n' {
             flush();
         }
     }
@@ -67,3 +67,4 @@ pub func putr(r: i32) {
 pub func puts(s: string) {
     write(s as []u8);
 }
+

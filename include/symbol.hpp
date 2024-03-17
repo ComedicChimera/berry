@@ -191,6 +191,7 @@ struct SourceFile {
 
     SourceFile(SourceFile&& src_file)
     : parent(src_file.parent)
+    , file_number(src_file.file_number)
     , abs_path(std::move(src_file.abs_path))
     , display_path(std::move(src_file.display_path))
     , llvm_di_file(src_file.llvm_di_file)

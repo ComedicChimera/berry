@@ -148,11 +148,7 @@ void Checker::checkLocalVar(AstStmt* node) {
 }
 
 void Checker::mustBeAssignable(AstExpr* expr) {
-    if (!expr->IsLValue()) {
-        error(expr->span, "cannot assign to an unaddressable value");
-    }
-
-    if (expr->immut) {
+    if (!expr->IsLValue() || expr->immut) {
         error(expr->span, "cannot assign to an immutable value");
     }
 }

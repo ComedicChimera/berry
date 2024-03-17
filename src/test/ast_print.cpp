@@ -451,7 +451,7 @@ static void printLocalVar(AstStmt* node) {
 
     auto* symbol = node->an_LocalVar.symbol;
     std::cout << std::format("type={}, name={}, init=", typeToStr(symbol->type), symbol->name);
-    printExpr(node->an_LocalVar.init);
+    printExpr(node->an_LocalVar.init_expr);
 
     std::cout << ')';
 }

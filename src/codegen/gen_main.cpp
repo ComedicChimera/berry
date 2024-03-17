@@ -49,13 +49,15 @@ void MainBuilder::GenUserMainCall(Module& root_mod) {
     }
 
     auto* sym = it->second;
-    if ((sym->flags & SYM_FUNC) || sym->type->kind != TYPE_FUNC) {
+    if ((sym->flags & SYM_FUNC) == 0 || sym->type->kind != TYPE_FUNC) {
         ReportFatal("input module does not have a main function");
     }
 
     if (sym->type->ty_Func.param_types.size() != 0 || sym->type->ty_Func.return_type->kind != TYPE_UNIT) {
-        // TODO: can we easily get the offending source file here?
-        ReportFatal("main function must take no arguments and return no value");
+        auto* def = root_mod.defs[sym->def_number];
+        auto& src_file = root_mod.files[def->parent_file_number];
+        
+        ReportCompileError(src_file.display_path, sym->span, "main function must take no arguments and return no value");
     }
 
     // Make sure the main function is externally visible (so we can call it).

@@ -24,6 +24,11 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
             evalComptimeIndexValue(node->an_Index.index, array->v_zarr.num_elems);
 
             value = getComptimeNull(array->v_zarr.elem_type);
+        } else if (array->kind == CONST_STRING) {
+            auto index = evalComptimeIndexValue(node->an_Index.index, array->v_str.value.size());
+
+            value = allocComptime(CONST_U8);
+            value->v_u8 = array->v_str.value[index];
         } else {
             Panic("invalid comptime index expr");
         }
@@ -294,6 +299,7 @@ ConstValue* CodeGenerator::evalComptimeCast(AstExpr* node) {
         if (src->kind == CONST_PTR) {
             return src;
         } else {
+            value = allocComptime(CONST_PTR);
             COMPTIME_INT_CAST(v_ptr, size_t);
         }
         break;
@@ -786,6 +792,24 @@ ConstValue* CodeGenerator::evalComptimeSlice(AstExpr* node) {
         value->v_zarr.elem_type = array->v_zarr.elem_type;
         value->v_zarr.mod_id = src_mod.id;
         value->v_zarr.alloc_loc = nullptr;
+    } else if (array->kind == CONST_STRING) {
+         auto start_index = 
+            node->an_Slice.start_index 
+            ? evalComptimeIndexValue(node->an_Slice.start_index, array->v_str.value.size()) 
+            : 0;
+
+        auto end_index =
+            node->an_Slice.end_index
+            ? evalComptimeIndexValue(node->an_Slice.end_index, array->v_str.value.size() + 1)
+            : array->v_zarr.num_elems;
+
+        if (start_index > end_index)
+            comptimeEvalError(node->span, "lower slice index greater than upper slice index");
+
+        value = allocComptime(CONST_STRING);
+        value->v_str.value = array->v_str.value.substr(start_index, end_index);
+        value->v_str.mod_id = src_mod.id;
+        value->v_str.alloc_loc = nullptr;
     } else {
         Panic("invalid comptime slice expr");
     }
@@ -948,7 +972,7 @@ ConstValue* CodeGenerator::getComptimeNull(Type* type) {
     return value;
 }
 
-static ConstValue size_ref_const;
+static ConstValue size_ref_const {};
 
 size_t const_variant_sizes[CONSTS_COUNT] = {
     sizeof(size_ref_const.v_i8),
@@ -981,7 +1005,7 @@ ConstValue* CodeGenerator::allocComptime(ConstKind kind) {
 
 /* -------------------------------------------------------------------------- */
 
-llvm::Constant* CodeGenerator::genComptime(ConstValue* value, bool exported, bool inner) {
+llvm::Constant* CodeGenerator::genComptime(ConstValue* value, ComptimeGenFlags flags) {
     switch (value->kind) {
     case CONST_I8: return makeLLVMIntLit(&prim_i8_type, value->v_i8);
     case CONST_U8: return makeLLVMIntLit(&prim_u8_type, value->v_u8);
@@ -1022,13 +1046,13 @@ llvm::Constant* CodeGenerator::genComptime(ConstValue* value, bool exported, boo
         }
     } break;
     case CONST_ARRAY:
-        return genComptimeArray(value, exported);
+        return genComptimeArray(value, flags);
     case CONST_ZERO_ARRAY:
-        return genComptimeZeroArray(value, exported);
+        return genComptimeZeroArray(value, flags);
     case CONST_STRING:
-        return genComptimeString(value, exported);
+        return genComptimeString(value, flags);
     case CONST_STRUCT:
-        return genComptimeStruct(value, exported, inner);
+        return genComptimeStruct(value, flags);
     default:
         Panic("unimplemented comptime value");
         break;
@@ -1037,7 +1061,7 @@ llvm::Constant* CodeGenerator::genComptime(ConstValue* value, bool exported, boo
 
 static size_t const_id_counter = 0;
 
-llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value, bool exported) {
+llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value, ComptimeGenFlags flags) {
     auto* ll_arr_data_type = llvm::ArrayType::get(
         genType(value->v_array.elem_type, true), 
         value->v_array.elems.size()
@@ -1047,7 +1071,7 @@ llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value, bool exported
     if (value->v_array.alloc_loc == nullptr) {
         std::vector<llvm::Constant*> ll_elems;
         for (auto* elem : value->v_array.elems) {
-            ll_elems.push_back(genComptime(elem, false, true));
+            ll_elems.push_back(genComptime(elem, flags | CTG_UNWRAPPED));
         }
 
         auto* ll_array = llvm::ConstantArray::get(ll_arr_data_type, ll_elems);
@@ -1055,8 +1079,8 @@ llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value, bool exported
         gv = new llvm::GlobalVariable(
             mod, 
             ll_arr_data_type, 
-            true, 
-            exported ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage, 
+            (bool)(flags & CTG_CONST), 
+            (flags & CTG_EXPORTED) ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage, 
             ll_array, 
             std::format("__$const{}", const_id_counter++)
         );
@@ -1066,7 +1090,7 @@ llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value, bool exported
         gv = new llvm::GlobalVariable(
             mod, 
             ll_arr_data_type, 
-            true, 
+            llvm::dyn_cast<llvm::GlobalVariable>(value->v_array.alloc_loc)->isConstant(), 
             llvm::GlobalValue::ExternalLinkage, 
             nullptr, 
             value->v_array.alloc_loc->getName()
@@ -1078,7 +1102,7 @@ llvm::Constant* CodeGenerator::genComptimeArray(ConstValue* value, bool exported
     return llvm::ConstantStruct::get(ll_array_type, { gv, getPlatformIntConst(value->v_array.elems.size()) });
 }
 
-llvm::Constant* CodeGenerator::genComptimeZeroArray(ConstValue* value, bool exported) {
+llvm::Constant* CodeGenerator::genComptimeZeroArray(ConstValue* value, ComptimeGenFlags flags) {
     auto* ll_arr_data_type = llvm::ArrayType::get(
         genType(value->v_zarr.elem_type, true), 
         value->v_zarr.num_elems
@@ -1089,8 +1113,8 @@ llvm::Constant* CodeGenerator::genComptimeZeroArray(ConstValue* value, bool expo
         gv = new llvm::GlobalVariable(
             mod, 
             ll_arr_data_type, 
-            true, 
-            exported ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage, 
+            (bool)(flags & CTG_CONST), 
+            (flags & CTG_EXPORTED) ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage,  
             getNullValue(ll_arr_data_type), 
             std::format("__$const{}", const_id_counter++)
         );
@@ -1100,7 +1124,7 @@ llvm::Constant* CodeGenerator::genComptimeZeroArray(ConstValue* value, bool expo
         gv = new llvm::GlobalVariable(
             mod, 
             ll_arr_data_type, 
-            true, 
+            llvm::dyn_cast<llvm::GlobalVariable>(value->v_zarr.alloc_loc)->isConstant(), 
             llvm::GlobalValue::ExternalLinkage, 
             nullptr, 
             value->v_zarr.alloc_loc->getName()
@@ -1112,7 +1136,7 @@ llvm::Constant* CodeGenerator::genComptimeZeroArray(ConstValue* value, bool expo
     return llvm::ConstantStruct::get(ll_array_type, { gv, getPlatformIntConst(value->v_zarr.num_elems) });
 }
 
-llvm::Constant* CodeGenerator::genComptimeString(ConstValue* value, bool exported) {
+llvm::Constant* CodeGenerator::genComptimeString(ConstValue* value, ComptimeGenFlags flags) {
     auto* ll_string_type = llvm::ArrayType::get(
         llvm::Type::getInt8Ty(ctx),
         value->v_str.value.size()
@@ -1122,23 +1146,25 @@ llvm::Constant* CodeGenerator::genComptimeString(ConstValue* value, bool exporte
     
     if (value->v_str.alloc_loc == nullptr) {
         auto decoded = decodeStrLit(value->v_str.value);
-        gv = llvm::ConstantDataArray::getString(ctx, decoded, false);
-
-        if (exported) {
-            auto* str_gv = dyn_cast<llvm::GlobalValue>(gv);
-            str_gv->setLinkage(llvm::GlobalValue::ExternalLinkage);
-            str_gv->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::None);
-        }
+        auto str_const = llvm::ConstantDataArray::getString(ctx, decoded, false);
+        gv = new llvm::GlobalVariable(
+            mod,
+            str_const->getType(),
+            (bool)(flags & CTG_CONST), 
+            (flags & CTG_EXPORTED) ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage,
+            str_const,
+            std::format("__$const{}", const_id_counter++)
+        );
     } else if (value->v_str.mod_id == src_mod.id) {
         gv = value->v_str.alloc_loc;
     } else {
         gv = new llvm::GlobalVariable(
             mod,
-            ll_string_type,
-            true, 
+            value->v_str.alloc_loc->getType(),
+            llvm::dyn_cast<llvm::GlobalVariable>(value->v_str.alloc_loc)->isConstant(), 
             llvm::GlobalValue::ExternalLinkage, 
             nullptr, 
-            value->v_zarr.alloc_loc->getName()
+            value->v_str.alloc_loc->getName()
         );
     }
 
@@ -1147,19 +1173,19 @@ llvm::Constant* CodeGenerator::genComptimeString(ConstValue* value, bool exporte
     return llvm::ConstantStruct::get(ll_array_type, { gv, getPlatformIntConst(value->v_str.value.size()) });
 }
 
-llvm::Constant* CodeGenerator::genComptimeStruct(ConstValue* value, bool exported, bool inner) {
-    if (inner || !shouldPtrWrap(value->v_struct.struct_type)) {
-        return genComptimeInnerStruct(value, exported);
+llvm::Constant* CodeGenerator::genComptimeStruct(ConstValue* value, ComptimeGenFlags flags) {
+    if ((flags & CTG_UNWRAPPED) || !shouldPtrWrap(value->v_struct.struct_type)) {
+        return genComptimeInnerStruct(value, flags);
     }
 
     llvm::Constant* gv;
     if (value->v_struct.alloc_loc == nullptr) {
-        auto* struct_const = genComptimeInnerStruct(value, exported);
+        auto* struct_const = genComptimeInnerStruct(value, flags);
         gv = new llvm::GlobalVariable(
             mod,
             struct_const->getType(),
-            true,
-            exported ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage,
+            (bool)(flags & CTG_CONST), 
+            (flags & CTG_EXPORTED) ? llvm::GlobalValue::ExternalLinkage : llvm::GlobalValue::PrivateLinkage,
             struct_const,
             std::format("__$const{}", const_id_counter++)
         );
@@ -1169,7 +1195,7 @@ llvm::Constant* CodeGenerator::genComptimeStruct(ConstValue* value, bool exporte
         gv = new llvm::GlobalVariable(
             mod,
             genType(value->v_struct.struct_type, true),
-            true,
+            llvm::dyn_cast<llvm::GlobalVariable>(value->v_struct.alloc_loc)->isConstant(),
             llvm::GlobalValue::ExternalLinkage,
             nullptr,
             value->v_struct.alloc_loc->getName()
@@ -1181,10 +1207,10 @@ llvm::Constant* CodeGenerator::genComptimeStruct(ConstValue* value, bool exporte
     return gv;
 }
 
-llvm::Constant* CodeGenerator::genComptimeInnerStruct(ConstValue* value, bool exported) {
+llvm::Constant* CodeGenerator::genComptimeInnerStruct(ConstValue* value, ComptimeGenFlags flags) {
     std::vector<llvm::Constant*> field_values;  
     for (auto* field : value->v_struct.fields) {
-        field_values.push_back(genComptime(field, exported, true));
+        field_values.push_back(genComptime(field, flags | CTG_UNWRAPPED));
     }
 
     return llvm::ConstantStruct::get(

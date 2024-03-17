@@ -435,7 +435,7 @@ static bool resolveNamedInDep(Type* type, Module::Dependency& dep) {
 
 void Loader::resolveNamedTypes() {
     for (auto& mod : *this) {
-        auto& core_dep = mod.deps.back();
+        auto* core_dep = mod.deps.empty() ? nullptr : &mod.deps.back();
 
         for (auto& pair : mod.named_table.internal_refs) {
             auto& ref = pair.second;
@@ -449,7 +449,7 @@ void Loader::resolveNamedTypes() {
                 continue;
             }
 
-            if (!resolveNamedInDep(ref.named_type, core_dep)) {
+            if (core_dep == nullptr || !resolveNamedInDep(ref.named_type, *core_dep)) {
                 for (auto& loc : ref.locs) {
                     ReportCompileError(
                         mod.files[loc.file_number].display_path,
