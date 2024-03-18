@@ -20,7 +20,7 @@ don't always get time (or energy) to work on it.
 
 - [x] Target 5: Structs
 
-- [ ] Target 6: Constants and Global Initializers
+- [x] Target 6: Constants and Global Initializers
     * Init Ordering and Cycle Detection
         - Detect cycles in functions and global initializer
     * Automatically detect when a global initializer is constant
