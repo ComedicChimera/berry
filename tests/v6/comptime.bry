@@ -2,11 +2,11 @@ import io.std;
 
 const x: i64 = y + 2;
 const y: i64 = 10;
-pub const z: i64 = (x * y) - 4 / (x + y);
+pub const z: i64 = (x * y) - 4 * (x + y);
 
 const name: string = "Bob Jones";
 const first_char: u8 = name[0];
-const first_name: string = name[:4];
+const first_name: string = name[:5];
 
 const primes: []i64 = [2, 3, 5, 7, 11, 13];
 const second_prime: i64 = primes[1];
@@ -46,7 +46,7 @@ pub func print_vec2(v: Vec2) {
     std.puts(", ");
     std.putint(v.y);
 
-    std.putr(')');
+    std.puts(")\n");
 }
 
 pub func print_vec3(v: Vec3) {
@@ -58,7 +58,7 @@ pub func print_vec3(v: Vec3) {
     std.puts(", ");
     std.putint(v.z);
 
-    std.putr(')');
+    std.puts(")\n");
 }
 
 func main() {
@@ -98,8 +98,8 @@ func main() {
     local_v3.x++;
     glvar_v3.y = local_v3.z + glvar_v3.x;
     
-    print_vec3(glvar_v3);
     print_vec3(local_v3);
+    print_vec3(glvar_v3);
 
     const k = 46;
     std.putint(k);

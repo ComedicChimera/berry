@@ -427,7 +427,7 @@ void CodeGenerator::genStoreExpr(AstExpr* node, llvm::Value* dest) {
     auto src = genExpr(node, false, dest);
     if (src != nullptr) {
         auto* ll_type = genType(node->type, true);
-        if (node->IsLValue() && shouldPtrWrap(ll_type)) {
+        if (shouldPtrWrap(ll_type)) {
             genStructCopy(ll_type, src, dest);
         } else {
             irb.CreateStore(src, dest);

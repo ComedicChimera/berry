@@ -704,7 +704,7 @@ ConstValue* CodeGenerator::evalComptimeStructLitPos(AstExpr* node) {
         field_values.push_back(evalComptime(field));
     }
 
-    for (size_t i = field_values.size() - 1; i < struct_type->ty_Struct.fields.size(); i++) {
+    for (size_t i = field_values.size(); i < struct_type->ty_Struct.fields.size(); i++) {
         field_values.push_back(getComptimeNull(struct_type->ty_Struct.fields[i].type));
     }
 
