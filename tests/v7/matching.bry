@@ -1,0 +1,66 @@
+import io.std;
+
+enum Num {
+    Zero;
+    One;
+    Two;
+    Three;
+    Four;
+    Five;
+    Six;
+    Seven;
+    Eight;
+    Nine;
+}
+
+func is_even(num: Num) bool {
+    return num match Zero | Two | Four | Six | Eight;
+} 
+
+let num_names = [
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine"
+];
+
+func print_num(num: Num) {
+    std.puts(num_names[num as i64]);
+    std.putr('\n');
+}
+
+func main() {
+    let n = Num.Four;
+
+    match n {
+    case Zero | Two | Four:
+        std.puts("even less than five\n");
+        fallthrough;
+    case Six | Eight:
+        std.puts("even number\n);
+    case One:
+        std.puts("is one\n");
+    case _:
+        std.puts("nothing special\n");
+    }
+
+    print_num(n);
+
+    if is_even(n) {
+        std.puts("is even (again for the boys)");
+    }
+
+    if n match Four {
+        std.puts("is four\n");
+    }
+
+    if n match a {
+        print_num(a);
+    }
+}

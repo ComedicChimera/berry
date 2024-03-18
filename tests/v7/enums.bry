@@ -1,0 +1,50 @@
+import io.std;
+
+enum Color {
+    Red;
+    Blue;
+    Green;
+}
+
+func print_color(color: Color) {
+    match color {
+    case Red:
+        std.puts("Red\n");
+    case Blue:
+        std.puts("Blue\n");
+    case Green:
+        std.puts("Green\n");
+    }
+}
+
+func index_to_color(i: int) Color {
+    match i % 3 {
+    case 0:
+        return .Red;
+    case 1:
+        return .Green;
+    case 2:
+        return .Blue;
+    }
+}
+
+func main() {
+    let arr = new Color[10];
+    for let i = 0; i < 10; i++ {
+        arr[i] = index_to_color(i);
+    }
+
+    for let i = 0; i < 10; i += 2 {
+        print_color(arr[i]);
+    }
+
+    let favorite_color = Color.Red;
+    favorite_color = .Green;
+
+    print_color(favorite_color);
+
+    print_color(1 as Color);
+    
+    std.putint(Color.Blue as i64);
+    std.putr('\n');
+}

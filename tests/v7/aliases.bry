@@ -1,0 +1,60 @@
+struct Test {
+    x, y: i64;
+};
+
+struct Test2 {
+    a, b, c: i64;
+}
+
+type Alias1 = i16;
+type Alias2 = Test;
+type Alias3 = Test2;
+
+type Nested = Alias2;
+type Nested2 = Alias3;
+type Nested3 = Nested2;
+
+func print_test(t: Test) {
+    std.puts("Test(");
+    std.putint(t.x);
+    std.puts(", ");
+    std.putint(t.y);
+    std.puts(")\n");
+}
+
+func print_test2(t: Test2) {
+    std.puts("Test2(");
+    std.putint(t.a);
+    std.puts(", ");
+    std.putint(t.b);
+    std.puts(", ");
+    std.putint(t.c);
+    std.puts(")\n");
+}
+
+func main() {
+    let a1: Alias1 = 76;
+    std.putint(a1 as i64);
+    std.putr('\n');
+
+    let t = Test1{1, 2};
+    let t2 = Test2{3, 4, 5};
+    let t3 = Test2{6, 7, 8};
+
+    let a2: Alias2 = t;
+    let a3: Alias3 = t2;
+
+    print_test(a2);
+    print_test2(a3);
+
+    let n1: Nested = t;
+    let n2: Nested2 = t2;
+    let n3: Nested3 = t3;
+
+    print_test(n1);
+    print_test2(n2);
+    print_test2(n3);
+
+    n3 = n2 as Nested3;
+    print_test2(n3);
+}

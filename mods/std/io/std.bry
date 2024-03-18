@@ -60,7 +60,7 @@ pub func putint(n: i64) {
     write(digit_buff[i+1:]);
 }
 
-pub func putr(r: i32) {
+pub func putr(r: rune) {
     write([r as u8]);
 }
 
