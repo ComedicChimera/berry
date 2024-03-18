@@ -42,8 +42,8 @@ don't always get time (or energy) to work on it.
         - Minimal pattern matching (variable captures only)
         - Multiple Values in a Case
     * Test Match Expressions
-    * Builtin Type Aliases
-        - `byte` and `rune`
+    * Type Aliases
+        - Builtin Aliases: `byte` and `rune`
 
 - [ ] Target 8: Non-Numeric Equality and Pointer Arithmetic
     * Pointer Comparison
