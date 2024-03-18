@@ -28,8 +28,6 @@ don't always get time (or energy) to work on it.
         - Remove empty `__$init` functions
         - Runtime Globals won't be overwritten by `runtime.__$init`
     * Constants are compile-time constant (comptime, like Go)
-        - Use LLVM constant instructions to facilitate compile-time evaluation
-        - No need to do compile-time evaluation yourself
         - Support defining local constants
     * No pointers to constants: aren't guaranteed to have a well-defined location
         - May be automatically inlined by the compiler (like defines)
