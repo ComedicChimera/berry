@@ -9,6 +9,8 @@ enum TokenKind {
     TOK_CONST,
     TOK_FUNC,
     TOK_STRUCT,
+    TOK_ENUM,
+    TOK_TYPE,
 
     TOK_IF,
     TOK_ELIF,
@@ -16,10 +18,13 @@ enum TokenKind {
     TOK_WHILE,
     TOK_FOR,
     TOK_DO,
+    TOK_MATCH,
+    TOK_CASE,
 
     TOK_BREAK,
     TOK_CONTINUE,
     TOK_RETURN,
+    TOK_FALLTHROUGH,
 
     TOK_NEW,
     TOK_AS,
