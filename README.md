@@ -49,18 +49,17 @@ don't always get time (or energy) to work on it.
     * Struct Comparison
     * Enum Comparison
     * C-Style Pointer Arithmetic
-    * Unsafe Blocks
-        - Only allow pointer arithmetic and unsafe casting inside unsafe blocks
-          and functions
-        - Replaces the need for a bunch of extra macros.
-        - Unsafe Casts = ptr to ptr, string to byte array, byte array to string
-
 
 - [ ] Target 9: Meta Directives and Intrinsic Macros
     * Conditional Compilation
         - `#require` and `#if`
         - Builtin Defines: `OS`, `ARCH`, `COMPILER`, and `DEBUG`
         - No user defined symbols (right now)
+    * Unsafe Blocks (`#unsafe`)
+        - Only allow pointer arithmetic and unsafe casting inside unsafe blocks
+          and functions
+        - Replaces the need for a bunch of extra macros.
+        - Unsafe Casts = ptr to ptr, string to byte array, byte array to string
     * `@sizeof` and `@alignof`
     * Extract defines in code via `@get_defined`
     * Platform Sized Ints: `int` and `uint`
