@@ -9,6 +9,7 @@
 #include <format>
 #include <span>
 #include <string_view>
+#include <unordered_map>
 
 #include "platform.hpp"
 

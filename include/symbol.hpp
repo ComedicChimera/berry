@@ -1,7 +1,6 @@
 #ifndef SYMBOL_H_INC
 #define SYMBOL_H_INC
 
-#include <unordered_map>
 #include <unordered_set>
 
 #include "base.hpp"
