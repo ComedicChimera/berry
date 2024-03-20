@@ -67,7 +67,6 @@ public:
     // CheckModule performs semantic analysis on the checker's module.
     void CheckModule();
 
-
 private:
     void checkDef(AstDef* def);
     bool checkMetadata(const Metadata& metadata, AstKind meta_kind);
@@ -87,6 +86,7 @@ private:
     };
 
     void checkStructDef(AstDef* node);
+    void checkAliasDef(AstDef *node);
     bool checkForInfType(Type* type, TypeCycle& cycle);
     void fatalOnTypeCycle(const TextSpan& span, TypeCycle &cycle);
 

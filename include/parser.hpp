@@ -46,14 +46,15 @@ private:
     void parseModulePath();
     size_t findOrAddModuleDep(const std::vector<Token>& tok_mod_path);
 
-    void parseMetadata(MetadataMap &meta);
-    void parseMetaTag(MetadataMap &meta);
+    void parseMetadata(MetadataMap& meta);
+    void parseMetaTag(MetadataMap& meta);
 
-    void parseDef(MetadataMap &&meta, bool exported);
-    void parseFuncDef(MetadataMap &&meta, bool exported);
-    void parseFuncParams(std::vector<Symbol *> &params);
-    void parseGlobalVarDef(MetadataMap &&meta, bool exported);
-    void parseStructDef(MetadataMap &&meta, bool exported);
+    void parseDef(MetadataMap&& meta, bool exported);
+    void parseFuncDef(MetadataMap&& meta, bool exported);
+    void parseFuncParams(std::vector<Symbol*>& params);
+    void parseGlobalVarDef(MetadataMap&& meta, bool exported);
+    void parseStructDef(MetadataMap&& meta, bool exported);
+    void parseAliasDef(MetadataMap&& meta, bool exported);
 
     /* ---------------------------------------------------------------------- */
 

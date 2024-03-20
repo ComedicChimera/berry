@@ -22,6 +22,7 @@ enum TypeKind {
     TYPE_STRING,    // String Type
     
     TYPE_NAMED,     // Named Type 
+    TYPE_ALIAS,     // Alias Type
     TYPE_STRUCT,    // Struct Type
 
     TYPES_COUNT

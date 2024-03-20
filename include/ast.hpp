@@ -68,6 +68,7 @@ enum AstKind {
     AST_FUNC,
     AST_GLVAR,
     AST_STRUCT,
+    AST_ALIAS,
 
     AST_BLOCK,
     AST_IF,
@@ -302,6 +303,9 @@ struct AstDef : public AstNode {
             Symbol* symbol;
             std::span<StructFieldAttr> field_attrs;
         } an_Struct;
+        struct {
+            Symbol* symbol;
+        } an_Alias;
     };
 };
 

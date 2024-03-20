@@ -13,6 +13,9 @@ void Checker::checkDef(AstDef* def) {
     case AST_STRUCT:
         checkStructDef(def);
         break;
+    case AST_ALIAS:
+        checkAliasDef(def);
+        break;
     default:
         Panic("checking is not implemented for def {}", (int)def->kind);
     }
@@ -126,6 +129,15 @@ void Checker::checkStructDef(AstDef* node) {
     TypeCycle cycle;
     if (checkForInfType(node->an_Struct.symbol->type, cycle)) {
         fatalOnTypeCycle(node->an_Struct.symbol->span, cycle);
+    }
+
+    // TODO: check field attrs
+}
+
+void Checker::checkAliasDef(AstDef* node) {
+    TypeCycle cycle;
+    if (checkForInfType(node->an_Alias.symbol->type, cycle)) {
+        fatalOnTypeCycle(node->an_Alias.symbol->span, cycle);
     }
 
     // TODO: check field attrs

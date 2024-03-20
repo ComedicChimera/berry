@@ -422,6 +422,7 @@ static bool resolveNamedInDep(Type* type, Module::Dependency& dep) {
             return false;
         }
 
+        type->kind = symbol->type->kind;
         named.mod_id = dep.mod->id;
         named.mod_name = dep.mod->name;
         named.type = symbol->type->ty_Named.type;
@@ -443,6 +444,7 @@ void Loader::resolveNamedTypes() {
 
             auto it = mod.symbol_table.find(named.name);
             if (it != mod.symbol_table.end()) {
+                ref.named_type->kind = it->second->type->kind;
                 named.mod_id = mod.id;
                 named.mod_name = mod.name;
                 named.type = it->second->type->ty_Named.type;

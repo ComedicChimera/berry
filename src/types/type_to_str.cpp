@@ -49,6 +49,7 @@ std::string Type::ToString() const {
         
         return ty_Untyp.concrete_type->ToString();
     case TYPE_NAMED:
+    case TYPE_ALIAS:
         return std::format("{}.{}", ty_Named.mod_name, ty_Named.name);
     case TYPE_STRUCT: {
         std::string sb { "struct { " };

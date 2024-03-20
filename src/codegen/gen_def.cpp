@@ -18,6 +18,10 @@ void CodeGenerator::genTopDecl(AstDef* def) {
         // TODO: handle struct metadata
         genType(def->an_Struct.symbol->type, true);
         break;
+    case AST_ALIAS:
+        // TODO: handle alias metadata
+        genType(def->an_Alias.symbol->type, true);
+        break;
     default:
         Panic("top declaration codegen not implemented for {}", (int)def->kind);
     }
@@ -30,7 +34,7 @@ void CodeGenerator::genPredicates(AstDef* def) {
             genFuncBody(def);
         }
         break;
-    case AST_STRUCT: case AST_GLVAR:
+    case AST_STRUCT: case AST_GLVAR: case AST_ALIAS:
         // Nothing to do :)
         break;
     default:

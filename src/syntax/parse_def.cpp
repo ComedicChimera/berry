@@ -59,6 +59,9 @@ void Parser::parseDef(MetadataMap&& meta, bool exported) {
     case TOK_STRUCT:
         parseStructDef(std::move(meta), exported);
         break;
+    case TOK_TYPE:
+        parseAliasDef(std::move(meta), exported);
+        break;
     default:
         reject("expected global definition");
         break;
@@ -286,4 +289,40 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
     astruct->an_Struct.field_attrs = {};
 
     src_file.parent->defs.push_back(astruct);
+}
+
+void Parser::parseAliasDef(MetadataMap&& meta, bool exported) {
+    auto start_span = tok.span;
+    next();
+
+    auto ident = wantAndGet(TOK_IDENT);
+
+    want(TOK_ASSIGN);
+
+    auto* base_type = parseTypeLabel();
+
+    want(TOK_SEMI);
+
+    auto* alias_type = allocType(TYPE_ALIAS);
+    alias_type->ty_Named.mod_id = src_file.parent->id;
+    alias_type->ty_Named.mod_name = src_file.parent->name;
+    alias_type->ty_Named.name = arena.MoveStr(std::move(ident.value));
+    alias_type->ty_Named.type = base_type;
+
+    auto* symbol = arena.New<Symbol>(
+        src_file.parent->id,
+        alias_type->ty_Named.name,
+        ident.span,
+        exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
+        src_file.parent->defs.size(),
+        alias_type,
+        false
+    );
+
+    defineGlobal(symbol);
+
+    auto* aalias = allocDef(AST_ALIAS, SpanOver(start_span, prev.span), std::move(meta));
+    aalias->an_Alias.symbol = symbol;
+    
+    src_file.parent->defs.push_back(aalias);
 }

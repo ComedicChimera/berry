@@ -8,6 +8,7 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_def.an_Func),
     sizeof(size_ref_def.an_GlVar),
     sizeof(size_ref_def.an_Struct),
+    sizeof(size_ref_def.an_Alias),
 
     sizeof(size_ref_stmt.an_Block),
     sizeof(size_ref_stmt.an_If),
@@ -64,7 +65,7 @@ Metadata Parser::moveMetadataToArena(MetadataMap&& meta_map) {
 }
 
 AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, MetadataMap&& meta_map) {
-    Assert(kind <= AST_STRUCT, "invalid kind for allocDef");
+    Assert(kind <= AST_ALIAS, "invalid kind for allocDef");
 
     size_t var_size = ast_variant_sizes[(int)kind];
     size_t full_size = sizeof(AstDef) - LARGEST_DEF_VARIANT_SIZE + var_size;
@@ -79,7 +80,7 @@ AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, MetadataMap&& meta_
 }
 
 AstStmt* Parser::allocStmt(AstKind kind, const TextSpan& span) {
-    Assert(AST_STRUCT <= kind && kind < AST_CAST, "invalid kind for allocStmt");
+    Assert(AST_ALIAS < kind && kind < AST_CAST, "invalid kind for allocStmt");
 
     size_t var_size = ast_variant_sizes[(int)kind];
     size_t full_size = sizeof(AstStmt) - LARGEST_STMT_VARIANT_SIZE + var_size;

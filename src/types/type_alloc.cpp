@@ -15,6 +15,7 @@ static size_t type_variant_sizes[TYPES_COUNT] = {
     sizeof(prim_i8_type.ty_Array),
 
     sizeof(prim_i8_type.ty_Named),
+    sizeof(prim_i8_type.ty_Named),
     sizeof(prim_i8_type.ty_Struct)
 };
 #define LARGEST_TYPE_VARIANT_SIZE sizeof(prim_i8_type.ty_Named)

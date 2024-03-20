@@ -11,6 +11,8 @@ Type* Type::Inner() {
             return this;
 
         return ctype;
+    } else if (kind == TYPE_ALIAS) {
+        return ty_Named.type->Inner();
     }
 
     return this;
