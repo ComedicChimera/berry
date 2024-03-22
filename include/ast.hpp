@@ -69,6 +69,7 @@ enum AstKind {
     AST_GLVAR,
     AST_STRUCT,
     AST_ALIAS,
+    AST_ENUM,
 
     AST_BLOCK,
     AST_IF,
@@ -306,6 +307,10 @@ struct AstDef : public AstNode {
         struct {
             Symbol* symbol;
         } an_Alias;
+        struct {
+            Symbol* symbol;
+            // TODO: variant attrs
+        } an_Enum;
     };
 };
 

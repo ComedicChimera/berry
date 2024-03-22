@@ -3,8 +3,7 @@
 
 #include <unordered_map>
 
-#include "base.hpp"
-#include "arena.hpp"
+#include "map_view.hpp"
 
 struct TypeContext;
 
@@ -24,6 +23,7 @@ enum TypeKind {
     TYPE_NAMED,     // Named Type 
     TYPE_ALIAS,     // Alias Type
     TYPE_STRUCT,    // Struct Type
+    TYPE_ENUM,      // Simple Enum Type (no value-storing variants)
 
     TYPES_COUNT
 };
@@ -81,6 +81,9 @@ struct Type {
             std::span<StructField> fields;
             llvm::Type* llvm_type;
         } ty_Struct;
+        struct {
+            MapView<size_t> variants;
+        } ty_Enum;
     };
 
     friend class TypeContext;
