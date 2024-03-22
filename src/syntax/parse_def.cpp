@@ -62,6 +62,9 @@ void Parser::parseDef(MetadataMap&& meta, bool exported) {
     case TOK_TYPE:
         parseAliasDef(std::move(meta), exported);
         break;
+    case TOK_ENUM:
+        parseEnumDef(std::move(meta), exported);
+        break;
     default:
         reject("expected global definition");
         break;
@@ -325,4 +328,54 @@ void Parser::parseAliasDef(MetadataMap&& meta, bool exported) {
     aalias->an_Alias.symbol = symbol;
     
     src_file.parent->defs.push_back(aalias);
+}
+
+void Parser::parseEnumDef(MetadataMap&& meta, bool exported) {
+    auto start_span = tok.span;
+    next();
+
+    auto ident = wantAndGet(TOK_IDENT);
+
+    want(TOK_LBRACE);
+
+    std::unordered_map<std::string_view, size_t> variants;
+    do {
+        auto var_name_tok = wantAndGet(TOK_IDENT);
+        want(TOK_SEMI);
+
+        auto variant_name = arena.MoveStr(std::move(var_name_tok.value));
+        auto it = variants.find(variant_name);
+        if (it != variants.end()) {
+            error(var_name_tok.span, "multiple variants named {}", variant_name);
+        } else {
+            variants.emplace(variant_name, variants.size());
+        }
+    } while (!has(TOK_RBRACE));
+    next();
+
+    auto* enum_type = allocType(TYPE_ENUM);
+    enum_type->ty_Enum.variants = MapView<size_t>(arena, std::move(variants));
+
+    auto* named_type = allocType(TYPE_NAMED);
+    named_type->ty_Named.mod_id = src_file.parent->id;
+    named_type->ty_Named.mod_name = src_file.parent->name;
+    named_type->ty_Named.name = arena.MoveStr(std::move(ident.value));
+    named_type->ty_Named.type = enum_type;
+
+    auto* symbol = arena.New<Symbol>(
+        src_file.parent->id,
+        named_type->ty_Named.name,
+        ident.span,
+        exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
+        src_file.parent->defs.size(),
+        named_type,
+        false
+    );
+
+    defineGlobal(symbol);
+
+    auto* aenum = allocDef(AST_ENUM, SpanOver(start_span, prev.span), std::move(meta));
+    aenum->an_Enum.symbol = symbol;
+
+    src_file.parent->defs.push_back(aenum);
 }

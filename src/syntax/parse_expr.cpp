@@ -518,6 +518,17 @@ AstExpr* Parser::parseAtom() {
     } break;
     case TOK_DOT: {
         next();
+
+        if (has(TOK_IDENT)) {
+            auto* aenum_lit_type = allocExpr(AST_ENUM_LIT_TYPE, prev.span);
+            
+            auto* aenum_lit = allocExpr(AST_ENUM_LIT, SpanOver(prev.span, tok.span));
+            aenum_lit->an_Field.root = aenum_lit_type;
+            aenum_lit->an_Field.field_name = arena.MoveStr(std::move(tok.value));
+            next();
+
+            return aenum_lit;
+        }
         
         auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, prev.span);
         return parseStructLit(astruct);

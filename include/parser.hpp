@@ -55,6 +55,7 @@ private:
     void parseGlobalVarDef(MetadataMap&& meta, bool exported);
     void parseStructDef(MetadataMap&& meta, bool exported);
     void parseAliasDef(MetadataMap&& meta, bool exported);
+    void parseEnumDef(MetadataMap &&meta, bool exported);
 
     /* ---------------------------------------------------------------------- */
 

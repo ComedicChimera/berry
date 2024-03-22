@@ -23,6 +23,34 @@ class MapView {
     static std::hash<std::string_view> hasher {};
 
 public:
+    MapView(Arena& arena, std::unordered_map<std::string_view, T>&& map) 
+    : n_pairs(map.size())
+    {
+        auto n_buckets = map.bucket_count();
+        auto* table_ptr = (MapBucket**)arena.Alloc(n_buckets * sizeof(MapBucket*));
+        memset(table_ptr, 0, sizeof(MapBucket*) * n_buckets);
+
+        table = std::span<MapBucket*>(table_ptr, n_buckets);
+
+        for (auto& pair : map) {
+            auto hndx = hasher(pair.first) % table.size();
+
+            auto* bucket = table[hndx];
+            if (bucket == nullptr) {
+                table[hndx] = arena.New<MapBucket>(pair.first, std::move(pair.second));
+                continue;
+            }
+
+            while (bucket->next != nullptr) {
+                bucket = bucket->next;
+            }
+
+            bucket->next = arena.New<MapBucket>(pair.first, pair.second);
+        }
+
+        map.clear();
+    }
+
     inline size_t size() const { return n_pairs; }
     inline bool contains(std::string_view key) { return lookup(key) != nullptr; }
     inline T& operator[](std::string_view key) { return get(key); }
@@ -83,35 +111,6 @@ public:
     MapIterator end() { return MapIterator(*this, table.size()); }
 
 private:
-    friend class Arena;
-    MapView(Arena& arena, std::unordered_map<std::string_view, T>&& map) 
-    : n_pairs(map.size())
-    {
-        auto n_buckets = map.bucket_count();
-        auto* table_ptr = (MapBucket**)arena.Alloc(n_buckets * sizeof(MapBucket*));
-        memset(table_ptr, 0, sizeof(MapBucket*) * n_buckets);
-
-        table = std::span<MapBucket*>(table_ptr, n_buckets);
-
-        for (auto& pair : map) {
-            auto hndx = hasher(pair.first) % table.size();
-
-            auto* bucket = table[hndx];
-            if (bucket == nullptr) {
-                table[hndx] = arena.New<MapBucket>(pair.first, std::move(pair.second));
-                continue;
-            }
-
-            while (bucket->next != nullptr) {
-                bucket = bucket->next;
-            }
-
-            bucket->next = arena.New<MapBucket>(pair.first, pair.second);
-        }
-
-        map.clear();
-    }
-
     MapBucket* lookup(std::string_view key) {
         auto hndx = hasher(key) % table.size();
 
