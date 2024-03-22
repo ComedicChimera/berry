@@ -24,7 +24,7 @@ void Checker::CheckModule() {
 
     size_t def_number = 0;
     for (auto* def : mod.defs) {
-        if (def->kind == AST_GLVAR) {
+        if (def->kind == AST_GLVAR || def->kind == AST_ENUM) {
             InitCycle cycle;
             if (checkInitOrder(def_number, cycle)) {
                 auto* cycle_start = mod.defs[cycle.nodes[0]];
@@ -65,6 +65,7 @@ void Checker::CheckModule() {
 
 bool Checker::checkInitOrder(size_t def_number, InitCycle& cycle) {
     auto& node = init_graph[def_number];
+    auto* def = mod.defs[def_number];
 
     switch (node.color) {
     case COLOR_BLACK:
@@ -72,7 +73,7 @@ bool Checker::checkInitOrder(size_t def_number, InitCycle& cycle) {
     case COLOR_GREY:
         node.color = COLOR_BLACK;
 
-        if (mod.defs[def_number]->kind == AST_GLVAR) {
+        if (def->kind == AST_GLVAR || def->kind == AST_ENUM) {
             cycle.nodes.push_back(def_number);
             return true;    
         }
@@ -96,7 +97,7 @@ bool Checker::checkInitOrder(size_t def_number, InitCycle& cycle) {
             }
         }
 
-        if (mod.defs[def_number]->kind == AST_GLVAR) {
+        if (def->kind == AST_GLVAR || def->kind == AST_ENUM) {
             mod.init_order.push_back(def_number);
         }
 

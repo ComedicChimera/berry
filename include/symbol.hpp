@@ -6,15 +6,6 @@
 #include "base.hpp"
 #include "types.hpp"
 
-// Forward Declaration of LLVM fields. 
-namespace llvm {
-    class Value;
-
-    class DIScope;
-
-    class DIFile;
-}
-
 // SymbolFlags enumerates the possible flags that can be set on symbols.
 enum {
     // Symbol Kinds

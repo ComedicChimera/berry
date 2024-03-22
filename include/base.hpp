@@ -17,6 +17,16 @@ typedef uint8_t byte;
 typedef int32_t rune;
 typedef unsigned int uint;
 
+// Forward Declaration of LLVM types.
+namespace llvm {
+    class Value;
+    class Constant;
+    class Type;
+
+    class DIScope;
+    class DIFile;
+}
+
 /* -------------------------------------------------------------------------- */
 
 // Panic prints a fatal error and exits the process.  This is only meant to be

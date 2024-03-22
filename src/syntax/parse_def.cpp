@@ -289,7 +289,6 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
 
     auto* astruct = allocDef(AST_STRUCT, SpanOver(start_span, prev.span), std::move(meta));
     astruct->an_Struct.symbol = symbol;
-    astruct->an_Struct.field_attrs = {};
 
     src_file.parent->defs.push_back(astruct);
 }
@@ -338,9 +337,15 @@ void Parser::parseEnumDef(MetadataMap&& meta, bool exported) {
 
     want(TOK_LBRACE);
 
-    std::unordered_map<std::string_view, size_t> variants;
+    std::unordered_map<std::string_view, EnumVariant> variants;
+    std::vector<AstVariantInit> variant_inits;
     do {
         auto var_name_tok = wantAndGet(TOK_IDENT);
+
+        AstExpr* variant_init_expr { nullptr };
+        if (has(TOK_ASSIGN)) {
+            variant_init_expr = parseInitializer();
+        }
         want(TOK_SEMI);
 
         auto variant_name = arena.MoveStr(std::move(var_name_tok.value));
@@ -348,13 +353,14 @@ void Parser::parseEnumDef(MetadataMap&& meta, bool exported) {
         if (it != variants.end()) {
             error(var_name_tok.span, "multiple variants named {}", variant_name);
         } else {
-            variants.emplace(variant_name, variants.size());
+            variants.emplace(variant_name, EnumVariant{ variants.size(), nullptr });
+            variant_inits.emplace_back(variant_init_expr);
         }
     } while (!has(TOK_RBRACE));
     next();
 
     auto* enum_type = allocType(TYPE_ENUM);
-    enum_type->ty_Enum.variants = MapView<size_t>(arena, std::move(variants));
+    enum_type->ty_Enum.variants = MapView<EnumVariant>(arena, std::move(variants));
 
     auto* named_type = allocType(TYPE_NAMED);
     named_type->ty_Named.mod_id = src_file.parent->id;
@@ -376,6 +382,7 @@ void Parser::parseEnumDef(MetadataMap&& meta, bool exported) {
 
     auto* aenum = allocDef(AST_ENUM, SpanOver(start_span, prev.span), std::move(meta));
     aenum->an_Enum.symbol = symbol;
+    aenum->an_Enum.variant_inits = arena.MoveVec(std::move(variant_inits));
 
     src_file.parent->defs.push_back(aenum);
 }

@@ -90,6 +90,8 @@ private:
     bool checkForInfType(Type* type, TypeCycle& cycle);
     void fatalOnTypeCycle(const TextSpan& span, TypeCycle &cycle);
 
+    void checkEnumDef(AstDef* def);
+
     /* ---------------------------------------------------------------------- */
 
     bool checkStmt(AstStmt* stmt);

@@ -16,6 +16,9 @@ void Checker::checkDef(AstDef* def) {
     case AST_ALIAS:
         checkAliasDef(def);
         break;
+    case AST_ENUM:
+        checkEnumDef(def);
+        break;
     default:
         Panic("checking is not implemented for def {}", (int)def->kind);
     }
@@ -198,3 +201,17 @@ void Checker::fatalOnTypeCycle(const TextSpan& span, TypeCycle& cycle) {
     fatal(span, "infinite type detected: {}", fmt_cycle);
 }
 
+/* -------------------------------------------------------------------------- */
+
+void Checker::checkEnumDef(AstDef* def) {
+    for (auto& init : def->an_Enum.variant_inits) {
+        is_comptime_expr = true;
+        checkExpr(init.init_expr);
+
+        mustIntType(init.init_expr->span, init.init_expr->type);
+
+        if (!is_comptime_expr) {
+            error(init.init_expr->span, "enum variant initializer must be computable at compile-time");
+        }
+    }
+}

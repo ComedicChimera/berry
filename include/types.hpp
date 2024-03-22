@@ -37,9 +37,10 @@ struct StructField {
     bool exported;
 };
 
-// Forward declaration of llvm::Type
-namespace llvm {
-    class Type;
+// EnumVariant is a variant of an enum type.
+struct EnumVariant {
+    size_t id;
+    llvm::Constant* tag;
 };
 
 // Type represents a Berry data type.
@@ -82,7 +83,7 @@ struct Type {
             llvm::Type* llvm_type;
         } ty_Struct;
         struct {
-            MapView<size_t> variants;
+            MapView<EnumVariant> variants;
         } ty_Enum;
     };
 

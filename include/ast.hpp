@@ -282,8 +282,12 @@ struct AstStmt : public AstNode {
 
 typedef std::span<MetadataTag> Metadata;
 
-struct StructFieldAttr {
-    Metadata metadata;
+struct AstVariantInit {
+    AstExpr* init_expr;
+    ConstValue* value;
+
+    AstVariantInit(AstExpr* init_expr) 
+    : init_expr(init_expr), value(nullptr) {}
 };
 
 struct AstDef : public AstNode {
@@ -304,14 +308,13 @@ struct AstDef : public AstNode {
         } an_GlVar;
         struct {
             Symbol* symbol;
-            std::span<StructFieldAttr> field_attrs;
         } an_Struct;
         struct {
             Symbol* symbol;
         } an_Alias;
         struct {
             Symbol* symbol;
-            // TODO: variant attrs
+            std::span<AstVariantInit> variant_inits;
         } an_Enum;
     };
 };
