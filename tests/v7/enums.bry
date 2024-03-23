@@ -8,11 +8,11 @@ enum Color {
 
 func print_color(color: Color) {
     match color {
-    case Red:
+    case .Red:
         std.puts("Red\n");
-    case Blue:
+    case .Blue:
         std.puts("Blue\n");
-    case Green:
+    case .Green:
         std.puts("Green\n");
     }
 }

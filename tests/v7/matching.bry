@@ -14,7 +14,7 @@ enum Num {
 }
 
 func is_even(num: Num) bool {
-    return num match Zero | Two | Four | Six | Eight;
+    return num match .Zero | .Two | .Four | .Six | .Eight;
 } 
 
 let num_names = [
@@ -39,12 +39,12 @@ func main() {
     let n = Num.Four;
 
     match n {
-    case Zero | Two | Four:
+    case .Zero | .Two | .Four:
         std.puts("even less than five\n");
         fallthrough;
-    case Six | Eight:
+    case .Six | .Eight:
         std.puts("even number\n);
-    case One:
+    case .One:
         std.puts("is one\n");
     case _:
         std.puts("nothing special\n");

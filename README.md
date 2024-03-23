@@ -48,6 +48,7 @@ don't always get time (or energy) to work on it.
     * String Comparison
     * Struct Comparison
     * Enum Comparison
+    * Matching over Strings
     * C-Style Pointer Arithmetic
 
 - [ ] Target 9: Meta Directives and Intrinsic Macros
