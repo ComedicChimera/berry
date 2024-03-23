@@ -49,6 +49,8 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
     case AST_STRUCT_PTR_LIT_POS:
     case AST_STRUCT_PTR_LIT_NAMED:
         return genStructLit(node, alloc_loc);
+    case AST_ENUM_LIT:
+        return node->type->ty_Enum.tag_values[node->an_Field.field_index];
     case AST_IDENT: 
         return genIdent(node, expect_addr);
     case AST_INT: {
@@ -94,6 +96,12 @@ llvm::Value* CodeGenerator::genCast(AstExpr* node) {
     auto* src_type = acast.src->type->Inner();
     auto* dest_type = node->type->Inner();
 
+    if (src_type->kind == TYPE_NAMED)
+        src_type = src_type->ty_Named.type;
+
+    if (dest_type->kind == TYPE_NAMED)
+        dest_type = dest_type->ty_Named.type;
+
     auto src_kind = src_type->kind;
     auto dest_kind = dest_type->kind;
 
@@ -112,6 +120,8 @@ llvm::Value* CodeGenerator::genCast(AstExpr* node) {
             return irb.CreateZExt(src_val, ll_dtype);
         } else if (src_kind == TYPE_PTR) {
             return irb.CreatePtrToInt(src_val, ll_dtype);
+        } else if (src_kind == TYPE_ENUM) {
+            return irb.CreateIntCast(src_val, ll_dtype, false);
         }
     } break; 
     case TYPE_FLOAT:
@@ -141,7 +151,12 @@ llvm::Value* CodeGenerator::genCast(AstExpr* node) {
     case TYPE_STRING:
         if (src_kind == TYPE_ARRAY)
             return src_val;
-        break;            
+        break;
+    case TYPE_ENUM:
+        if (src_kind == TYPE_INT) {
+            return irb.CreateIntCast(src_val, ll_dtype, src_type->ty_Int.is_signed);
+        }            
+        break;
     }
 
     Panic("unimplemented cast in codegen");

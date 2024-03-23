@@ -286,6 +286,7 @@ private:
     void genFuncBody(AstDef* node);
 
     void genGlobalVarDecl(AstDef* node);
+    void genEnumVariants(AstDef *node);
     void genGlobalVarInit(AstDef *node);
 
     std::string mangleName(std::string_view name);

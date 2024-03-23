@@ -91,8 +91,7 @@ bool Parser::shouldParseStructLit() {
 /* -------------------------------------------------------------------------- */
 
 void Parser::defineGlobal(Symbol* symbol) {
-    auto it = src_file.parent->symbol_table.find(symbol->name);
-    if (it == src_file.parent->symbol_table.end()) {
+    if (!src_file.parent->symbol_table.contains(symbol->name)) {
         src_file.parent->symbol_table.emplace(symbol->name, symbol);
     } else {
         error(

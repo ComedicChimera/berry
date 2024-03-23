@@ -163,8 +163,7 @@ void Checker::declareLocal(Symbol* sym) {
 
     auto& curr_scope = scope_stack.back();
 
-    auto it = curr_scope.find(sym->name);
-    if (it == curr_scope.end()) {
+    if (!curr_scope.contains(sym->name)) {
         curr_scope[sym->name] = sym;
     } else {
         fatal(sym->span, "multiple definitions of local variable {} in the same scope", sym->name);

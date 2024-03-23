@@ -56,9 +56,13 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
         checkNewExpr(node);
         break;
     case AST_IDENT: {
-        auto* dep = checkIdentOrGetImport(node, false);
+        auto* dep = checkIdentOrGetImport(node);
         if (dep != nullptr) {
             fatal(node->span, "imported module cannot be used as a value");
+        }
+
+        if (node->an_Ident.symbol->flags & SYM_TYPE) {
+            fatal(node->span, "cannot use type as value");
         }
     } break;   
     case AST_INT:
@@ -86,8 +90,13 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
     case AST_STRUCT_PTR_LIT_NAMED:
         checkStructLit(node, infer_type);
         break;
-    case AST_STRUCT_LIT_TYPE:
-        Panic("ast struct lit type outside of ast struct lit");
+    case AST_ENUM_LIT:
+        if (infer_type) {
+            node->an_Field.root->type = infer_type;
+            checkEnumLit(node);
+        } else {
+            fatal(node->span, "unable to infer type of enum");
+        }
         break;
     default:
         Panic("checking not implemented for expr {}", (int)node->kind);
@@ -192,7 +201,7 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
     auto& fld = node->an_Field;
     
     if (fld.root->kind == AST_IDENT) {
-        auto* dep= checkIdentOrGetImport(fld.root, false);
+        auto* dep= checkIdentOrGetImport(fld.root);
         if (dep != nullptr) {
             auto* mod = dep->mod;
 
@@ -224,11 +233,18 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
                 fatal(node->span, "module {} has no symbol named {}", mod->name, fld.field_name);
             }
         }
+
+        if (fld.root->an_Ident.symbol->flags & SYM_TYPE) {
+            checkEnumLit(node);
+
+            node->kind = AST_ENUM_LIT;
+            return;
+        }
     } else {
         checkExpr(fld.root);
     }
 
-    auto root_type = fld.root->type->Inner();
+    auto* root_type = fld.root->type->Inner();
     if (root_type->kind == TYPE_PTR) {
         root_type = root_type->ty_Ptr.elem_type;
     }
@@ -238,32 +254,30 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
         auto base_type = root_type->ty_Named.type;
 
         if (base_type->kind == TYPE_STRUCT) {
-            size_t i = 0;
-            for (auto& field : base_type->ty_Struct.fields) {
-                if (field.name == fld.field_name) {
-                    if (root_type->ty_Named.mod_id != mod.id && !field.exported) {
-                        fatal(node->span, "struct field {} is not exported", field.name);
-                    }
+            auto maybe_field_ndx = base_type->ty_Struct.name_map.try_get(fld.field_name);
+            if (maybe_field_ndx) {
+                auto field_ndx = maybe_field_ndx.value();
+                auto& field = base_type->ty_Struct.fields[field_ndx];
 
-                    node->type = field.type;
-                    fld.field_index = i;
-                    return;
+                if (root_type->ty_Named.mod_id != mod.id && !field.exported) {
+                    fatal(node->span, "struct field {} is not exported", field.name);
                 }
 
-                i++;
+                node->type = field.type;
+                fld.field_index = field_ndx;
+                return;
             }
         }
     } break;
     case TYPE_STRUCT: { // Anonymous struct
-        size_t i = 0;
-        for (auto& field : root_type->ty_Struct.fields) {
-            if (field.name == fld.field_name) {
-                node->type = field.type;
-                fld.field_index = i;
-                return;
-            }
+        auto maybe_field_ndx = root_type->ty_Struct.name_map.try_get(fld.field_name);
+        if (maybe_field_ndx) {
+            auto field_ndx = maybe_field_ndx.value();
+            auto& field = root_type->ty_Struct.fields[field_ndx];
 
-            i++;
+            node->type = field.type;
+            fld.field_index = field_ndx;
+            return;
         }
     } break;
     case TYPE_ARRAY:
@@ -285,7 +299,7 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
     fatal(node->span, "{} has no field named {}", fld.root->type->ToString(), fld.field_name);
 }
 
-Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node, bool expect_type) {
+Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node) {
     auto name = node->an_Ident.temp_name;
     Symbol* sym { nullptr };
     for (int i = scope_stack.size() - 1; i >= 0; i--) {
@@ -318,12 +332,6 @@ Module::Dependency* Checker::checkIdentOrGetImport(AstExpr* node, bool expect_ty
         } else {
             fatal(node->span, "undefined symbol: {}", name);
         }
-    }
-    
-    if (!expect_type && (sym->flags & SYM_TYPE)) {
-        fatal(node->span, "cannot use type as value");
-    } else if (expect_type && (sym->flags & SYM_TYPE) == 0) {
-        fatal(node->span, "expected type not value");
     }
 
     if ((sym->flags & SYM_COMPTIME) == 0) {
@@ -400,9 +408,13 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
 
     switch (root_node->kind) {
     case AST_IDENT: {
-        auto* dep = checkIdentOrGetImport(root_node, true);
+        auto* dep = checkIdentOrGetImport(root_node);
         if (dep != nullptr) {
             fatal(node->span, "imported module cannot be used as a value");
+        }
+
+        if ((root_node->an_Ident.symbol->flags & SYM_TYPE) == 0) {
+            fatal(node->span, "expected a struct type not a value");
         }
     } break;
     case AST_FIELD:
@@ -457,24 +469,16 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
 
         node->an_StructLitPos.alloc_mode = enclosing_return_type ? A_ALLOC_STACK : A_ALLOC_GLOBAL;
     } else { // Named
-        // O(n^2) kekw
-        bool found_match = false;
         for (auto& field_init : node->an_StructLitNamed.field_inits) {
-            found_match = false;
+            auto maybe_field_ndx = struct_type->ty_Struct.name_map.try_get(field_init.ident->an_Ident.temp_name);
+            if (maybe_field_ndx) {
+                auto field_ndx = maybe_field_ndx.value();
+                auto& field = struct_type->ty_Struct.fields[field_ndx];
 
-            size_t i = 0;
-            for (auto& field : struct_type->ty_Struct.fields) {
-                if (field.name == field_init.ident->an_Ident.temp_name) {
-                    checkExpr(field_init.expr, field.type);
-                    mustSubType(field_init.expr->span, field_init.expr->type, field.type);
-                    field_init.field_index = i;
-                    found_match = true;
-                }
-
-                i++;
-            }
-
-            if (!found_match) {
+                checkExpr(field_init.expr, field.type);
+                mustSubType(field_init.expr->span, field_init.expr->type, field.type);
+                field_init.field_index = field_ndx;
+            } else {
                 error(
                     field_init.ident->span, 
                     "struct {} has no field named {}", 
@@ -494,5 +498,28 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
 
         node->type = AllocType(arena, TYPE_PTR);
         node->type->ty_Ptr.elem_type = root_node->type;
+    }
+}
+
+void Checker::checkEnumLit(AstExpr* node) {
+    auto& afield = node->an_Field;
+
+    auto* root_type = afield.root->type;
+    auto* enum_type = root_type->Inner();
+
+    if (enum_type->kind == TYPE_NAMED)
+        enum_type = enum_type->ty_Named.type;
+
+    if (enum_type->kind == TYPE_ENUM) {
+        auto maybe_enum_ndx = enum_type->ty_Enum.name_map.try_get(afield.field_name);
+
+        if (maybe_enum_ndx) {
+            afield.field_index = maybe_enum_ndx.value();
+            node->type = root_type;
+        } else {
+            fatal(node->span, "{} has no variant named {}", root_type->ToString(), afield.field_name);
+        }
+    } else {
+        fatal(node->span, "{} is not an enum type", root_type->ToString());
     }
 }

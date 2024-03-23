@@ -154,7 +154,7 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
 
     switch (src->kind) {
     case TYPE_INT:
-        return innerIsNumberType(dest) || dest->kind == TYPE_BOOL || dest->kind == TYPE_PTR;
+        return innerIsNumberType(dest) || dest->kind == TYPE_BOOL || dest->kind == TYPE_PTR || dest->kind == TYPE_ENUM;
     case TYPE_FLOAT:
         return innerIsNumberType(dest);
     case TYPE_BOOL:
@@ -177,6 +177,8 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
             return Equal(dest->ty_Array.elem_type, &prim_u8_type);
         }
         break;
+    case TYPE_ENUM:
+        return dest->kind == TYPE_INT;
     }
 
     return innerSubType(src, dest);
