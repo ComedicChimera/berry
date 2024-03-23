@@ -37,12 +37,6 @@ struct StructField {
     bool exported;
 };
 
-// EnumVariant is a variant of an enum type.
-struct EnumVariant {
-    size_t id;
-    llvm::Constant* tag;
-};
-
 // Type represents a Berry data type.
 struct Type {
     TypeKind kind;
@@ -80,10 +74,12 @@ struct Type {
         } ty_Named;
         struct {
             std::span<StructField> fields;
+            MapView<size_t> name_map;
             llvm::Type* llvm_type;
         } ty_Struct;
         struct {
-            MapView<EnumVariant> variants;
+            std::span<llvm::Constant*> tag_values;
+            MapView<size_t> name_map;
         } ty_Enum;
     };
 

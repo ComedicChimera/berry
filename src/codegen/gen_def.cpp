@@ -192,6 +192,55 @@ void CodeGenerator::genGlobalVarDecl(AstDef* node) {
     symbol->llvm_value = gv;
 }
 
+void CodeGenerator::genEnumVariants(AstDef* node) {
+    uint64_t tag_value = 0;
+
+    auto* enum_type = node->an_Enum.symbol->type;
+    enum_type = enum_type->ty_Named.type;
+    Assert(enum_type->kind == TYPE_ENUM, "enum definition with non-enum type");
+
+    for (size_t i = 0; i < enum_type->ty_Enum.tag_values.size(); i++) {
+        auto& var_init = node->an_Enum.variant_inits[i];
+
+        if (var_init.init_expr) {
+            auto* cv = evalComptime(var_init.init_expr);
+
+            switch (cv->kind) {
+            case CONST_I8:
+                tag_value = (uint64_t)cv->v_i8;
+                break;
+            case CONST_U8:
+                tag_value = (uint64_t)cv->v_u8;
+                break;
+            case CONST_I16:
+                tag_value = (uint64_t)cv->v_i16;
+                break;
+            case CONST_U16:
+                tag_value = (uint64_t)cv->v_u16;
+                break;
+            case CONST_I32:
+                tag_value = (uint64_t)cv->v_i32;
+                break;
+            case CONST_U32:
+                tag_value = (uint64_t)cv->v_u32;
+                break;
+            case CONST_I64:
+                tag_value = (uint64_t)cv->v_i64;
+                break;
+            case CONST_U64:
+                tag_value = (uint64_t)cv->v_u64;
+                break;
+            default:
+                Panic("invalid constant enum value in comptime");
+                break;
+            }
+        }
+
+        enum_type->ty_Enum.tag_values[i] = getPlatformIntConst(tag_value);
+        tag_value++;
+    }
+}
+
 void CodeGenerator::genGlobalVarInit(AstDef* node) {
     if (!node->an_GlVar.init_expr || node->an_GlVar.const_value) {
         return;

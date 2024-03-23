@@ -1,6 +1,8 @@
 #ifndef MAP_VIEW_H
 #define MAP_VIEW_H
 
+#include <optional>
+
 #include "arena.hpp"
 
 template<typename T>
@@ -64,6 +66,15 @@ public:
         return bucket->value;
     }
 
+    std::optional<T> try_get(std::string_view key) {
+        auto* bucket = lookup(key);
+
+        if (bucket == nullptr)
+            return {};
+
+        return bucket->value;
+    }
+
     class MapIterator {
         MapView& view;
         size_t ndx;
@@ -73,7 +84,7 @@ public:
 
     public:
         using iterator_category = std::forward_iterator_tag;
-        using value_type = std::string_view;
+        using value_type = T;
         using difference_type = std::ptrdiff_t;
         using pointer = value_type*;
         using reference = value_type&;
@@ -88,8 +99,8 @@ public:
             }
         }
 
-        reference operator*() { return bucket->key; }
-        pointer operator->() { return &bucket->key; }
+        reference operator*() { return bucket->value; }
+        pointer operator->() { return &bucket->value; }
 
         MapIterator& operator++() {
             if (bucket == nullptr)

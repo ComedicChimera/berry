@@ -17,7 +17,11 @@ void CodeGenerator::GenerateModule() {
         auto* def = src_mod.defs[def_num];
         src_file = &src_mod.files[def->parent_file_number];
 
-        genGlobalVarDecl(def);
+        if (def->kind == AST_GLVAR) {
+            genGlobalVarDecl(def);
+        } else if (def->kind == AST_ENUM) {
+            genEnumVariants(def);
+        }
     }
 
     for (auto* def : src_mod.defs) {
@@ -231,6 +235,9 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
         return genNamedBaseType(type, alloc_type, "");     
     case TYPE_NAMED:
         return genNamedBaseType(type->ty_Named.type, alloc_type, type->ty_Named.name);
+    case TYPE_ENUM:
+        // TODO: platform integer types
+        return llvm::Type::getInt64Ty(ctx);
     case TYPE_UNTYP:
         Panic("abstract untyped in codegen");
         break;
