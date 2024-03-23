@@ -80,6 +80,7 @@ struct Type {
         } ty_Named;
         struct {
             std::span<StructField> fields;
+            MapView<size_t> name_map;
             llvm::Type* llvm_type;
         } ty_Struct;
         struct {

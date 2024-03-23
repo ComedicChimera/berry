@@ -143,6 +143,7 @@ void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
 }
 
 void Parser::parseFuncParams(std::vector<Symbol*>& params) {
+    std::unordered_set<std::string_view> param_names;
     while (true) {
         auto name_toks = parseIdentList();
         Type* type = parseTypeExt();
@@ -158,7 +159,12 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
                 false
             );
 
+            if (param_names.contains(symbol->name)) {
+                error(symbol->span, "multiple parameters named {}", symbol->name);
+            }
+
             params.push_back(symbol);
+            param_names.insert(symbol->name);
         }
         
         if (has(TOK_COMMA)) {
@@ -228,7 +234,7 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
 
     bool field_exported = false;
     std::vector<StructField> fields;
-    std::unordered_set<std::string_view> used_field_names;
+    std::unordered_map<std::string_view, size_t> name_map;
     do {
         // TODO: field metadata
 
@@ -249,11 +255,11 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
         for (auto& field_name_tok : field_name_toks) {
             auto field_name = arena.MoveStr(std::move(field_name_tok.value));
 
-            if (used_field_names.contains(field_name)) {
+            if (name_map.contains(field_name)) {
                 error(field_name_tok.span, "multiple fields named {}", field_name);
             }
 
-            used_field_names.insert(field_name);
+            name_map.emplace(field_name, fields.size());
             fields.emplace_back(StructField{
                 field_name,
                 field_type,
@@ -267,6 +273,7 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
 
     auto struct_type = allocType(TYPE_STRUCT);
     struct_type->ty_Struct.fields = arena.MoveVec(std::move(fields));
+    struct_type->ty_Struct.name_map = MapView<size_t>(arena, std::move(name_map));
     struct_type->ty_Struct.llvm_type = nullptr;
     
     auto named_type = allocType(TYPE_NAMED);
@@ -349,8 +356,7 @@ void Parser::parseEnumDef(MetadataMap&& meta, bool exported) {
         want(TOK_SEMI);
 
         auto variant_name = arena.MoveStr(std::move(var_name_tok.value));
-        auto it = variants.find(variant_name);
-        if (it != variants.end()) {
+        if (variants.contains(variant_name)) {
             error(var_name_tok.span, "multiple variants named {}", variant_name);
         } else {
             variants.emplace(variant_name, EnumVariant{ variants.size(), nullptr });

@@ -1,6 +1,8 @@
 #ifndef MAP_VIEW_H
 #define MAP_VIEW_H
 
+#include <optional>
+
 #include "arena.hpp"
 
 template<typename T>
@@ -60,6 +62,15 @@ public:
 
         if (bucket == nullptr)
             Panic("map view has no key named {}", key);
+
+        return bucket->value;
+    }
+
+    std::optional<T> try_get(std::string_view key) {
+        auto* bucket = lookup(key);
+
+        if (bucket == nullptr)
+            return {};
 
         return bucket->value;
     }
