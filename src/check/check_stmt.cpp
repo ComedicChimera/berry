@@ -12,6 +12,9 @@ bool Checker::checkStmt(AstStmt* node) {
     case AST_FOR:
         checkFor(node);
         break;
+    case AST_MATCH:
+        checkMatchStmt(node);
+        break;
     case AST_LOCAL_VAR:
         checkLocalVar(node);
         break;
@@ -30,13 +33,24 @@ bool Checker::checkStmt(AstStmt* node) {
         return true;
     case AST_BREAK:
         if (loop_depth == 0) {
-            error(node->span, "break statement occurs outside of loop");
+            error(node->span, "break statement outside of loop");
         }
         break;
     case AST_CONTINUE:
         if (loop_depth == 0) {
-            error(node->span, "continue statement occurs outside of loop");
+            error(node->span, "continue statement outside of loop");
         }
+        break;
+    case AST_FALLTHROUGH:
+        if (fallthrough_stack.empty()) {
+            error(node->span, "fallthrough statement outside of match");
+            return false;
+        }
+
+        if (!fallthrough_stack.back()) {
+            error(node->span, "cannot fallthrough to case which captures values");
+        }
+
         break;
     default:
         Panic("checking not implemented for stmt {}", (int)node->kind);
@@ -56,6 +70,7 @@ bool Checker::checkBlock(AstStmt* node) {
     }
 
     popScope();
+
     return always_returns;
 }
 
@@ -63,11 +78,15 @@ bool Checker::checkIf(AstStmt* node) {
     bool always_returns = true;
 
     for (auto& branch : node->an_If.branches) {
+        pushScope();
+
         checkExpr(branch.cond_expr, &prim_bool_type);
         mustEqual(branch.cond_expr->span, branch.cond_expr->type, &prim_bool_type);
         finishExpr();
 
         always_returns = checkStmt(branch.body) && always_returns;
+
+        popScope();
     }
 
     if (node->an_If.else_block) {
@@ -80,6 +99,7 @@ bool Checker::checkIf(AstStmt* node) {
 }
 
 void Checker::checkWhile(AstStmt* node) {
+    pushScope();
     auto& awhile = node->an_While;
 
     checkExpr(awhile.cond_expr, &prim_bool_type);
@@ -93,6 +113,8 @@ void Checker::checkWhile(AstStmt* node) {
     if (awhile.else_block) {
         checkStmt(awhile.else_block);
     }
+
+    popScope();
 }
 
 void Checker::checkFor(AstStmt* node) {
@@ -120,6 +142,36 @@ void Checker::checkFor(AstStmt* node) {
     }
 
     popScope();
+}
+
+void Checker::checkMatchStmt(AstStmt* node) {
+    auto& amatch = node->an_Match;
+
+    checkExpr(amatch.expr);
+
+    std::vector<bool> cases_can_fallthrough(amatch.cases.size(), true);
+    for (size_t i = 0; i < amatch.cases.size(); i++) {
+        auto& acase = amatch.cases[i];
+
+        bool captures = checkCasePattern(acase.cond_expr, amatch.expr->type);
+        if (i > 0 && captures) {
+            cases_can_fallthrough[i-1] = false;
+        }
+    }
+
+    for (size_t i = 0; i < amatch.cases.size(); i++) {
+        auto& acase = amatch.cases[i];
+
+        pushScope();
+
+        declarePatternCaptures(acase.cond_expr);
+
+        fallthrough_stack.push_back(cases_can_fallthrough[i]);
+        checkStmt(acase.body);
+        fallthrough_stack.pop_back();
+
+        popScope();
+    }
 }
 
 /* -------------------------------------------------------------------------- */

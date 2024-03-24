@@ -34,6 +34,8 @@ class Checker {
     // used for break and continue checking.
     int loop_depth { 0 };
 
+    std::vector<bool> fallthrough_stack;
+
     // core_dep is a pointer to the core module dependency.  This will non-null
     // in every module except the core module itself.
     Module::Dependency* core_dep;
@@ -99,10 +101,18 @@ private:
     bool checkIf(AstStmt* node);
     void checkWhile(AstStmt* node);
     void checkFor(AstStmt* node);
-    void checkLocalVar(AstStmt *node);
+    void checkMatchStmt(AstStmt* node);
+    void checkLocalVar(AstStmt* node);
     void checkAssign(AstStmt *node);
     void checkIncDec(AstStmt *node);
     void checkReturn(AstStmt *node);
+
+    /* ---------------------------------------------------------------------- */
+
+    bool checkCasePattern(AstExpr* node, Type* expect_type);
+    bool checkPattern(AstExpr* node, Type* expect_type);
+
+    void declarePatternCaptures(AstExpr *pattern);
 
     /* ---------------------------------------------------------------------- */
 

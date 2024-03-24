@@ -2,6 +2,14 @@
 
 void Checker::checkExpr(AstExpr* node, Type* infer_type) {
     switch (node->kind) {
+    case AST_TEST_MATCH:
+        checkExpr(node->an_TestMatch.expr);
+
+        checkPattern(node->an_TestMatch.pattern, node->an_TestMatch.expr->type);
+        declarePatternCaptures(node->an_TestMatch.pattern);
+
+        node->type = &prim_bool_type;
+        break;
     case AST_CAST:
         checkExpr(node->an_Cast.src, node->type);
         mustCast(node->an_Cast.src->span, node->an_Cast.src->type, node->type);
@@ -67,11 +75,11 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
     } break;   
     case AST_INT:
         if (node->type == nullptr) {
-            node->type = newUntyped(UK_NUM);
+            node->type = infer_type ? infer_type : newUntyped(UK_NUM);
         }
         break;
     case AST_FLOAT:
-        node->type = newUntyped(UK_FLOAT);
+        node->type = infer_type ? infer_type : newUntyped(UK_NUM);
         break;
     case AST_STR:
     case AST_BOOL:

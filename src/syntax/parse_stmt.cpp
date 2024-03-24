@@ -58,7 +58,7 @@ AstStmt* Parser::parseStmt() {
     case TOK_FOR:
         return parseForLoop();
     case TOK_MATCH:
-        return parseMatchBlock();
+        return parseMatchStmt();
     default:
         stmt = parseExprAssignStmt();
     }
@@ -199,7 +199,7 @@ AstStmt* Parser::maybeParseElse() {
     return nullptr;
 }
 
-AstStmt* Parser::parseMatchBlock() {
+AstStmt* Parser::parseMatchStmt() {
     auto start_span = tok.span;
     next();
 

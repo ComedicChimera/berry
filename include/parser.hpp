@@ -67,7 +67,7 @@ private:
     AstStmt* parseDoWhileLoop();
     AstStmt* parseForLoop();
     AstStmt* maybeParseElse();
-    AstStmt* parseMatchBlock();
+    AstStmt* parseMatchStmt();
 
     AstStmt* parseLocalVarDef();
     AstStmt* parseExprAssignStmt();
