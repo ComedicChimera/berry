@@ -1,20 +1,31 @@
 #include "parser.hpp"
 
 AstExpr* Parser::parseExpr() {
-    auto bin_op = parseBinaryOp(0);
+    auto* expr = parseBinaryOp(0);
 
     if (has(TOK_AS)) {
         next();
 
         auto dest_type = parseTypeLabel();
 
-        auto* cast = allocExpr(AST_CAST, SpanOver(bin_op->span, prev.span));
-        cast->type = dest_type;
-        cast->an_Cast.src = bin_op;
-        return cast;
+        auto* acast = allocExpr(AST_CAST, SpanOver(expr->span, prev.span));
+        acast->type = dest_type;
+        acast->an_Cast.src = expr;
+        expr = acast;
     }
 
-    return bin_op;
+    if (has(TOK_MATCH)) {
+        next();
+
+        auto* pattern = parseCasePattern();
+
+        auto* amatch = allocExpr(AST_TEST_MATCH, SpanOver(expr->span, prev.span));
+        amatch->an_TestMatch.expr = expr;
+        amatch->an_TestMatch.pattern = pattern;
+        expr = amatch;
+    }
+
+    return expr;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -154,7 +165,6 @@ AstExpr* Parser::parseAtomExpr() {
             auto* node = allocExpr(AST_FIELD, SpanOver(root->span, field_name_tok.span));
             node->an_Field.root = root;
             node->an_Field.field_name = arena.MoveStr(std::move(field_name_tok.value));
-            node->an_Field.imported_sym = nullptr;
             
             root = node;
         } break;
@@ -399,7 +409,7 @@ static rune decodeRune(const std::string& rbytes) {
     return r;
 }
 
-static rune convertRuneLit(const std::string& rune_str) {
+rune ConvertRuneLit(const std::string& rune_str) {
     if (rune_str[0] == '\\') {
         Assert(rune_str.size() == 2, "invalid escape code in parser: wrong char count");
 
@@ -463,7 +473,7 @@ AstExpr* Parser::parseAtom() {
 
         auto* aint = allocExpr(AST_INT, prev.span);
         aint->type = &prim_i32_type;
-        aint->an_Int.value = convertRuneLit(prev.value);
+        aint->an_Int.value = ConvertRuneLit(prev.value);
         return aint;
     } break;
     case TOK_BOOLLIT: {

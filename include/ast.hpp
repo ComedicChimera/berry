@@ -75,6 +75,7 @@ enum AstKind {
     AST_IF,
     AST_WHILE,
     AST_FOR,
+    AST_MATCH,
     AST_LOCAL_VAR,
     AST_ASSIGN,
     AST_INCDEC,
@@ -82,7 +83,9 @@ enum AstKind {
     AST_RETURN,
     AST_BREAK,
     AST_CONTINUE,
+    AST_FALLTHROUGH,
 
+    AST_TEST_MATCH,
     AST_CAST,
     AST_BINOP,
     AST_UNOP,
@@ -109,6 +112,8 @@ enum AstKind {
     AST_NULL,
     AST_STR,
 
+    AST_PATTERN_LIST,
+
     ASTS_COUNT
 };
 
@@ -132,6 +137,10 @@ struct AstExpr : public AstNode {
     bool immut;
 
     union {
+        struct {
+            AstExpr* expr;
+            AstExpr* pattern;
+        } an_TestMatch;
         struct {
             AstExpr* src;
         } an_Cast;
@@ -213,6 +222,10 @@ struct AstExpr : public AstNode {
         struct {
             std::string_view value;
         } an_String;
+
+        struct {
+            std::span<AstExpr*> patterns;
+        } an_PatternList;
     };
 
     bool IsLValue() const;
@@ -254,6 +267,10 @@ struct AstStmt : public AstNode {
             AstStmt* body;
             AstStmt* else_block;
         } an_For;
+        struct {
+            AstExpr* expr;
+            std::span<AstCondBranch> cases;
+        } an_Match;
 
         struct {
             Symbol* symbol;

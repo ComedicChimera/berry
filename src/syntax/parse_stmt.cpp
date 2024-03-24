@@ -57,6 +57,8 @@ AstStmt* Parser::parseStmt() {
         return parseDoWhileLoop();
     case TOK_FOR:
         return parseForLoop();
+    case TOK_MATCH:
+        return parseMatchBlock();
     default:
         stmt = parseExprAssignStmt();
     }
@@ -195,6 +197,44 @@ AstStmt* Parser::maybeParseElse() {
     }
 
     return nullptr;
+}
+
+AstStmt* Parser::parseMatchBlock() {
+    auto start_span = tok.span;
+    next();
+
+    auto* expr = parseExpr();
+    want(TOK_LPAREN);
+
+    std::vector<AstCondBranch> cases;
+    while (has(TOK_CASE)) {
+        auto case_start_span = tok.span;
+        next();
+
+        auto* pattern = parseCasePattern();
+
+        want(TOK_COLON);
+
+        std::vector<AstStmt*> stmts;
+        while (!has(TOK_CASE) && !has(TOK_RBRACE)) {
+            stmts.push_back(parseStmt());
+        }
+
+        AstStmt* case_block;
+        if (stmts.size() > 0) {
+            case_block = allocStmt(AST_BLOCK, SpanOver(stmts[0]->span, stmts.back()->span));
+            case_block->an_Block.stmts = arena.MoveVec(std::move(stmts));
+        }
+        
+        cases.emplace_back(SpanOver(case_start_span, prev.span), pattern, case_block);
+    }
+
+    want(TOK_RPAREN);
+
+    auto* amatch = allocStmt(AST_MATCH, SpanOver(start_span, prev.span));
+    amatch->an_Match.expr = expr;
+    amatch->an_Match.cases = arena.MoveVec(std::move(cases));
+    return amatch;
 }
 
 /* -------------------------------------------------------------------------- */

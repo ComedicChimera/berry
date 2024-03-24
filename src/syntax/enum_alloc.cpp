@@ -15,6 +15,7 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_stmt.an_If),
     sizeof(size_ref_stmt.an_While),
     sizeof(size_ref_stmt.an_For),
+    sizeof(size_ref_stmt.an_Match),
     sizeof(size_ref_stmt.an_LocalVar),
     sizeof(size_ref_stmt.an_Assign),
     sizeof(size_ref_stmt.an_IncDec),
@@ -22,7 +23,9 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_stmt.an_Return),
     0,
     0,
+    0,
 
+    sizeof(size_ref_expr.an_TestMatch),
     sizeof(size_ref_expr.an_Cast),
     sizeof(size_ref_expr.an_Binop),
     sizeof(size_ref_expr.an_Unop),
@@ -48,6 +51,7 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_expr.an_Bool),
     0,
     sizeof(size_ref_expr.an_String),
+    sizeof(size_ref_expr.an_PatternList)
 };
 #define LARGEST_DEF_VARIANT_SIZE sizeof(size_ref_def.an_Func)
 #define LARGEST_STMT_VARIANT_SIZE sizeof(size_ref_stmt.an_For)
@@ -83,7 +87,7 @@ AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, MetadataMap&& meta_
 }
 
 AstStmt* Parser::allocStmt(AstKind kind, const TextSpan& span) {
-    Assert(AST_ENUM < kind && kind < AST_CAST, "invalid kind for allocStmt");
+    Assert(AST_ENUM < kind && kind < AST_TEST_MATCH, "invalid kind for allocStmt");
 
     size_t var_size = ast_variant_sizes[(int)kind];
     size_t full_size = sizeof(AstStmt) - LARGEST_STMT_VARIANT_SIZE + var_size;
@@ -95,7 +99,7 @@ AstStmt* Parser::allocStmt(AstKind kind, const TextSpan& span) {
 }
 
 AstExpr* Parser::allocExpr(AstKind kind, const TextSpan& span) {
-    Assert(AST_CAST <= kind, "invalid kind for allocExpr");
+    Assert(AST_TEST_MATCH <= kind, "invalid kind for allocExpr");
 
     size_t var_size = ast_variant_sizes[(int)kind];
     size_t full_size = sizeof(AstExpr) - LARGEST_EXPR_VARIANT_SIZE + var_size;

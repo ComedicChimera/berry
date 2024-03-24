@@ -67,9 +67,15 @@ private:
     AstStmt* parseDoWhileLoop();
     AstStmt* parseForLoop();
     AstStmt* maybeParseElse();
+    AstStmt* parseMatchBlock();
 
     AstStmt* parseLocalVarDef();
     AstStmt* parseExprAssignStmt();
+
+    /* ---------------------------------------------------------------------- */
+
+    AstExpr* parseCasePattern();
+    AstExpr* parsePattern();
 
     /* ---------------------------------------------------------------------- */
 
@@ -156,5 +162,6 @@ private:
 };
 
 bool ConvertUint(const std::string& int_str, uint64_t* value);
+rune ConvertRuneLit(const std::string& rune_str) 
 
 #endif
