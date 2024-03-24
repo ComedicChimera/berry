@@ -65,7 +65,9 @@ bool Checker::checkPattern(AstExpr* node, Type* expect_type) {
 void Checker::declarePatternCaptures(AstExpr* pattern) {
     switch (pattern->kind) {
     case AST_IDENT:
-        declareLocal(pattern->an_Ident.symbol);
+        if (pattern->an_Ident.symbol)
+            declareLocal(pattern->an_Ident.symbol);
+        
         break;
     }
 }
