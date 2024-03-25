@@ -49,6 +49,7 @@ set(SRCS
     "codegen/gen_atom.cpp"
     "codegen/gen_main.cpp"
     "codegen/gen_comptime.cpp"
+    "codegen/gen_pattern.cpp"
 
     "test/arena_test.cpp"
     "test/ast_print.cpp"

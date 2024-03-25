@@ -86,6 +86,7 @@ struct Type {
     friend class TypeContext;
     std::string ToString() const;
     Type* Inner();
+    Type* FullUnwrap();
 };
 
 /* -------------------------------------------------------------------------- */

@@ -691,11 +691,7 @@ ConstValue* CodeGenerator::evalComptimeUnaryOp(AstExpr* node) {
 }
 
 ConstValue* CodeGenerator::evalComptimeStructLitPos(AstExpr* node) {
-    auto* struct_type = node->an_StructLitPos.root->type->Inner();
-
-    if (struct_type->kind == TYPE_NAMED) {
-        struct_type = struct_type->ty_Named.type;
-    }
+    auto* struct_type = node->an_StructLitPos.root->type->FullUnwrap();
 
     Assert(struct_type->kind == TYPE_STRUCT, "struct lit has non struct type root");
 
@@ -717,11 +713,7 @@ ConstValue* CodeGenerator::evalComptimeStructLitPos(AstExpr* node) {
 }
 
 ConstValue* CodeGenerator::evalComptimeStructLitNamed(AstExpr* node) {
-    auto* struct_type = node->an_StructLitPos.root->type->Inner();
-
-    if (struct_type->kind == TYPE_NAMED) {
-        struct_type = struct_type->ty_Named.type;
-    }
+    auto* struct_type = node->an_StructLitPos.root->type->FullUnwrap();
 
     Assert(struct_type->kind == TYPE_STRUCT, "struct lit has non struct type root");
 
@@ -883,12 +875,7 @@ void CodeGenerator::comptimeEvalError(const TextSpan& span, const std::string& m
 /* -------------------------------------------------------------------------- */
 
 ConstValue* CodeGenerator::getComptimeNull(Type* type) {
-    type = type->Inner();
-
-    auto* named_type = type;
-    if (type->kind == TYPE_NAMED) {
-        type = type->ty_Named.type;
-    }
+    type = type->FullUnwrap();
 
     ConstValue* value;
     switch (type->kind) {
@@ -960,7 +947,7 @@ ConstValue* CodeGenerator::getComptimeNull(Type* type) {
 
         value = allocComptime(CONST_STRUCT);
         value->v_struct.fields = arena.MoveVec(std::move(field_values));
-        value->v_struct.struct_type = named_type;
+        value->v_struct.struct_type = type;
         value->v_struct.mod_id = src_mod.id;
         value->v_struct.alloc_loc = nullptr;
     } break;

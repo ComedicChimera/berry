@@ -18,6 +18,15 @@ Type* Type::Inner() {
     return this;
 }
 
+Type* Type::FullUnwrap() {
+    auto* inner_type = Inner();
+
+    if (inner_type->kind == TYPE_NAMED)
+        return inner_type->ty_Named.type;
+
+    return inner_type;
+}
+
 /* -------------------------------------------------------------------------- */
 
 void TypeContext::AddUntyped(Type* ut, UntypedKind kind) {

@@ -334,8 +334,21 @@ private:
     void genIncDec(AstStmt* node);
 
     LoopContext& getLoopCtx();
-    void pushLoopContext(llvm::BasicBlock *break_block, llvm::BasicBlock* continue_block);
+    void pushLoopContext(llvm::BasicBlock* break_block, llvm::BasicBlock* continue_block);
     void popLoopContext();
+
+    /* ---------------------------------------------------------------------- */
+
+    struct PatternBranch {
+        AstExpr* pattern;
+        llvm::BasicBlock* block;
+    };
+
+    void genCasePatternMatch(AstExpr* expr, const std::vector<PatternBranch>& pcases, llvm::BasicBlock* nm_block);
+
+    bool pmGenAtomWithSwitch(llvm::SwitchInst* ll_switch, AstExpr* pattern, llvm::BasicBlock* case_block);
+    bool pmGenAtomWithEq(llvm::Value* match_operand, AstExpr* pattern, llvm::BasicBlock* case_block);
+    void pmGenCapture(llvm::Value* match_operand, Symbol* capture_sym, llvm::BasicBlock* case_block);
 
     /* ---------------------------------------------------------------------- */
 

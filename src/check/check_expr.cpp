@@ -449,11 +449,8 @@ void Checker::checkStructLit(AstExpr* node, Type* infer_type) {
         fatal(root_node->span, "expected a struct type label or '.'");
     }
 
-    auto* struct_type = root_node->type->Inner();
-    if (struct_type->kind == TYPE_NAMED) {
-        struct_type = struct_type->ty_Named.type;
-    }
-    
+    auto* struct_type = root_node->type->FullUnwrap();
+
     if (struct_type->kind != TYPE_STRUCT) {
         fatal(root_node->span, "{} is not a struct type", root_node->type->ToString());
     }
@@ -513,10 +510,7 @@ void Checker::checkEnumLit(AstExpr* node) {
     auto& afield = node->an_Field;
 
     auto* root_type = afield.root->type;
-    auto* enum_type = root_type->Inner();
-
-    if (enum_type->kind == TYPE_NAMED)
-        enum_type = enum_type->ty_Named.type;
+    auto* enum_type = root_type->FullUnwrap();
 
     if (enum_type->kind == TYPE_ENUM) {
         auto maybe_enum_ndx = enum_type->ty_Enum.name_map.try_get(afield.field_name);

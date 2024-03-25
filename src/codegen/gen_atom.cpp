@@ -119,19 +119,15 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
 llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
     auto& afield = node->an_Field;
 
-    auto* root_inner_type = afield.root->type->Inner();
+    auto* root_inner_type = afield.root->type->FullUnwrap();
 
     if (expect_addr || shouldPtrWrap(node->type)) {
         llvm::Value* root_ptr;
         if (root_inner_type->kind == TYPE_PTR) {
             root_ptr = genExpr(afield.root);
-            root_inner_type = root_inner_type->ty_Ptr.elem_type->Inner();
+            root_inner_type = root_inner_type->ty_Ptr.elem_type->FullUnwrap();
         } else {
             root_ptr = genExpr(afield.root, true);
-        }
-
-        if (root_inner_type->kind == TYPE_NAMED) {
-            root_inner_type = root_inner_type->ty_Named.type;
         }
 
         switch (root_inner_type->kind) {
@@ -157,15 +153,11 @@ llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
         auto* root_val = genExpr(afield.root);
 
         if (root_inner_type->kind == TYPE_PTR) {
-            root_inner_type = root_inner_type->ty_Ptr.elem_type->Inner();
+            root_inner_type = root_inner_type->ty_Ptr.elem_type->FullUnwrap();
 
             if (!shouldPtrWrap(root_inner_type)) {
                 root_val = irb.CreateLoad(genType(root_inner_type), root_val);
             }
-        }
-
-        if (root_inner_type->kind == TYPE_NAMED) {
-            root_inner_type = root_inner_type->ty_Named.type;
         }
 
         switch (root_inner_type->kind) {
