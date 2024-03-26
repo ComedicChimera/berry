@@ -209,6 +209,9 @@ class CodeGenerator {
     // loop_ctx_stack is the stack of enclosing loop contexts.
     std::vector<LoopContext> loop_ctx_stack;
 
+    // fallthru_stack is the stack of enclosing fallthrough destinations.
+    std::vector<llvm::BasicBlock*> fallthru_stack;
+
     /* ---------------------------------------------------------------------- */
 
     // ll_array_type is the LLVM type for all Berry arrays (opaque pointer POG).
@@ -329,6 +332,7 @@ private:
     void genIfTree(AstStmt* node);
     void genWhileLoop(AstStmt* node);
     void genForLoop(AstStmt* node);
+    void genMatchStmt(AstStmt* node);
     void genLocalVar(AstStmt* node);
     void genAssign(AstStmt* node);
     void genIncDec(AstStmt* node);
@@ -353,7 +357,10 @@ private:
     /* ---------------------------------------------------------------------- */
 
     llvm::Value* genExpr(AstExpr* expr, bool expect_addr = false, llvm::Value* alloc_loc = nullptr);
-    llvm::Value* genCast(AstExpr* node);
+
+    llvm::Value* genTestMatch(AstExpr *node);
+    
+    llvm::Value* genCast(AstExpr *node);
     llvm::Value* genBinop(AstExpr* node);
     llvm::Value* genUnop(AstExpr* node);
 

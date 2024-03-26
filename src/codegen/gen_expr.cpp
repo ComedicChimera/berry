@@ -4,6 +4,8 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
     debug.SetDebugLocation(node->span);
 
     switch (node->kind) {
+    case AST_TEST_MATCH:
+        return genTestMatch(node);
     case AST_CAST:
         return genCast(node);
     case AST_BINOP:
@@ -81,6 +83,34 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
     }
 
     return nullptr;
+}
+
+/* -------------------------------------------------------------------------- */
+
+llvm::Value* CodeGenerator::genTestMatch(AstExpr* node) {
+    auto* true_block = appendBlock();
+    auto* false_block = appendBlock();
+    auto* end_block = appendBlock();
+
+    genCasePatternMatch(node->an_TestMatch.expr, { { node->an_TestMatch.pattern, true_block } }, false_block);
+
+    setCurrentBlock(true_block);
+    irb.CreateBr(end_block);
+
+    setCurrentBlock(false_block);
+    if (hasPredecessor()) {
+        irb.CreateBr(end_block);
+        setCurrentBlock(end_block);
+    } else {
+        deleteCurrentBlock(end_block);
+        return makeLLVMIntLit(&prim_bool_type, 1);
+    }
+
+    auto* phi_node = irb.CreatePHI(llvm::Type::getInt1Ty(ctx), 2);
+    phi_node->addIncoming(makeLLVMIntLit(&prim_bool_type, 1), true_block);
+    phi_node->addIncoming(makeLLVMIntLit(&prim_bool_type, 0), false_block);
+
+    return phi_node;
 }
 
 /* -------------------------------------------------------------------------- */

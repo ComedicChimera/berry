@@ -22,6 +22,9 @@ void CodeGenerator::genStmt(AstStmt* node) {
     case AST_FOR:
         genForLoop(node);
         break;
+    case AST_MATCH:
+        genMatchStmt(node);
+        break;
     case AST_LOCAL_VAR:
         genLocalVar(node);
         break;
@@ -50,6 +53,12 @@ void CodeGenerator::genStmt(AstStmt* node) {
         break;
     case AST_CONTINUE:
         irb.CreateBr(getLoopCtx().continue_block);
+        break;
+    case AST_FALLTHROUGH:
+        if (fallthru_stack.empty())
+            Panic("fallthrough outside of match context in codegen");
+
+        irb.CreateBr(fallthru_stack.back());
         break;
     default:
         Panic("stmt codegen not implemented for {}", (int)node->kind);
@@ -89,7 +98,7 @@ void CodeGenerator::genIfTree(AstStmt* node) {
     }
 
     setCurrentBlock(exit_block);
-    if (!hasPredecessor(exit_block)) {
+    if (!hasPredecessor()) {
         // The only way exit can have no predecessor is if we have an else block
         // that always jumps.
         deleteCurrentBlock(else_block);
@@ -152,7 +161,7 @@ void CodeGenerator::genWhileLoop(AstStmt* node) {
     }
 
     setCurrentBlock(exit_block);
-    if (!hasPredecessor(exit_block)) {
+    if (!hasPredecessor()) {
         // The only way for exit_block to have no predecessors if for the loop
         // the have an else block which unconditionally jumps.
         deleteCurrentBlock(else_block);
@@ -218,9 +227,44 @@ void CodeGenerator::genForLoop(AstStmt* node) {
     }
 
     setCurrentBlock(exit_block);
-    if (!hasPredecessor(exit_block)) {
+    if (!hasPredecessor()) {
         // See while loop implementation for why this is ok.
         deleteCurrentBlock(else_block);
+    }
+}
+
+void CodeGenerator::genMatchStmt(AstStmt* node) {
+    std::vector<PatternBranch> branches;
+    for (auto& acase : node->an_Match.cases) {
+        auto* case_block = appendBlock();
+        branches.emplace_back(acase.cond_expr, case_block);
+    }
+
+    auto* exit_block = appendBlock();
+
+    genCasePatternMatch(node->an_Match.expr, branches, exit_block);
+
+    for (size_t i = 0; i < branches.size(); i++) {
+        auto& branch = branches[i];
+
+        if (i == branches.size())
+            fallthru_stack.push_back(exit_block);
+        else
+            fallthru_stack.push_back(branches[i+1].block);
+
+        setCurrentBlock(branch.block);
+        genStmt(node->an_Match.cases[i].body);
+
+        if (!currentHasTerminator())
+            irb.CreateBr(exit_block);
+
+        fallthru_stack.pop_back();
+    }
+
+    setCurrentBlock(exit_block);
+    if (!hasPredecessor()) {
+        // All cases jump out: no exit block needed.
+        deleteCurrentBlock(branches.back().block);
     }
 }
 
