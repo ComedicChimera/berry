@@ -162,6 +162,6 @@ private:
 };
 
 bool ConvertUint(const std::string& int_str, uint64_t* value);
-rune ConvertRuneLit(const std::string& rune_str) 
+rune ConvertRuneLit(const std::string& rune_str); 
 
 #endif

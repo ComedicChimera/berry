@@ -107,4 +107,7 @@ AstExpr* Parser::parsePattern() {
         return aenum;
     } break;
     }
+
+    reject("expected a pattern");
+    return nullptr;
 }

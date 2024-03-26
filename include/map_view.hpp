@@ -11,18 +11,12 @@ class MapView {
         std::string_view key;
         T value;
         MapBucket* next;
-
-        MapBucket(std::string_view key, T&& value)
-        : key(key)
-        , value(std::move(value))
-        , next(nullptr)
-        {}
     };
 
     std::span<MapBucket*> table;
     size_t n_pairs;
 
-    static std::hash<std::string_view> hasher {};
+    static inline std::hash<std::string_view> hasher {};
 
 public:
     MapView(Arena& arena, std::unordered_map<std::string_view, T>&& map) 
@@ -37,9 +31,14 @@ public:
         for (auto& pair : map) {
             auto hndx = hasher(pair.first) % table.size();
 
+            auto* new_bucket = (MapBucket*)arena.Alloc(sizeof(MapBucket));
+            new_bucket->key = pair.first;
+            new_bucket->value = std::move(pair.second);
+            new_bucket->next = nullptr;
+
             auto* bucket = table[hndx];
             if (bucket == nullptr) {
-                table[hndx] = arena.New<MapBucket>(pair.first, std::move(pair.second));
+                table[hndx] = new_bucket;
                 continue;
             }
 
@@ -47,7 +46,7 @@ public:
                 bucket = bucket->next;
             }
 
-            bucket->next = arena.New<MapBucket>(pair.first, pair.second);
+            bucket->next = new_bucket;
         }
 
         map.clear();
