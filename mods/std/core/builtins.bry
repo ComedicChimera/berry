@@ -1,7 +1,7 @@
 module core;
 
-type byte = u8;
-type rune = i32;
+pub type byte = u8;
+pub type rune = i32;
 
 /* ------------------------------------------------------------------------- */
 

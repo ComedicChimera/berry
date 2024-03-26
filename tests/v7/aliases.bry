@@ -1,6 +1,8 @@
+import io.std;
+
 struct Test {
     x, y: i64;
-};
+}
 
 struct Test2 {
     a, b, c: i64;
@@ -37,7 +39,7 @@ func main() {
     std.putint(a1 as i64);
     std.putr('\n');
 
-    let t = Test1{1, 2};
+    let t = Test{1, 2};
     let t2 = Test2{3, 4, 5};
     let t3 = Test2{6, 7, 8};
 
