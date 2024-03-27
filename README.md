@@ -48,6 +48,7 @@ don't always get time (or energy) to work on it.
     * String Comparison
     * Struct Comparison
     * Enum Comparison
+    * Boolean Comparison
     * Matching over Strings
     * C-Style Pointer Arithmetic
 
@@ -60,7 +61,10 @@ don't always get time (or energy) to work on it.
         - Only allow pointer arithmetic and unsafe casting inside unsafe blocks
           and functions
         - Replaces the need for a bunch of extra macros.
-        - Unsafe Casts = ptr to ptr, string to byte array, byte array to string
+        - Unsafe Casts:
+            * Int to Ptr, Ptr to Int, Ptr to Ptr
+            * Int to Enum
+            * String to Byte Array
     * `@sizeof` and `@alignof`
     * Extract defines in code via `@get_defined`
     * Platform Sized Ints: `int` and `uint`

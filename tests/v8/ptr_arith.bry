@@ -1,0 +1,73 @@
+import io.std;
+
+let arr: []i64 = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+struct Vec4 {
+    x, y, z, w: i64;
+}
+
+let arr2: []Vec4 = [.{1, 2, 3, 4}, .{5, 6, 7, 8}, .{9, 10, 11, 12}];
+
+func print_vec4(v4: *Vec4) {
+    std.putr('(');
+
+    std.putint(v4.x);
+    std.puts(", ");
+    std.putint(v4.y);
+    std.puts(", ");
+    std.putint(v4.z);
+    std.puts(", ");
+    std.putint(v4.w);
+
+    std.puts(")\n");
+}
+
+struct Node {
+    value: i64;
+    next: *Node;
+}
+
+func print_list(node: *Node) {
+    std.putint(node.value);
+    std.putr('\n');
+
+    if node.next != null {
+        print_list(node.next);
+    }
+}
+
+func main() {
+    let end = arr._ptr + arr._len;
+    for let p = arr._ptr; p < end; p++ {
+        std.putint(*p);
+        std.putr('\n');
+    }
+
+    std.putr('\n');
+
+    std.putint(*(end - 1));
+    std.puts("\n\n");
+
+    let end2 = arr2._ptr + arr2._len;
+    for let p = arr2._ptr; p < end2; p++ {
+        print_vec4(p);
+    }
+
+    std.putr('\n');
+
+    print_vec4(end2 - 1);
+    std.putr('\n');
+
+    let linked_list = new [10]Node;
+    for let i = 0; i < 10; i++ {
+        let node = &linked_list[i];
+        node.value = i;
+
+        let next = (i + 2) % 10;
+        if next != 0 {
+            node.next = &linked_list[next];
+        }
+    }
+
+    print_list(linked_list);
+}

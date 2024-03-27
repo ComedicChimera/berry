@@ -1,0 +1,150 @@
+import io.std;
+
+func print_bool(b: bool) {
+    if b {
+        std.puts("true");
+    } else {
+        std.puts("false");
+    }
+}
+
+func test_equal(value, expect: bool) {
+    if value == expect {
+        std.puts("[OK]: ");
+    } else {
+        std.puts("[FAIL]: expected ");
+        print_bool(expect);
+        std.puts(" but got ");
+    }
+
+    print_bool(value);
+    std.putr('\n');
+}
+
+struct A {
+    x, y: i64;
+}
+
+struct B {
+    x, y, z: i64;
+}
+
+struct C {
+    a: A;
+    b: B;
+}
+
+struct SlowSmall {
+    name: string;
+}
+
+struct SlowBig {
+    name: string;
+    email: string;
+}
+
+enum Color {
+    Red;
+    Green;
+    Blue;
+}
+
+func main() {
+    std.puts("Enums:\n\n");
+
+    test_equal(Color.Blue == Color.Blue, true);
+    test_equal(Color.Red == Color.Green, false);
+    test_equal(Color.Red != Color.Green, true);
+
+    std.puts("\nStrings:\n\n");
+
+    test_equal("beans" == "beans", true);
+    test_equal("Hello" == "There", false);
+    test_equal("Hello" != "There", true);
+
+    std.puts("\nStructs (fast compare):\n\n");
+
+    let a1 = A{0, 1};
+    let a2 = A{1, 2};
+    
+    let b1 = B{4, 5, 6};
+    let b2 = B{7, 8, 9};
+
+    let c1 = C{a1, b1};
+    let c2 = C{a2, b2};
+
+    test_equal(a1 == a1, true);
+    test_equal(a1 == a2, false);
+    test_equal(a1 != a2, true);
+
+    test_equal(b1 == b1, true);
+    test_equal(b1 == b2, false);
+    test_equal(b1 != b2, true);
+
+    test_equal(c1 == c1, true);
+    test_equal(c1 == c2, false);
+    test_equal(c1 != c2, true);
+
+    std.puts("\nStructs (slow compare):\n\n");
+
+    let ss1 = SlowSmall{"Eddie"};
+    let ss2 = SlowSmall{"Freddy"};
+
+    let sb1 = SlowSmall{"Jane", "jane@hotmail.com"};
+    let sb2 = SlowSmall{"Anna", "anne@gmail.com"};
+
+    test_equal(ss1 == ss1, true);
+    test_equal(ss1 == ss2, false);
+    test_equal(ss1 != ss2, true);
+
+    test_equal(sb1 == sb1, true);
+    test_equal(sb1 == sb2, false);
+    test_equal(sb1 != sb2, true);
+
+    std.puts("\nArrays (fast compare):\n\n");
+
+    let fasti1 = [1, 2, 3, 4];
+    let fasti2 = [5, 6, 7, 8];
+
+    let fasta1 = [a1, a2];
+    let fasta2 = [a2, a1];
+
+    let fastb1 = [b1, b2];
+    let fastb2 = [b2, b1];
+
+    test_equal(fasti1 == fasti1, true);
+    test_equal(fasti1 == fasti2, false);
+    test_equal(fasti1 != fasti2, true);
+
+    test_equal(fasta1 == fasta1, true);
+    test_equal(fasta1 == fasta2, false);
+    test_equal(fasta1 != fasta2, true);
+
+    test_equal(fastb1 == fastb1, true);
+    test_equal(fastb1 == fastb2, false);
+    test_equal(fastb1 != fastb2, true);
+
+    std.puts("\nArrays (slow compare):\n\n");
+
+    let slowf1 = [1.0, 0.0];
+    let slowf2 = [0.0, 1.0];
+
+    let slows1 = ["Alice", "Carol"];
+    let slows2 = ["Emma", "Gem"];
+
+    let slowsb1 = [sb1, sb2];
+    let slowsb2 = [sb2, sb1];
+
+    test_equal(slowf1 == slowf1, true);
+    test_equal(slowf1 == slowf2, false);
+    test_equal(slowf1 != slowf2, true);
+
+    test_equal(slows1 == slows1, true);
+    test_equal(slows1 == slows2, false);
+    test_equal(slows1 != slows2, true);
+
+    test_equal(slowsb1 == slowsb1, true);
+    test_equal(slowsb1 == slowsb2, false);
+    test_equal(slowsb1 != slowsb2, true);
+}
+

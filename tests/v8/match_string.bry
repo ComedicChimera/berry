@@ -1,0 +1,31 @@
+import io.std;
+
+func main() {
+    let s = "Hello";
+
+    match s {
+    case "Hello":
+        std.puts("Hello\n");
+    case "There":
+        std.puts("There\n");
+    case "World":
+        std.puts("World\n");
+    }
+
+    match s {
+    case "There":
+        std.puts("There\n");
+    case "Hello":
+        std.puts("Hello\n");
+        fallthrough;
+    case "World":
+        std.puts("World\n");
+    }
+
+    match s {
+    case "Hello" | "There:
+        std.puts("Hello There\n");
+    case "World":
+        std.puts("World\n");
+    }
+}
