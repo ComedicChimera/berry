@@ -52,12 +52,21 @@ don't always get time (or energy) to work on it.
     * Matching over Strings
     * C-Style Pointer Arithmetic
 
-- [ ] Target 9: Meta Directives and Intrinsic Macros
+- [ ] Target 9: Meta Directives, Unsafe, and Intrinsic Macros
+    * Rename "metadata tags" to attributes
+        - Avoid confusion with meta directives
     * Conditional Compilation
         - `#require` and `#if`
         - Builtin Defines: `OS`, `ARCH`, `COMPILER`, and `DEBUG`
+        - The meta language is purely string-based.
+            * Only has `==`, `!=`, `!`, `&&`, and `||`
+            * Empty string is false, anything else is true
+            * If no symbol exists, it corresponds to the empty string
+            * Can use string literals
         - No user defined symbols (right now)
-    * Unsafe Blocks (`#unsafe`)
+    * Unsafe Blocks (`unsafe`)
+        - A specialized block statement not a directive.
+            * Implementing it as a directive seems like more effort than its worth.
         - Only allow pointer arithmetic and unsafe casting inside unsafe blocks
           and functions
         - Replaces the need for a bunch of extra macros.
@@ -68,6 +77,7 @@ don't always get time (or energy) to work on it.
     * `@sizeof` and `@alignof`
     * Extract defines in code via `@get_defined`
     * Platform Sized Ints: `int` and `uint`
+        - Update compiler code to user platform-sized integers where appropriate
 
 - [ ] Target 10: Dynamic Memory, Threads, and Panicking
 
