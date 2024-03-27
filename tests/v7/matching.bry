@@ -53,7 +53,7 @@ func main() {
     print_num(n);
 
     if is_even(n) {
-        std.puts("is even (again for the boys)");
+        std.puts("is even (again for the boys)\n");
     }
 
     if n match Four {

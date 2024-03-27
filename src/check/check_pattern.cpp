@@ -34,8 +34,10 @@ bool Checker::checkPattern(AstExpr* node, Type* expect_type, std::unordered_set<
         }
 
         checkEnumLit(node);
+
         if (enum_usages)
             enum_usages->insert(node->an_Field.field_index);
+
         mustEqual(node->span, node->type, expect_type); 
         break;
     case AST_IDENT: {

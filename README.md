@@ -34,7 +34,7 @@ don't always get time (or energy) to work on it.
     * No constant parameters, fields, or anything besides variables
     * Enforce string immutability (introduce `string` type)
 
-- [ ] Target 7: Enums and Aliases
+- [x] Target 7: Enums and Aliases
     * Simple C-style enums (no value-storing variants)
     * Basic Match Statements
         - Minimal pattern matching (variable captures only)

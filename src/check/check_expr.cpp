@@ -5,7 +5,7 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
     case AST_TEST_MATCH:
         checkExpr(node->an_TestMatch.expr);
 
-        checkPattern(node->an_TestMatch.pattern, node->an_TestMatch.expr->type, nullptr);
+        checkCasePattern(node->an_TestMatch.pattern, node->an_TestMatch.expr->type, nullptr);
         declarePatternCaptures(node->an_TestMatch.pattern);
 
         node->type = &prim_bool_type;
