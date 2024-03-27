@@ -17,7 +17,7 @@ func is_even(num: Num) bool {
     return num match .Zero | .Two | .Four | .Six | .Eight;
 } 
 
-let num_names = [
+let num_names: []string = [
     "zero",
     "one",
     "two",
@@ -43,7 +43,7 @@ func main() {
         std.puts("even less than five\n");
         fallthrough;
     case .Six | .Eight:
-        std.puts("even number\n);
+        std.puts("even number\n");
     case .One:
         std.puts("is one\n");
     case _:

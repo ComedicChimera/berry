@@ -17,3 +17,20 @@ bool AstExpr::IsLValue() const {
 
     return false;
 }
+
+/* -------------------------------------------------------------------------- */
+
+bool PatternAlwaysMatches(AstExpr* pattern) {
+    switch (pattern->kind) {
+    case AST_PATTERN_LIST:
+        for (auto* sub_pattern : pattern->an_PatternList.patterns) {
+            if (PatternAlwaysMatches(sub_pattern))
+                return true;
+        }
+        break;
+    case AST_IDENT:
+        return true;
+    }
+
+    return false;
+}

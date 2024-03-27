@@ -247,7 +247,7 @@ void CodeGenerator::genMatchStmt(AstStmt* node) {
     for (size_t i = 0; i < branches.size(); i++) {
         auto& branch = branches[i];
 
-        if (i == branches.size())
+        if (i == branches.size() - 1)
             fallthru_stack.push_back(exit_block);
         else
             fallthru_stack.push_back(branches[i+1].block);
@@ -265,6 +265,10 @@ void CodeGenerator::genMatchStmt(AstStmt* node) {
     if (!hasPredecessor()) {
         // All cases jump out: no exit block needed.
         deleteCurrentBlock(branches.back().block);
+    } else if (node->an_Match.is_enum_exhaustive) {
+        // Default case should never be reached!
+        irb.CreateCall(ll_panic_unreachable_func);
+        irb.CreateUnreachable();
     }
 }
 

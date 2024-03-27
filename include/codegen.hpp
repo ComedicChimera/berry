@@ -225,11 +225,16 @@ class CodeGenerator {
     // ll_init_block is the current block for appending in the init func.
     llvm::BasicBlock* ll_init_block;
 
-    // ll_panic_func is the runtime out of bounds panic function.
+    /* ---------------------------------------------------------------------- */
+
+    // ll_panic_oob_func is the runtime out of bounds panic function.
     llvm::Function* ll_panic_oob_func;
 
     // ll_panic_badslice_func is the runtime bad slice panic function.
     llvm::Function* ll_panic_badslice_func;
+
+    // ll_panic_unreachable_func is the runtime unreachable panic function.
+    llvm::Function* ll_panic_unreachable_func;
 
     /* ---------------------------------------------------------------------- */
 

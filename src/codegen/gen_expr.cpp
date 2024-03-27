@@ -58,12 +58,15 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
     case AST_INT: {
         // NOTE: It is possible for an int literal to have a float type if a
         // number literal implicitly takes on a floating point value.
-        auto inner_type = node->type->Inner();
+        auto inner_type = node->type->FullUnwrap();
         switch (inner_type->kind) {
         case TYPE_INT: 
             return makeLLVMIntLit(inner_type, node->an_Int.value);
         case TYPE_FLOAT: 
             return makeLLVMFloatLit(inner_type, (double)node->an_Int.value);
+        case TYPE_ENUM:
+            // TODO: platform sized integers
+            return makeLLVMIntLit(&prim_i64_type, node->an_Int.value);
         default:
             Panic("non-numeric type integer literal in codegen");
         }    

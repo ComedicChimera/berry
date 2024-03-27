@@ -99,6 +99,18 @@ void CodeGenerator::genRuntimeStubs() {
     } else {
         ll_panic_badslice_func = pfunc;
     }
+
+    pfunc = mod.getFunction("__berry_panic_unreachable");
+    if (pfunc == nullptr) {
+        ll_panic_unreachable_func = llvm::Function::Create(
+            rt_stub_func_type,
+            llvm::Function::ExternalLinkage,
+            "__berry_panic_unreachable",
+            mod
+        );
+    } else {
+        ll_panic_unreachable_func = pfunc;
+    }
 }
 
 void CodeGenerator::finishModule() {
@@ -267,7 +279,10 @@ llvm::Type* CodeGenerator::genNamedBaseType(Type* type, bool alloc_type, std::st
             return type->ty_Struct.llvm_type;
         }
 
-        return llvm::PointerType::get(ctx, 0);   
+        return llvm::PointerType::get(ctx, 0);
+    case TYPE_ENUM:
+        // TODO: platform integer types
+        return llvm::Type::getInt64Ty(ctx);  
     default:
         Panic("bad type to call genNamedBaseType in codegen");
         return nullptr;

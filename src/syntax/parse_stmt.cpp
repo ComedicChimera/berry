@@ -34,6 +34,10 @@ AstStmt* Parser::parseStmt() {
         next();
         stmt = allocStmt(AST_CONTINUE, prev.span);
         break;
+    case TOK_FALLTHROUGH:
+        next();
+        stmt = allocStmt(AST_FALLTHROUGH, prev.span);
+        break;
     case TOK_RETURN: {
         next();
 
@@ -203,8 +207,11 @@ AstStmt* Parser::parseMatchStmt() {
     auto start_span = tok.span;
     next();
 
+    pushAllowStructLit(false);
     auto* expr = parseExpr();
-    want(TOK_LPAREN);
+    popAllowStructLit();
+
+    want(TOK_LBRACE);
 
     std::vector<AstCondBranch> cases;
     while (has(TOK_CASE)) {
@@ -229,11 +236,12 @@ AstStmt* Parser::parseMatchStmt() {
         cases.emplace_back(SpanOver(case_start_span, prev.span), pattern, case_block);
     }
 
-    want(TOK_RPAREN);
+    want(TOK_RBRACE);
 
     auto* amatch = allocStmt(AST_MATCH, SpanOver(start_span, prev.span));
     amatch->an_Match.expr = expr;
     amatch->an_Match.cases = arena.MoveVec(std::move(cases));
+    amatch->an_Match.is_enum_exhaustive = false;
     return amatch;
 }
 

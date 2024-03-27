@@ -109,6 +109,8 @@ public:
             while (ndx < view.table.size() && bucket == nullptr) {
                 bucket = view.table[++ndx];
             }
+
+            return *this;
         }
 
         MapIterator operator++(int) { auto tmp = *this; ++(*this); return tmp; }

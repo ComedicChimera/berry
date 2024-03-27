@@ -1,20 +1,5 @@
 #include "codegen.hpp"
 
-static bool alwaysMatches(AstExpr* pattern) {
-    switch (pattern->kind) {
-    case AST_PATTERN_LIST:
-        for (auto* sub_pattern : pattern->an_PatternList.patterns) {
-            if (alwaysMatches(sub_pattern))
-                return true;
-        }
-        break;
-    case AST_IDENT:
-        return true;
-    }
-
-    return false;
-}
-
 void CodeGenerator::genCasePatternMatch(AstExpr* expr, const std::vector<PatternBranch>& pcases, llvm::BasicBlock* nm_block) {
     auto* match_operand = genExpr(expr);
 
@@ -32,7 +17,7 @@ void CodeGenerator::genCasePatternMatch(AstExpr* expr, const std::vector<Pattern
 
         for (auto& pcase : pcases) {
             if (pcase.pattern->kind == AST_PATTERN_LIST) {
-                if (alwaysMatches(pcase.pattern)) {
+                if (PatternAlwaysMatches(pcase.pattern)) {
                     ll_switch->setDefaultDest(pcase.block);
                     return;
                 }
@@ -48,7 +33,7 @@ void CodeGenerator::genCasePatternMatch(AstExpr* expr, const std::vector<Pattern
     default:
         for (auto& pcase : pcases) {
             if (pcase.pattern->kind == AST_PATTERN_LIST) {
-                if (alwaysMatches(pcase.pattern)) {
+                if (PatternAlwaysMatches(pcase.pattern)) {
                     irb.CreateBr(pcase.block);
                     return;
                 }

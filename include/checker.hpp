@@ -101,7 +101,7 @@ private:
     bool checkIf(AstStmt* node);
     void checkWhile(AstStmt* node);
     void checkFor(AstStmt* node);
-    void checkMatchStmt(AstStmt* node);
+    bool checkMatchStmt(AstStmt* node);
     void checkLocalVar(AstStmt* node);
     void checkAssign(AstStmt *node);
     void checkIncDec(AstStmt *node);
@@ -109,10 +109,12 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    bool checkCasePattern(AstExpr* node, Type* expect_type);
-    bool checkPattern(AstExpr* node, Type* expect_type);
+    bool checkCasePattern(AstExpr* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
+    bool checkPattern(AstExpr* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
 
     void declarePatternCaptures(AstExpr *pattern);
+
+    bool isEnumExhaustive(Type* expr_type, const std::unordered_set<size_t>& enum_usages);
 
     /* ---------------------------------------------------------------------- */
 

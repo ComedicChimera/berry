@@ -205,13 +205,15 @@ void Checker::fatalOnTypeCycle(const TextSpan& span, TypeCycle& cycle) {
 
 void Checker::checkEnumDef(AstDef* def) {
     for (auto& init : def->an_Enum.variant_inits) {
-        is_comptime_expr = true;
-        checkExpr(init.init_expr);
+        if (init.init_expr) {
+            is_comptime_expr = true;
+            checkExpr(init.init_expr);
 
-        mustIntType(init.init_expr->span, init.init_expr->type);
+            mustIntType(init.init_expr->span, init.init_expr->type);
 
-        if (!is_comptime_expr) {
-            error(init.init_expr->span, "enum variant initializer must be computable at compile-time");
+            if (!is_comptime_expr) {
+                error(init.init_expr->span, "enum variant initializer must be computable at compile-time");
+            }
         }
     }
 }

@@ -12,6 +12,12 @@ func __berry_panic_badslice() {
     dopanic();
 }
 
+@abientry
+func __berry_panic_unreachable() {
+    rputs("panic: unreachable\n");
+    dopanic();
+}
+
 func dopanic() {
     ExitProcess(1);
 }

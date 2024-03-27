@@ -13,8 +13,7 @@ bool Checker::checkStmt(AstStmt* node) {
         checkFor(node);
         break;
     case AST_MATCH:
-        checkMatchStmt(node);
-        break;
+        return checkMatchStmt(node);
     case AST_LOCAL_VAR:
         checkLocalVar(node);
         break;
@@ -144,21 +143,23 @@ void Checker::checkFor(AstStmt* node) {
     popScope();
 }
 
-void Checker::checkMatchStmt(AstStmt* node) {
+bool Checker::checkMatchStmt(AstStmt* node) {
     auto& amatch = node->an_Match;
 
     checkExpr(amatch.expr);
 
+    std::unordered_set<size_t> enum_usages;
     std::vector<bool> cases_can_fallthrough(amatch.cases.size(), true);
     for (size_t i = 0; i < amatch.cases.size(); i++) {
         auto& acase = amatch.cases[i];
 
-        bool captures = checkCasePattern(acase.cond_expr, amatch.expr->type);
+        bool captures = checkCasePattern(acase.cond_expr, amatch.expr->type, &enum_usages);
         if (i > 0 && captures) {
             cases_can_fallthrough[i-1] = false;
         }
     }
 
+    bool all_return = true, hit_always_match = false;
     for (size_t i = 0; i < amatch.cases.size(); i++) {
         auto& acase = amatch.cases[i];
 
@@ -167,11 +168,28 @@ void Checker::checkMatchStmt(AstStmt* node) {
         declarePatternCaptures(acase.cond_expr);
 
         fallthrough_stack.push_back(cases_can_fallthrough[i]);
-        checkStmt(acase.body);
+        if (checkStmt(acase.body)) {
+            if (PatternAlwaysMatches(acase.cond_expr))
+                hit_always_match = true;
+
+            all_return &= true;
+        } else if (!hit_always_match) {
+            all_return = false;
+        }
         fallthrough_stack.pop_back();
 
         popScope();
     }
+
+    if (hit_always_match)
+        return all_return;
+
+    if (all_return) {
+        amatch.is_enum_exhaustive = isEnumExhaustive(amatch.expr->type, enum_usages);
+        return amatch.is_enum_exhaustive;
+    }
+
+    return true;
 }
 
 /* -------------------------------------------------------------------------- */

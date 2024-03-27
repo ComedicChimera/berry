@@ -231,6 +231,8 @@ struct AstExpr : public AstNode {
     bool IsLValue() const;
 };
 
+bool PatternAlwaysMatches(AstExpr* pattern);
+
 /* -------------------------------------------------------------------------- */
 
 struct AstStmt;
@@ -270,6 +272,7 @@ struct AstStmt : public AstNode {
         struct {
             AstExpr* expr;
             std::span<AstCondBranch> cases;
+            bool is_enum_exhaustive;
         } an_Match;
 
         struct {
