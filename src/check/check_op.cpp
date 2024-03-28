@@ -58,7 +58,7 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
         break;
     case AOP_EQ:
     case AOP_NE:
-        if (tctx.Equal(lhs_type, rhs_type)) {
+        if (maybeApplyPtrArithOp(lhs_type, rhs_type) || tctx.Equal(lhs_type, rhs_type)) {
             return_type = &prim_bool_type;
         }
         break;
@@ -66,9 +66,9 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
     case AOP_GT:
     case AOP_LE:
     case AOP_GE:
-        return_type = maybeApplyPtrArithOp(lhs_type, rhs_type);
-
-        if (return_type == nullptr && tctx.Equal(lhs_type, rhs_type) && tctx.IsNumberType(lhs_type)) {
+        if (maybeApplyPtrArithOp(lhs_type, rhs_type)) {
+            return_type = &prim_bool_type;
+        } else if (tctx.Equal(lhs_type, rhs_type) && tctx.IsNumberType(lhs_type)) {
             return_type = &prim_bool_type;
         }
         break;
