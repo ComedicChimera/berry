@@ -32,6 +32,12 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
     switch (aop) {
     case AOP_ADD:
     case AOP_SUB:
+        return_type = maybeApplyPtrArithOp(lhs_type, rhs_type);
+        
+        if (return_type == nullptr && tctx.Equal(lhs_type, rhs_type) && tctx.IsNumberType(lhs_type)) {
+            return_type = lhs_type;
+        }
+        break;
     case AOP_MUL:
     case AOP_DIV:
     case AOP_MOD:
@@ -44,17 +50,25 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
     case AOP_BWAND:
     case AOP_BWOR:
     case AOP_BWXOR:
-        if (tctx.Equal(lhs_type, rhs_type) && tctx.IsIntType(lhs_type)) {
+        return_type = maybeApplyPtrArithOp(lhs_type, rhs_type);
+
+        if (return_type == nullptr && tctx.Equal(lhs_type, rhs_type) && tctx.IsIntType(lhs_type)) {
             return_type = lhs_type;
         }
         break;
     case AOP_EQ:
     case AOP_NE:
+        if (tctx.Equal(lhs_type, rhs_type)) {
+            return_type = &prim_bool_type;
+        }
+        break;
     case AOP_LT:
     case AOP_GT:
     case AOP_LE:
     case AOP_GE:
-        if (tctx.Equal(lhs_type, rhs_type) && tctx.IsNumberType(lhs_type)) {
+        return_type = maybeApplyPtrArithOp(lhs_type, rhs_type);
+
+        if (return_type == nullptr && tctx.Equal(lhs_type, rhs_type) && tctx.IsNumberType(lhs_type)) {
             return_type = &prim_bool_type;
         }
         break;
@@ -78,6 +92,30 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
     tctx.flags ^= TC_INFER;
     return return_type;
 }
+
+Type* Checker::maybeApplyPtrArithOp(Type* lhs_type, Type* rhs_type) {
+    lhs_type = lhs_type->Inner();
+    rhs_type = rhs_type->Inner();
+
+    if (lhs_type->kind == TYPE_PTR) {
+        if (rhs_type->kind == TYPE_PTR) {
+            if (tctx.Equal(lhs_type, rhs_type))
+                return lhs_type;
+
+            return nullptr;
+        } else if (tctx.IsIntType(rhs_type)) {
+            return lhs_type;
+        }
+
+        return lhs_type;
+    } else if (rhs_type->kind == TYPE_PTR && tctx.IsIntType(lhs_type)) {
+        return rhs_type;
+    }
+
+    return nullptr;
+}
+
+/* -------------------------------------------------------------------------- */
 
 Type* Checker::mustApplyUnaryOp(const TextSpan& span, AstOpKind aop, Type* operand_type) {
     tctx.flags |= TC_INFER;

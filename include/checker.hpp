@@ -145,6 +145,7 @@ private:
     void mustIntType(const TextSpan &span, Type *type);
 
     Type* mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_type, Type* rhs_type);
+    Type* maybeApplyPtrArithOp(Type* lhs_type, Type* rhs_type);
 
     Type* mustApplyUnaryOp(const TextSpan &span, AstOpKind aop, Type* operand_type);
 
