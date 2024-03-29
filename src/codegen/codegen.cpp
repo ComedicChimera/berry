@@ -106,7 +106,7 @@ void CodeGenerator::genBuiltinFuncs() {
                 false
             ),
             llvm::Function::ExternalLinkage,
-            "__berry_strcmp",
+            "__berry_strhash",
             mod
         );
     }

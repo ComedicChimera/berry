@@ -23,7 +23,7 @@ func main() {
     }
 
     match s {
-    case "Hello" | "There:
+    case "Hello" | "There":
         std.puts("Hello There\n");
     case "World":
         std.puts("World\n");

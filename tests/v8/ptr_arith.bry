@@ -58,7 +58,7 @@ func main() {
     print_vec4(end2 - 1);
     std.putr('\n');
 
-    let linked_list = new [10]Node;
+    let linked_list = new Node[10];
     for let i = 0; i < 10; i++ {
         let node = &linked_list[i];
         node.value = i;
