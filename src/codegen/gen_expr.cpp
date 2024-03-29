@@ -315,19 +315,37 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
         }
     break;
     case AOP_EQ:
-        if (lhs_type->kind == TYPE_INT || lhs_type->kind == TYPE_PTR || lhs_type->kind == TYPE_BOOL) {
+        lhs_type = lhs_type->FullUnwrap();
+        switch (lhs_type->kind) {
+        case TYPE_INT:
+        case TYPE_BOOL:
+        case TYPE_PTR:
+        case TYPE_ENUM:
             return irb.CreateICmpEQ(lhs_val, rhs_val);
-        } else {
-            Assert(lhs_type->kind == TYPE_FLOAT, "invalid types for EQ op in codegen");
+        case TYPE_FLOAT:
             return irb.CreateFCmpOEQ(lhs_val, rhs_val);
+        case TYPE_STRING:
+            return nullptr;
+        default:
+            Panic("invalid types for EQ op in codegen");
+            return nullptr;
         }
         break;
     case AOP_NE:
-        if (lhs_type->kind == TYPE_INT || lhs_type->kind == TYPE_PTR || lhs_type->kind == TYPE_BOOL) {
+        lhs_type = lhs_type->FullUnwrap();
+        switch (lhs_type->kind) {
+        case TYPE_INT:
+        case TYPE_BOOL:
+        case TYPE_PTR:
+        case TYPE_ENUM:
             return irb.CreateICmpNE(lhs_val, rhs_val);
-        } else {
-            Assert(lhs_type->kind == TYPE_FLOAT, "invalid types for NE op in codegen");
+        case TYPE_FLOAT:
             return irb.CreateFCmpONE(lhs_val, rhs_val);
+        case TYPE_STRING:
+            return nullptr;
+        default:
+            Panic("invalid types for NE op in codegen");
+            return nullptr;
         }
         break;
     case AOP_LT:

@@ -46,11 +46,10 @@ don't always get time (or energy) to work on it.
 - [ ] Target 8: Non-Numeric Equality and Pointer Arithmetic
     * Pointer Comparison
     * String Comparison
-    * Struct Comparison
     * Enum Comparison
     * Boolean Comparison
-    * Matching over Strings
     * C-Style Pointer Arithmetic
+    * Matching over Strings
 
 - [ ] Target 9: Meta Directives, Unsafe, and Intrinsic Macros
     * Rename "metadata tags" to attributes

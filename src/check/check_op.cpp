@@ -56,9 +56,20 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
         break;
     case AOP_EQ:
     case AOP_NE:
-        if (maybeApplyPtrArithOp(lhs_type, rhs_type) || tctx.Equal(lhs_type, rhs_type)) {
-            return_type = &prim_bool_type;
-        }
+        switch (lhs_type->kind) {
+        case TYPE_ARRAY:
+        case TYPE_FUNC:
+        case TYPE_STRUCT:
+            break;
+        case TYPE_NAMED:
+            if (lhs_type->FullUnwrap()->kind == TYPE_STRUCT)
+                break;
+            // fallthrough
+        default:
+            if (maybeApplyPtrArithOp(lhs_type, rhs_type) || tctx.Equal(lhs_type, rhs_type)) {
+                return_type = &prim_bool_type;
+            }
+        }      
         break;
     case AOP_LT:
     case AOP_GT:
