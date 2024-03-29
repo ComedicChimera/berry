@@ -91,7 +91,7 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
         irb.CreateCondBr(is_good_slice, bb_is_good_slice, bb_is_bad_slice);
 
         setCurrentBlock(bb_is_bad_slice);
-        irb.CreateCall(ll_panic_badslice_func);
+        irb.CreateCall(rtstub_panic_badslice);
         irb.CreateUnreachable();
 
         setCurrentBlock(bb_is_good_slice);
@@ -481,7 +481,7 @@ void CodeGenerator::genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool 
     irb.CreateCondBr(is_in_bounds, bb_in_bounds, bb_oob);
     
     setCurrentBlock(bb_oob);
-    irb.CreateCall(ll_panic_oob_func);
+    irb.CreateCall(rtstub_panic_oob);
     irb.CreateUnreachable();
 
     setCurrentBlock(bb_in_bounds);

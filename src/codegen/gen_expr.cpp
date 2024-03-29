@@ -325,7 +325,7 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
         case TYPE_FLOAT:
             return irb.CreateFCmpOEQ(lhs_val, rhs_val);
         case TYPE_STRING:
-            return nullptr;
+            return genStrEq(lhs_val, rhs_val);
         default:
             Panic("invalid types for EQ op in codegen");
             return nullptr;
@@ -342,7 +342,7 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
         case TYPE_FLOAT:
             return irb.CreateFCmpONE(lhs_val, rhs_val);
         case TYPE_STRING:
-            return nullptr;
+            return irb.CreateNot(genStrEq(lhs_val, rhs_val));
         default:
             Panic("invalid types for NE op in codegen");
             return nullptr;
@@ -450,7 +450,9 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
     Panic("unsupported binary operator in codegen: {}", (int)node->an_Binop.op);
 }
 
-/* -------------------------------------------------------------------------- */
+llvm::Value* CodeGenerator::genStrEq(llvm::Value* lhs, llvm::Value* rhs) {
+
+}
 
 llvm::Value* CodeGenerator::genUnop(AstExpr* node) {
     auto* operand_type = node->an_Unop.operand->type->Inner();

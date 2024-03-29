@@ -186,13 +186,13 @@ class CodeGenerator {
     /* ---------------------------------------------------------------------- */
 
     // ll_enclosing_func is the enclosing LLVM function.
-    llvm::Function* ll_enclosing_func;
+    llvm::Function* ll_enclosing_func { nullptr };
 
     // return_param is the return parameter (if present).
-    llvm::Value* return_param;
+    llvm::Value* return_param { nullptr };
 
     // var_block is the block to append variable allocas to.
-    llvm::BasicBlock* var_block;
+    llvm::BasicBlock* var_block { nullptr };
 
     // tctx is a utility type context for the code generator (used for comparisons).
     TypeContext tctx;
@@ -215,26 +215,29 @@ class CodeGenerator {
     /* ---------------------------------------------------------------------- */
 
     // ll_array_type is the LLVM type for all Berry arrays (opaque pointer POG).
-    llvm::StructType* ll_array_type;
+    llvm::StructType* ll_array_type { nullptr };
+    
+    // ll_rtstub_type is the function type for runtime stubs.
+    llvm::FunctionType* ll_rtstub_type { nullptr };
+
+    /* ---------------------------------------------------------------------- */
 
     // ll_init_func is the module initialization function (where non-constant
     // global initializers are placed).  This is indirectly called by the
     // runtime at startup through `__berry_main`.
-    llvm::Function* ll_init_func;
+    llvm::Function* ll_init_func { nullptr };
 
     // ll_init_block is the current block for appending in the init func.
-    llvm::BasicBlock* ll_init_block;
+    llvm::BasicBlock* ll_init_block { nullptr };
 
     /* ---------------------------------------------------------------------- */
 
-    // ll_panic_oob_func is the runtime out of bounds panic function.
-    llvm::Function* ll_panic_oob_func;
-
-    // ll_panic_badslice_func is the runtime bad slice panic function.
-    llvm::Function* ll_panic_badslice_func;
-
-    // ll_panic_unreachable_func is the runtime unreachable panic function.
-    llvm::Function* ll_panic_unreachable_func;
+    // Runtime Stubs
+    llvm::Function* rtstub_panic_oob { nullptr };
+    llvm::Function* rtstub_panic_badslice { nullptr };
+    llvm::Function* rtstub_panic_unreachable { nullptr };
+    llvm::Function* rtstub_strcmp { nullptr };
+    llvm::Function* rtstub_strhash { nullptr };
 
     /* ---------------------------------------------------------------------- */
 
@@ -263,13 +266,6 @@ public:
     , mainb(mainb), arena(arena)
     , irb(ctx)
     , layout(mod.getDataLayout())
-    , ll_enclosing_func(nullptr)
-    , var_block(nullptr)
-    , ll_array_type(nullptr)
-    , ll_init_func(nullptr)
-    , ll_init_block(nullptr)
-    , ll_panic_oob_func(nullptr)
-    , ll_panic_badslice_func(nullptr)
     , loaded_imports(src_mod.deps.size())
     {}
 
@@ -278,7 +274,8 @@ public:
 
 private:
     void createBuiltinGlobals();
-    void genRuntimeStubs();
+    void genBuiltinFuncs();
+    llvm::Function* genRuntimeStub(const std::string& stub_name);
     void finishModule();
 
     /* ---------------------------------------------------------------------- */
@@ -367,6 +364,7 @@ private:
     
     llvm::Value* genCast(AstExpr *node);
     llvm::Value* genBinop(AstExpr* node);
+    llvm::Value* genStrEq(llvm::Value* lhs, llvm::Value* rhs);
     llvm::Value* genUnop(AstExpr* node);
 
     /* ---------------------------------------------------------------------- */
@@ -378,7 +376,7 @@ private:
     llvm::Value* genArrayLit(AstExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genNewExpr(AstExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genStructLit(AstExpr* node, llvm::Value* alloc_loc);
-    llvm::Value *genStrLit(AstExpr *node, llvm::Value *alloc_loc);
+    llvm::Value* genStrLit(AstExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genIdent(AstExpr* node, bool expect_addr);
 
     /* ---------------------------------------------------------------------- */

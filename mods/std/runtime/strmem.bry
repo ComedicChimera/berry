@@ -6,7 +6,7 @@ func __berry_strcmp(a, b: string) i64 {
 
     for let i = 0; i < size; i++ {
         if a[i] != b[i] {
-            return a[i] - b[i];
+            return a[i] - b[i] as i64;
         }
     }
 

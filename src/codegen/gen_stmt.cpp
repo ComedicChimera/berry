@@ -267,7 +267,7 @@ void CodeGenerator::genMatchStmt(AstStmt* node) {
         deleteCurrentBlock(branches.back().block);
     } else if (node->an_Match.is_enum_exhaustive) {
         // Default case should never be reached!
-        irb.CreateCall(ll_panic_unreachable_func);
+        irb.CreateCall(rtstub_panic_unreachable);
         irb.CreateUnreachable();
     }
 }

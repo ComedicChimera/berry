@@ -32,7 +32,7 @@ void CodeGenerator::GenerateModule() {
         genTopDecl(def);
     }
 
-    genRuntimeStubs();
+    genBuiltinFuncs();
 
     for (size_t def_num : src_mod.init_order) {
         auto* def = src_mod.defs[def_num];
@@ -61,56 +61,42 @@ void CodeGenerator::createBuiltinGlobals() {
         { llvm::PointerType::get(ctx, 0), llvm::Type::getInt64Ty(ctx) }, 
         "_array"
     );
+
+    // Declare the global runtime stub type (void function accepting no arguments).
+    ll_rtstub_type = llvm::FunctionType::get(llvm::Type::getVoidTy(ctx), false);
 }
 
-void CodeGenerator::genRuntimeStubs() {
-    auto* rt_stub_func_type = llvm::FunctionType::get(llvm::Type::getVoidTy(ctx), false);
-
+void CodeGenerator::genBuiltinFuncs() {
     // Generate the module's init function signature.
     ll_init_func = llvm::Function::Create(
-        rt_stub_func_type, 
+        ll_rtstub_type, 
         llvm::Function::ExternalLinkage, 
         std::format("__berry_init_mod${}", src_mod.id), 
         mod
     );
     ll_init_block = llvm::BasicBlock::Create(ctx, "entry", ll_init_func);
 
-    // Generate the panic functions.
-    auto pfunc = mod.getFunction("__berry_panic_oob");
-    if (pfunc == nullptr) {
-        ll_panic_oob_func = llvm::Function::Create(
-            rt_stub_func_type,
+    // Generate the runtime stubs.
+    rtstub_panic_oob = genRuntimeStub("__berry_panic_oob");
+    rtstub_panic_badslice = genRuntimeStub("__berry_panic_badslice");
+    rtstub_panic_unreachable = genRuntimeStub("__berry_panic_unreachable");
+    rtstub_strcmp = genRuntimeStub("__berry_strcmp");
+    rtstub_strhash = genRuntimeStub("__berry_strhash");
+}
+
+llvm::Function* CodeGenerator::genRuntimeStub(const std::string& stub_name) {
+    auto* stub_func = mod.getFunction(stub_name);
+
+    if (stub_func == nullptr) {
+        return llvm::Function::Create(
+            ll_rtstub_type,
             llvm::Function::ExternalLinkage,
-            "__berry_panic_oob",
+            stub_name,
             mod
         );
-    } else {
-        ll_panic_oob_func = pfunc;
     }
 
-    pfunc = mod.getFunction("__berry_panic_badslice");
-    if (pfunc == nullptr) {
-        ll_panic_badslice_func = llvm::Function::Create(
-            rt_stub_func_type,
-            llvm::Function::ExternalLinkage,
-            "__berry_panic_badslice",
-            mod
-        );
-    } else {
-        ll_panic_badslice_func = pfunc;
-    }
-
-    pfunc = mod.getFunction("__berry_panic_unreachable");
-    if (pfunc == nullptr) {
-        ll_panic_unreachable_func = llvm::Function::Create(
-            rt_stub_func_type,
-            llvm::Function::ExternalLinkage,
-            "__berry_panic_unreachable",
-            mod
-        );
-    } else {
-        ll_panic_unreachable_func = pfunc;
-    }
+    return stub_func;
 }
 
 void CodeGenerator::finishModule() {
