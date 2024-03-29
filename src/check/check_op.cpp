@@ -50,9 +50,7 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
     case AOP_BWAND:
     case AOP_BWOR:
     case AOP_BWXOR:
-        return_type = maybeApplyPtrArithOp(lhs_type, rhs_type);
-
-        if (return_type == nullptr && tctx.Equal(lhs_type, rhs_type) && tctx.IsIntType(lhs_type)) {
+        if (tctx.Equal(lhs_type, rhs_type) && tctx.IsIntType(lhs_type)) {
             return_type = lhs_type;
         }
         break;
