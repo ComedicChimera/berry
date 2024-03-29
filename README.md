@@ -60,6 +60,7 @@ don't always get time (or energy) to work on it.
         - This allows for ABI symbols which are not valid Berry identifiers.
         - Ex: `@abientry("__berry_strhash")`
     * Make sure constants can't be tagged with variable attributes.
+    * Only allow `@callconv` on external functions.
 
 - [ ] Target 10: Meta Directives, Unsafe, and Intrinsic Macros
     * Conditional Compilation
