@@ -228,21 +228,44 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
         return phi_node;
     }
 
-    auto lhs_type = node->an_Binop.lhs->type->Inner();
+    auto* lhs_type = node->an_Binop.lhs->type->Inner();
+    auto* rhs_type = node->an_Binop.rhs->type->Inner();
     auto* rhs_val = genExpr(node->an_Binop.rhs);
     switch (node->an_Binop.op) {
     case AOP_ADD:
-        if (lhs_type->kind == TYPE_INT) {
-            return irb.CreateAdd(lhs_val, rhs_val);
+        if (lhs_type->kind == TYPE_PTR) {
+            if (rhs_type->kind == TYPE_PTR) {
+                return irb.CreateAdd(lhs_val, rhs_val);
+            } else {
+                return irb.CreateGEP(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, { getInt32Const(0), rhs_val });
+            }
+        } else if (lhs_type->kind == TYPE_INT) {
+            if (rhs_type->kind == TYPE_PTR) {
+                return irb.CreateGEP(genType(rhs_type->ty_Ptr.elem_type, true), rhs_val, { getInt32Const(0), lhs_val });
+            } else {
+                return irb.CreateAdd(lhs_val, rhs_val);
+            }
         } else {
             Assert(lhs_type->kind == TYPE_FLOAT, "invalid types for ADD op in codegen");
             return irb.CreateFAdd(lhs_val, rhs_val);
         }
         break;
     case AOP_SUB:
-        if (lhs_type->kind == TYPE_INT) {
-            return irb.CreateSub(lhs_val, rhs_val);
-        } else {
+        if (lhs_type->kind == TYPE_PTR) {
+            if (rhs_type->kind == TYPE_PTR) {
+                return irb.CreateSub(lhs_val, rhs_val);
+            } else {
+                rhs_val = irb.CreateNeg(rhs_val);
+                return irb.CreateGEP(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, { getInt32Const(0), rhs_val });
+            }
+        } else if (lhs_type->kind == TYPE_INT) {
+            if (rhs_type->kind == TYPE_PTR) {
+                lhs_val = irb.CreateNeg(lhs_val);
+                return irb.CreateGEP(genType(rhs_type->ty_Ptr.elem_type, true), rhs_val, { getInt32Const(0), lhs_val });
+            } else {
+                return irb.CreateSub(lhs_val, rhs_val);
+            }
+        }else {
             Assert(lhs_type->kind == TYPE_FLOAT, "invalid types for SUB op in codegen");
             return irb.CreateFSub(lhs_val, rhs_val);
         }
@@ -308,8 +331,18 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
         }
         break;
     case AOP_LT:
-        if (lhs_type->kind == TYPE_INT) {
-            if (lhs_type->ty_Int.is_signed) {
+        if (lhs_type->kind == TYPE_PTR) {
+            if (rhs_type->kind == TYPE_INT) {
+                rhs_val = irb.CreateIntToPtr(rhs_val, llvm::PointerType::get(ctx, 0));
+            }
+
+            return irb.CreateICmpULT(lhs_val, rhs_val);
+        } else if (lhs_type->kind == TYPE_INT) {
+            if (rhs_type->kind == TYPE_PTR) {
+                lhs_val = irb.CreateIntToPtr(lhs_val, llvm::PointerType::get(ctx, 0));
+
+                return irb.CreateICmpULT(lhs_val, rhs_val);
+            } else if (lhs_type->ty_Int.is_signed) {
                 return irb.CreateICmpSLT(lhs_val, rhs_val);
             } else {
                 return irb.CreateICmpULT(lhs_val, rhs_val);
@@ -320,8 +353,18 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
         }
         break;
     case AOP_GT:
-        if (lhs_type->kind == TYPE_INT) {
-            if (lhs_type->ty_Int.is_signed) {
+        if (lhs_type->kind == TYPE_PTR) {
+            if (rhs_type->kind == TYPE_INT) {
+                rhs_val = irb.CreateIntToPtr(rhs_val, llvm::PointerType::get(ctx, 0));
+            }
+
+            return irb.CreateICmpUGT(lhs_val, rhs_val);
+        } else if (lhs_type->kind == TYPE_INT) {
+            if (rhs_type->kind == TYPE_PTR) {
+                lhs_val = irb.CreateIntToPtr(lhs_val, llvm::PointerType::get(ctx, 0));
+
+                return irb.CreateICmpUGT(lhs_val, rhs_val);
+            } else if (lhs_type->ty_Int.is_signed) {
                 return irb.CreateICmpSGT(lhs_val, rhs_val);
             } else {
                 return irb.CreateICmpUGT(lhs_val, rhs_val);
@@ -332,8 +375,18 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
         }
         break;
     case AOP_LE:
-        if (lhs_type->kind == TYPE_INT) {
-            if (lhs_type->ty_Int.is_signed) {
+        if (lhs_type->kind == TYPE_PTR) {
+            if (rhs_type->kind == TYPE_INT) {
+                rhs_val = irb.CreateIntToPtr(rhs_val, llvm::PointerType::get(ctx, 0));
+            }
+
+            return irb.CreateICmpULE(lhs_val, rhs_val);
+        } else if (lhs_type->kind == TYPE_INT) {
+            if (rhs_type->kind == TYPE_PTR) {
+                lhs_val = irb.CreateIntToPtr(lhs_val, llvm::PointerType::get(ctx, 0));
+
+                return irb.CreateICmpULE(lhs_val, rhs_val);
+            } else if (lhs_type->ty_Int.is_signed) {
                 return irb.CreateICmpSLE(lhs_val, rhs_val);
             } else {
                 return irb.CreateICmpULE(lhs_val, rhs_val);
@@ -344,8 +397,18 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
         }
         break;
     case AOP_GE:
-        if (lhs_type->kind == TYPE_INT) {
-            if (lhs_type->ty_Int.is_signed) {
+        if (lhs_type->kind == TYPE_PTR) {
+            if (rhs_type->kind == TYPE_INT) {
+                rhs_val = irb.CreateIntToPtr(rhs_val, llvm::PointerType::get(ctx, 0));
+            }
+
+            return irb.CreateICmpUGE(lhs_val, rhs_val);
+        } else if (lhs_type->kind == TYPE_INT) {
+            if (rhs_type->kind == TYPE_PTR) {
+                lhs_val = irb.CreateIntToPtr(lhs_val, llvm::PointerType::get(ctx, 0));
+
+                return irb.CreateICmpUGE(lhs_val, rhs_val);
+            } else if (lhs_type->ty_Int.is_signed) {
                 return irb.CreateICmpSGE(lhs_val, rhs_val);
             } else {
                 return irb.CreateICmpUGE(lhs_val, rhs_val);
@@ -368,6 +431,8 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
 
     Panic("unsupported binary operator in codegen: {}", (int)node->an_Binop.op);
 }
+
+/* -------------------------------------------------------------------------- */
 
 llvm::Value* CodeGenerator::genUnop(AstExpr* node) {
     auto* operand_type = node->an_Unop.operand->type->Inner();
