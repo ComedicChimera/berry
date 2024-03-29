@@ -12,3 +12,19 @@ pub func abs(n: i64) i64 {
 
     return n;
 }
+
+pub func min(a, b: i64) i64 {
+    if a < b {
+        return a;
+    } 
+
+    return b;
+}
+
+pub func max(a, b: i64) i64 {
+    if a < b {
+        return b;
+    }
+
+    return a;
+}
