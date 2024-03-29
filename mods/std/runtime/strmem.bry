@@ -13,18 +13,17 @@ func __berry_strcmp(a, b: string) i64 {
     return a._len - b._len;
 }
 
-const FNV_OFFSET: u64 = 0xcbf29ce484222325;
-const FNV_PRIME: u64 = 0x0x100000001b3
-
 @extern
-func __berry_strhash(s: string) u64 {
+func __berry_strhash(str: string) u64 {
     // NOTE: This will be replaced with a better hash function later. 
     // This is just the FNV1a hash right now.
 
-    let h = FNV_OFFSET;
+    const FNV_OFFSET: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
 
-    for let i = 0; i < s._len; i++ {
-        h ^= s[i] as u64;
+    let h = FNV_OFFSET;
+    for let i = 0; i < str._len; i++ {
+        h ^= str[i] as u64;
         h *= FNV_PRIME;
     }
 

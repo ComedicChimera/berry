@@ -80,8 +80,36 @@ void CodeGenerator::genBuiltinFuncs() {
     rtstub_panic_oob = genRuntimeStub("__berry_panic_oob");
     rtstub_panic_badslice = genRuntimeStub("__berry_panic_badslice");
     rtstub_panic_unreachable = genRuntimeStub("__berry_panic_unreachable");
-    rtstub_strcmp = genRuntimeStub("__berry_strcmp");
-    rtstub_strhash = genRuntimeStub("__berry_strhash");
+
+    rtstub_strcmp = mod.getFunction("__berry_strcmp");
+    if (rtstub_strcmp == nullptr) {
+        rtstub_strcmp = llvm::Function::Create(
+            llvm::FunctionType::get(
+                // TODO: platform sized integers
+                llvm::Type::getInt64Ty(ctx),
+                { ll_array_type, ll_array_type },
+                false
+            ),
+            llvm::Function::ExternalLinkage,
+            "__berry_strcmp",
+            mod
+        );
+    }
+
+    rtstub_strhash = mod.getFunction("__berry_strhash");
+    if (rtstub_strhash == nullptr) {
+        rtstub_strhash = llvm::Function::Create(
+            llvm::FunctionType::get(
+                // TODO: platform sized integers
+                llvm::Type::getInt64Ty(ctx),
+                { ll_array_type },
+                false
+            ),
+            llvm::Function::ExternalLinkage,
+            "__berry_strcmp",
+            mod
+        );
+    }
 }
 
 llvm::Function* CodeGenerator::genRuntimeStub(const std::string& stub_name) {

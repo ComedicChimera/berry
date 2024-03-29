@@ -143,6 +143,22 @@ void Checker::checkFor(AstStmt* node) {
     popScope();
 }
 
+
+static bool patternAlwaysMatches(AstExpr* pattern) {
+    switch (pattern->kind) {
+    case AST_PATTERN_LIST:
+        for (auto* sub_pattern : pattern->an_PatternList.patterns) {
+            if (patternAlwaysMatches(sub_pattern))
+                return true;
+        }
+        break;
+    case AST_IDENT:
+        return true;
+    }
+
+    return false;
+}
+
 bool Checker::checkMatchStmt(AstStmt* node) {
     auto& amatch = node->an_Match;
 
@@ -169,7 +185,7 @@ bool Checker::checkMatchStmt(AstStmt* node) {
 
         fallthrough_stack.push_back(cases_can_fallthrough[i]);
         if (checkStmt(acase.body)) {
-            if (PatternAlwaysMatches(acase.cond_expr))
+            if (patternAlwaysMatches(acase.cond_expr))
                 hit_always_match = true;
 
             all_return &= true;

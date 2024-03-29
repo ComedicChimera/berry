@@ -154,7 +154,7 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         value = allocComptime(CONST_BOOL);
         value->v_bool = node->an_Bool.value;
         break;
-    case AST_STR:
+    case AST_STRING:
         value = allocComptime(CONST_STRING);
         value->v_str.value = node->an_String.value;
         value->v_str.mod_id = src_mod.id;

@@ -78,7 +78,7 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
         return makeLLVMIntLit(node->type, (uint64_t)node->an_Bool.value);
     case AST_NULL:
         return getNullValue(genType(node->type));
-    case AST_STR:
+    case AST_STRING:
         return genStrLit(node, alloc_loc);
     default:
         Panic("expr codegen not implemented for {}", (int)node->kind);
@@ -95,7 +95,7 @@ llvm::Value* CodeGenerator::genTestMatch(AstExpr* node) {
     auto* false_block = appendBlock();
     auto* end_block = appendBlock();
 
-    genCasePatternMatch(node->an_TestMatch.expr, { { node->an_TestMatch.pattern, true_block } }, false_block);
+    genPatternMatch(node->an_TestMatch.expr, { { node->an_TestMatch.pattern, true_block } }, false_block);
 
     setCurrentBlock(true_block);
     irb.CreateBr(end_block);
@@ -451,7 +451,8 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
 }
 
 llvm::Value* CodeGenerator::genStrEq(llvm::Value* lhs, llvm::Value* rhs) {
-
+    auto* cmp_result = irb.CreateCall(rtstub_strcmp, { lhs, rhs });
+    return irb.CreateICmpEQ(cmp_result, getPlatformIntConst(0));
 }
 
 llvm::Value* CodeGenerator::genUnop(AstExpr* node) {

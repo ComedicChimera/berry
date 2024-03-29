@@ -110,7 +110,7 @@ enum AstKind {
     AST_FLOAT,
     AST_BOOL,
     AST_NULL,
-    AST_STR,
+    AST_STRING,
 
     AST_PATTERN_LIST,
 
@@ -230,8 +230,6 @@ struct AstExpr : public AstNode {
 
     bool IsLValue() const;
 };
-
-bool PatternAlwaysMatches(AstExpr* pattern);
 
 /* -------------------------------------------------------------------------- */
 

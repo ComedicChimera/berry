@@ -242,7 +242,7 @@ void CodeGenerator::genMatchStmt(AstStmt* node) {
 
     auto* exit_block = appendBlock();
 
-    genCasePatternMatch(node->an_Match.expr, branches, exit_block);
+    genPatternMatch(node->an_Match.expr, branches, exit_block);
 
     for (size_t i = 0; i < branches.size(); i++) {
         auto& branch = branches[i];

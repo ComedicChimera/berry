@@ -69,7 +69,7 @@ AstExpr* Parser::parsePattern() {
     case TOK_STRLIT: {
         next();
 
-        auto* astr = allocExpr(AST_STR, prev.span);
+        auto* astr = allocExpr(AST_STRING, prev.span);
         astr->type = &prim_string_type;
         astr->an_String.value = arena.MoveStr(std::move(prev.value));
         return astr;

@@ -354,7 +354,7 @@ static void printExpr(AstExpr* node) {
     case AST_NULL:
         std::cout << std::format("Null(span={}, type={})", spanToStr(node->span), typeToStr(node->type));
         break;
-    case AST_STR:
+    case AST_STRING:
         std::cout << std::format(
             "StringLit(span={}, type={}, value=\"{}\")",
             spanToStr(node->span),

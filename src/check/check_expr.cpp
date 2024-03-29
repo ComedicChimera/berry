@@ -81,7 +81,7 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
     case AST_FLOAT:
         node->type = infer_type ? infer_type : newUntyped(UK_NUM);
         break;
-    case AST_STR:
+    case AST_STRING:
     case AST_BOOL:
         // Nothing to do :)
         break;

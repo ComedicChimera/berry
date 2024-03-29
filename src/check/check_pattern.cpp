@@ -24,7 +24,7 @@ bool Checker::checkPattern(AstExpr* node, Type* expect_type, std::unordered_set<
             node->type = expect_type;
         }
         break;
-    case AST_STR:
+    case AST_STRING:
     case AST_BOOL:
         mustEqual(node->span, node->type, expect_type);
         break;

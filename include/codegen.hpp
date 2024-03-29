@@ -350,11 +350,13 @@ private:
         llvm::BasicBlock* block;
     };
 
-    void genCasePatternMatch(AstExpr* expr, const std::vector<PatternBranch>& pcases, llvm::BasicBlock* nm_block);
+    void genPatternMatch(AstExpr* expr, const std::vector<PatternBranch>& pcases, llvm::BasicBlock* nm_block);
+    bool pmAddCase(llvm::SwitchInst *pswitch, llvm::Value *match_operand, AstExpr *pattern, llvm::BasicBlock *case_block);
+    void pmGenCapture(Symbol* capture_sym, llvm::Value* match_operand, llvm::BasicBlock* case_block);
 
-    bool pmGenAtomWithSwitch(llvm::SwitchInst* ll_switch, AstExpr* pattern, llvm::BasicBlock* case_block);
-    bool pmGenAtomWithEq(llvm::Value* match_operand, AstExpr* pattern, llvm::BasicBlock* case_block);
-    void pmGenCapture(llvm::Value* match_operand, Symbol* capture_sym, llvm::BasicBlock* case_block);
+    void pmGenStrMatch(llvm::Value *match_operand, const std::vector<PatternBranch> &pcases, llvm::BasicBlock *nm_block);
+    typedef std::unordered_map<size_t, std::vector<PatternBranch>> PatternBuckets;
+    llvm::BasicBlock* pmAddStringCase(PatternBuckets& buckets, llvm::Value* match_operand, AstExpr* pattern, llvm::BasicBlock* case_block);
 
     /* ---------------------------------------------------------------------- */
 
