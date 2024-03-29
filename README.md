@@ -51,9 +51,17 @@ don't always get time (or energy) to work on it.
     * C-Style Pointer Arithmetic
     * Matching over Strings
 
-- [ ] Target 9: Meta Directives, Unsafe, and Intrinsic Macros
-    * Rename "metadata tags" to attributes
-        - Avoid confusion with meta directives
+- [ ] Target 9: Improved Attributes
+    * Rename metadata tags to attributes.
+    * Add mutual exclusivity checking to attributes.
+    * Update `abientry` and `extern` to take an optional argument.
+        - If the argument is present, then it becomes the name of the exported
+          ABI symbol.  The argument can be any string value.
+        - This allows for ABI symbols which are not valid Berry identifiers.
+        - Ex: `@abientry("__berry_strhash")`
+    * Make sure constants can't be tagged with variable attributes.
+
+- [ ] Target 10: Meta Directives, Unsafe, and Intrinsic Macros
     * Conditional Compilation
         - `#require` and `#if`
         - Builtin Defines: `OS`, `ARCH`, `COMPILER`, and `DEBUG`
@@ -77,18 +85,19 @@ don't always get time (or energy) to work on it.
     * Extract defines in code via `@get_defined`
     * Platform Sized Ints: `int` and `uint`
         - Update compiler code to user platform-sized integers where appropriate
-    * Update `abientry` and `extern` to allow for an argument to rename the
-      declared symbol to an arbitrary string.  This is added here for
-      convenience and to allow for symbols which are not compatible with the
-      Berry language.
-        - `@abientry("__berry_strhash") func strhash(s: string) uint`
-        - `@abientry` without an argument behaves as before
 
-- [ ] Target 10: Dynamic Memory and Error Handling
+- [ ] Target 11: Dynamic Memory and Error Handling
+    * Factor platform bindings into `sys.windows`
+    * Dynamic Allocator
+    * Signal Handling 
+    * Stack Unwinding and Traceback Support
 
-- [ ] Target 11: Garbage Collections and Automatic Allocation
+- [ ] Target 12: Garbage Collection
+    * Garbage Collector
+    * Automatic Heap Allocation
+    * Escape Analysis
 
-- [ ] Target 12: Debug Info
+- [ ] Target 13: Debug Info
     * Fix DIType generation
     * Add code for debug assignment
     * Get debugging working on Windows (enable stepping through the program)
