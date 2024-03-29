@@ -5,20 +5,12 @@ func __berry_strcmp(a, b: string) i64 {
     let size = min(a._len, b._len);
 
     for let i = 0; i < size; i++ {
-        if a[i] < b[i] {
-            return -1;
-        } elif a[i] > b[i] {
-            return 1;
+        if a[i] != b[i] {
+            return a[i] - b[i];
         }
     }
 
-    if a._len < b._len {
-        return -1;
-    } elif a._len > b._len {
-        return 1;
-    }
-
-    return 0;
+    return a._len - b._len;
 }
 
 const FNV_OFFSET: u64 = 0xcbf29ce484222325;
