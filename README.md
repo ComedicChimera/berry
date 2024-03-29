@@ -78,8 +78,14 @@ don't always get time (or energy) to work on it.
     * Extract defines in code via `@get_defined`
     * Platform Sized Ints: `int` and `uint`
         - Update compiler code to user platform-sized integers where appropriate
+    * Update `abientry` and `extern` to allow for an argument to rename the
+      declared symbol to an arbitrary string.  This is added here for
+      convenience and to allow for symbols which are not compatible with the
+      Berry language.
+        - `@abientry("__berry_strhash") func strhash(s: string) uint`
+        - `@abientry` without an argument behaves as before
 
-- [ ] Target 10: Dynamic Memory, Threads, and Panicking
+- [ ] Target 10: Dynamic Memory and Error Handling
 
 - [ ] Target 11: Garbage Collections and Automatic Allocation
 
