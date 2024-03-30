@@ -50,6 +50,8 @@ std::string TypeContext::untypedToString(const Type* ut) {
             return "untyped float";
         case UK_NUM:
             return "untyped number";
+        case UK_NULL:
+            return "untyped null";
         default:
             Panic("invalid untyped kind");
             return {};
@@ -105,6 +107,9 @@ bool TypeContext::tryConcrete(uint64_t key, Type* other) {
     case UK_NUM:
         compat = innerIsNumberType(other);
         break;
+    case UK_NULL:
+        compat = true;
+        break;
     }
 
     if (compat && (flags & TC_INFER)) {
@@ -139,7 +144,11 @@ bool TypeContext::tryUnion(uint64_t a, uint64_t b) {
     auto& bentry = find(b, &brank);
 
     int which;
-    if (aentry.kind == UK_NUM) {
+    if (aentry.kind == UK_NULL) {
+        which = 1;
+    } else if (bentry.kind == UK_NULL) {
+        which = 0;
+    } else if (aentry.kind == UK_NUM) {
         which = 1;
     } else if (bentry.kind == UK_NUM) {
         which = 0;

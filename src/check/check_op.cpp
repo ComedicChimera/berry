@@ -56,6 +56,8 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
         break;
     case AOP_EQ:
     case AOP_NE:
+        lhs_type = lhs_type->Inner();
+
         switch (lhs_type->kind) {
         case TYPE_ARRAY:
         case TYPE_FUNC:
@@ -93,7 +95,7 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
     }
 
     if (return_type == nullptr) {
-        Assert(ast_op_kind_to_name.find(aop) != ast_op_kind_to_name.end(), "missing aop string for operator");
+        Assert(ast_op_kind_to_name.contains(aop), "missing aop string for operator");
 
         fatal(span, "cannot apply {} operator to {} and {}", ast_op_kind_to_name[aop], lhs_type->ToString(), rhs_type->ToString());
     }
@@ -107,18 +109,23 @@ Type* Checker::maybeApplyPtrArithOp(Type* lhs_type, Type* rhs_type) {
     rhs_type = rhs_type->Inner();
 
     if (lhs_type->kind == TYPE_PTR) {
-        if (rhs_type->kind == TYPE_PTR) {
-            if (tctx.Equal(lhs_type, rhs_type))
+        if (tctx.IsNullType(rhs_type)) {
+            tctx.Equal(lhs_type, rhs_type);
+            return lhs_type;
+        } else if (rhs_type->kind == TYPE_PTR) {
+            if (tctx.Equal(lhs_type, rhs_type)) {
                 return lhs_type;
-
-            return nullptr;
+            }
         } else if (tctx.IsIntType(rhs_type)) {
             return lhs_type;
         }
-
-        return lhs_type;
-    } else if (rhs_type->kind == TYPE_PTR && tctx.IsIntType(lhs_type)) {
-        return rhs_type;
+    } else if (rhs_type->kind == TYPE_PTR) {
+        if (tctx.IsNullType(lhs_type)) {
+            tctx.Equal(lhs_type, rhs_type);
+            return rhs_type;
+        } else if (tctx.IsIntType(lhs_type)) {
+            return rhs_type;
+        }
     }
 
     return nullptr;

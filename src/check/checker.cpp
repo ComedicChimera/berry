@@ -156,6 +156,24 @@ Type* Checker::newUntyped(UntypedKind kind) {
     return untyped;
 }
 
+void Checker::finishExpr() {
+    tctx.InferAll();
+    tctx.Clear();
+
+    bool any_bad_nulls = false;
+    for (auto& pair : null_spans) {
+        if (pair.first->ty_Untyp.concrete_type == nullptr) {
+            error(pair.second, "unable to infer type of null");
+            any_bad_nulls = true;
+        }
+    }
+
+    null_spans.clear();
+
+    if (any_bad_nulls)
+        throw CompileError{};
+}
+
 /* -------------------------------------------------------------------------- */
 
 void Checker::declareLocal(Symbol* sym) {

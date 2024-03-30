@@ -7,7 +7,6 @@ static size_t type_variant_sizes[TYPES_COUNT] = {
     sizeof(prim_i8_type.ty_Float), 
     0,
     0,
-    sizeof(prim_i8_type.ty_Untyp), 
 
     sizeof(prim_i8_type.ty_Ptr),    
     sizeof(prim_i8_type.ty_Func),   
@@ -17,7 +16,9 @@ static size_t type_variant_sizes[TYPES_COUNT] = {
     sizeof(prim_i8_type.ty_Named),
     sizeof(prim_i8_type.ty_Named),
     sizeof(prim_i8_type.ty_Struct),
-    sizeof(prim_i8_type.ty_Enum)
+    sizeof(prim_i8_type.ty_Enum),
+
+    sizeof(prim_i8_type.ty_Untyp), 
 };
 #define LARGEST_TYPE_VARIANT_SIZE sizeof(prim_i8_type.ty_Named)
 

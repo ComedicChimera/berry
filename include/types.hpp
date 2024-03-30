@@ -13,7 +13,6 @@ enum TypeKind {
     TYPE_FLOAT,     // Floating-point/real type
     TYPE_BOOL,      // Boolean type
     TYPE_UNIT,      // Unit/void type
-    TYPE_UNTYP,     // Untyped
 
     TYPE_PTR,       // Pointer type
     TYPE_FUNC,      // Function type
@@ -24,6 +23,8 @@ enum TypeKind {
     TYPE_ALIAS,     // Alias Type
     TYPE_STRUCT,    // Struct Type
     TYPE_ENUM,      // Simple Enum Type (no value-storing variants)
+
+    TYPE_UNTYP,     // Untyped
 
     TYPES_COUNT
 };
@@ -49,12 +50,7 @@ struct Type {
         struct {
             int bit_size;
         } ty_Float;
-        struct {
-            uint64_t key;
-            Type* concrete_type;
-            TypeContext* parent;
-        } ty_Untyp;
-
+        
         struct {
             Type* elem_type;
         } ty_Ptr;
@@ -81,6 +77,12 @@ struct Type {
             std::span<llvm::Constant*> tag_values;
             MapView<size_t> name_map;
         } ty_Enum;
+
+        struct {
+            uint64_t key;
+            Type* concrete_type;
+            TypeContext* parent;
+        } ty_Untyp;
     };
 
     friend class TypeContext;
@@ -96,6 +98,8 @@ enum UntypedKind {
     UK_INT,     // integer literal (int only)
     UK_FLOAT,   // float literal (float only)
     UK_NUM,     // number literal (int or float)
+
+    UK_NULL,    // null literal (can be any type)
 };
 
 // TypeCtxFlags stores all possible type context flags.
@@ -151,6 +155,9 @@ public:
 
     // IsIntType returns whether type is an integer type.
     bool IsIntType(Type* type);
+
+    // IsNullType returns whether type is an untyped null.
+    bool IsNullType(Type* type);
 
     /* ---------------------------------------------------------------------- */
 

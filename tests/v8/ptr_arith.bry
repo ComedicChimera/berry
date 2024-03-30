@@ -63,11 +63,11 @@ func main() {
         let node = &linked_list[i];
         node.value = i;
 
-        let next = (i + 2) % 10;
+        let next = (i + 3) % 10;
         if next != 0 {
             node.next = &linked_list[next];
         }
     }
 
-    print_list(linked_list);
+    print_list(&linked_list[0]);
 }

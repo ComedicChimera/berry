@@ -25,6 +25,9 @@ class Checker {
     // tctx is the checker's type context.
     TypeContext tctx;
 
+    // null_spans maps untyped nulls to their corresponding spans.
+    std::vector<std::pair<Type*, TextSpan>> null_spans;
+
     // enclosing_return_type is the return type of the function whose body is
     // being type checked. If the checker is running outside of a function body,
     // then this value is nullptr.
@@ -154,10 +157,7 @@ private:
     // newUntyped creates a new untyped of kind kind.
     Type* newUntyped(UntypedKind kind);
 
-    inline void finishExpr() { 
-        tctx.InferAll(); 
-        tctx.Clear();
-    }
+    void finishExpr();
 
     /* ---------------------------------------------------------------------- */
 

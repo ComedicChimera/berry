@@ -43,13 +43,14 @@ don't always get time (or energy) to work on it.
     * Type Aliases
         - Builtin Aliases: `byte` and `rune`
 
-- [ ] Target 8: Non-Numeric Equality and Pointer Arithmetic
+- [x] Target 8: Non-Numeric Equality and Pointer Arithmetic
     * Pointer Comparison
     * String Comparison
     * Enum Comparison
     * Boolean Comparison
     * C-Style Pointer Arithmetic
     * Matching over Strings
+    * Allow `ptr == null` to infer type of `null`.
 
 - [ ] Target 9: Improved Attributes
     * Rename metadata tags to attributes.

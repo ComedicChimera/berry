@@ -325,8 +325,14 @@ void CodeGenerator::genIncDec(AstStmt* node) {
     AstExpr one_val {};
     one_val.kind = AST_INT;
     one_val.span = node->span;
-    one_val.type = node->an_IncDec.lhs->type;
     one_val.an_Int.value = 1;
+
+    if (node->an_IncDec.lhs->type->kind == TYPE_PTR) {
+        // TODO: platform sized integers
+        one_val.type = &prim_i64_type;
+    } else {
+        one_val.type = node->an_IncDec.lhs->type;
+    }
 
     AstExpr binop {};
     binop.kind = AST_BINOP;

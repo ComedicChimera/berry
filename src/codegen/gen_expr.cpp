@@ -67,6 +67,11 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
         case TYPE_ENUM:
             // TODO: platform sized integers
             return makeLLVMIntLit(&prim_i64_type, node->an_Int.value);
+        case TYPE_PTR: {
+            // TODO: platform sized integers
+            auto* int_lit = makeLLVMIntLit(&prim_i64_type, node->an_Int.value);
+            return irb.CreateIntToPtr(int_lit, llvm::PointerType::get(ctx, 0));
+        } break;
         default:
             Panic("non-numeric type integer literal in codegen");
         }    
@@ -235,13 +240,17 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
     case AOP_ADD:
         if (lhs_type->kind == TYPE_PTR) {
             if (rhs_type->kind == TYPE_PTR) {
-                return irb.CreateAdd(lhs_val, rhs_val);
+                // TODO: platform sized integers
+                lhs_val = irb.CreatePtrToInt(lhs_val, llvm::IntegerType::get(ctx, 64));
+                rhs_val = irb.CreatePtrToInt(rhs_val, llvm::IntegerType::get(ctx, 64));
+                auto* sum = irb.CreateAdd(lhs_val, rhs_val);
+                return irb.CreateIntToPtr(sum, llvm::PointerType::get(ctx, 0));
             } else {
-                return irb.CreateGEP(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, { getInt32Const(0), rhs_val });
+                return irb.CreateGEP(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, { rhs_val });
             }
         } else if (lhs_type->kind == TYPE_INT) {
             if (rhs_type->kind == TYPE_PTR) {
-                return irb.CreateGEP(genType(rhs_type->ty_Ptr.elem_type, true), rhs_val, { getInt32Const(0), lhs_val });
+                return irb.CreateGEP(genType(rhs_type->ty_Ptr.elem_type, true), rhs_val, { lhs_val });
             } else {
                 return irb.CreateAdd(lhs_val, rhs_val);
             }
@@ -253,15 +262,19 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
     case AOP_SUB:
         if (lhs_type->kind == TYPE_PTR) {
             if (rhs_type->kind == TYPE_PTR) {
-                return irb.CreateSub(lhs_val, rhs_val);
+                // TODO: platform sized integers
+                lhs_val = irb.CreatePtrToInt(lhs_val, llvm::IntegerType::get(ctx, 64));
+                rhs_val = irb.CreatePtrToInt(rhs_val, llvm::IntegerType::get(ctx, 64));
+                auto* diff = irb.CreateSub(lhs_val, rhs_val);
+                return irb.CreateIntToPtr(diff, llvm::PointerType::get(ctx, 0));
             } else {
                 rhs_val = irb.CreateNeg(rhs_val);
-                return irb.CreateGEP(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, { getInt32Const(0), rhs_val });
+                return irb.CreateGEP(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, { rhs_val });
             }
         } else if (lhs_type->kind == TYPE_INT) {
             if (rhs_type->kind == TYPE_PTR) {
                 lhs_val = irb.CreateNeg(lhs_val);
-                return irb.CreateGEP(genType(rhs_type->ty_Ptr.elem_type, true), rhs_val, { getInt32Const(0), lhs_val });
+                return irb.CreateGEP(genType(rhs_type->ty_Ptr.elem_type, true), rhs_val, { lhs_val });
             } else {
                 return irb.CreateSub(lhs_val, rhs_val);
             }

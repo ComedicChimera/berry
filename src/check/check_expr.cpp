@@ -79,7 +79,7 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
         }
         break;
     case AST_FLOAT:
-        node->type = infer_type ? infer_type : newUntyped(UK_NUM);
+        node->type = infer_type ? infer_type : newUntyped(UK_FLOAT);
         break;
     case AST_STRING:
     case AST_BOOL:
@@ -89,7 +89,8 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
         if (infer_type) {
             node->type = infer_type;
         } else {
-            fatal(node->span, "unable to infer type of null");
+            node->type = newUntyped(UK_NULL);
+            null_spans.push_back(std::make_pair(node->type, node->span));
         }
         break;
     case AST_STRUCT_LIT_POS:
