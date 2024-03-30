@@ -55,6 +55,11 @@ void CodeGenerator::GenerateModule() {
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::createBuiltinGlobals() {
+    // Set platform integer types.
+    auto bit_size = layout.getPointerSizeInBits();
+    Assert(bit_size == platform_int_type->ty_Int.bit_size, "mismatch between compiler and LLVM platform int bitsize");
+    ll_platform_int_type = llvm::IntegerType::get(ctx, bit_size);
+
     // Declare the global array type.
     ll_array_type = llvm::StructType::create(
         ctx, 
@@ -62,7 +67,7 @@ void CodeGenerator::createBuiltinGlobals() {
         "_array"
     );
 
-    // Declare the global runtime stub type (void function accepting no arguments).
+    // Set the global runtime stub type (void function accepting no arguments).
     ll_rtstub_type = llvm::FunctionType::get(llvm::Type::getVoidTy(ctx), false);
 }
 
@@ -85,8 +90,7 @@ void CodeGenerator::genBuiltinFuncs() {
     if (rtstub_strcmp == nullptr) {
         rtstub_strcmp = llvm::Function::Create(
             llvm::FunctionType::get(
-                // TODO: platform sized integers
-                llvm::Type::getInt64Ty(ctx),
+                ll_platform_int_type,
                 { ll_array_type, ll_array_type },
                 false
             ),
@@ -100,8 +104,7 @@ void CodeGenerator::genBuiltinFuncs() {
     if (rtstub_strhash == nullptr) {
         rtstub_strhash = llvm::Function::Create(
             llvm::FunctionType::get(
-                // TODO: platform sized integers
-                llvm::Type::getInt64Ty(ctx),
+                ll_platform_int_type,
                 { ll_array_type },
                 false
             ),
@@ -262,8 +265,7 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
     case TYPE_NAMED:
         return genNamedBaseType(type->ty_Named.type, alloc_type, type->ty_Named.name);
     case TYPE_ENUM:
-        // TODO: platform integer types
-        return llvm::Type::getInt64Ty(ctx);
+        return ll_platform_int_type;
     case TYPE_UNTYP:
         Panic("abstract untyped in codegen");
         break;
@@ -295,8 +297,7 @@ llvm::Type* CodeGenerator::genNamedBaseType(Type* type, bool alloc_type, std::st
 
         return llvm::PointerType::get(ctx, 0);
     case TYPE_ENUM:
-        // TODO: platform integer types
-        return llvm::Type::getInt64Ty(ctx);  
+        return ll_platform_int_type;  
     default:
         Panic("bad type to call genNamedBaseType in codegen");
         return nullptr;

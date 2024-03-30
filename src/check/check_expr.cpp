@@ -162,9 +162,7 @@ void Checker::checkCall(AstExpr* node) {
 void Checker::checkIndex(AstExpr* node) {
     auto& index = node->an_Index;
     checkExpr(index.array);
-
-    // TODO: platform int type
-    checkExpr(index.index, &prim_i64_type);
+    checkExpr(index.index, platform_int_type);
 
     auto* array_type = index.array->type->Inner();
     if (array_type->kind == TYPE_ARRAY || array_type->kind == TYPE_STRING) {
@@ -184,12 +182,10 @@ void Checker::checkSlice(AstExpr* node) {
     checkExpr(slice.array);
 
     if (slice.start_index)
-        // TODO: platform int type
-        checkExpr(slice.start_index, &prim_i64_type);
+        checkExpr(slice.start_index, platform_int_type);
 
     if (slice.end_index)
-        // TODO: platform int type
-        checkExpr(slice.end_index, &prim_i64_type);
+        checkExpr(slice.end_index, platform_int_type);
 
     auto* inner_type = slice.array->type->Inner();
     if (inner_type->kind == TYPE_ARRAY || inner_type->kind == TYPE_STRING) {
@@ -300,8 +296,7 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
             node->type->ty_Ptr.elem_type = root_type->ty_Array.elem_type;
             return;
         } else if (fld.field_name == "_len") {
-            // TODO: platform sizes?
-            node->type = &prim_i64_type;
+            node->type = platform_int_type;
             return;
         }
         break;
@@ -389,10 +384,9 @@ void Checker::checkNewExpr(AstExpr* node) {
 
     auto* size_expr = node->an_New.size_expr;
     if (size_expr) {
-        // TODO: platform int type
         bool outer_is_comptime = is_comptime_expr;
         is_comptime_expr = true;
-        checkExpr(size_expr, &prim_i64_type);
+        checkExpr(size_expr, platform_int_type);
 
         if (!is_comptime_expr) {
             node->an_New.alloc_mode = A_ALLOC_HEAP;

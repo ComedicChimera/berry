@@ -42,15 +42,23 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         if (root_value->kind == CONST_ARRAY) {
             Assert(node->an_Field.field_name == "_len", "access to array._ptr in comptime expr");
 
-            // TODO: platform sized integers
-            value = allocComptime(CONST_I64);
-            value->v_i64 = (int64_t)root_value->v_array.elems.size();
+            if (platform_int_type->ty_Int.bit_size == 64) {
+                value = allocComptime(CONST_I64);
+                value->v_i64 = (int64_t)root_value->v_array.elems.size();
+            } else {
+                value = allocComptime(CONST_I32);
+                value->v_i32 = (int32_t)root_value->v_array.elems.size();
+            }
         } else if (root_value->kind == CONST_STRING) {
             Assert(node->an_Field.field_name == "_len", "access to string._ptr in comptime expr");
 
-            // TODO: platform sized integers
-            value = allocComptime(CONST_I64);
-            value->v_i64 = (int64_t)root_value->v_str.value.size();
+            if (platform_int_type->ty_Int.bit_size == 64) {
+                value = allocComptime(CONST_I64);
+                value->v_i64 = (int64_t)root_value->v_array.elems.size();
+            } else {
+                value = allocComptime(CONST_I32);
+                value->v_i32 = (int32_t)root_value->v_array.elems.size();
+            }
         } else {
             Assert(root_value->kind == CONST_STRUCT, "invalid comptime field access");
             value = root_value->v_struct.fields[node->an_Field.field_index];
@@ -1010,8 +1018,7 @@ llvm::Constant* CodeGenerator::genComptime(ConstValue* value, ComptimeGenFlags f
             return llvm::ConstantPointerNull::get(llvm::PointerType::get(ctx, 0));
         } else {
             return llvm::ConstantExpr::getIntToPtr(
-                // TODO: platform integer sizes
-                makeLLVMIntLit(&prim_i64_type, value->v_ptr),
+                makeLLVMIntLit(platform_uint_type, value->v_ptr),
                 llvm::PointerType::get(ctx, 0)
             );
         }

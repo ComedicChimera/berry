@@ -223,8 +223,7 @@ llvm::DIType* DebugGenerator::GetDIType(Type* type, uint call_conv) {
     case TYPE_FLOAT:
         return prim_type_table[(type->ty_Float.bit_size >> 3) + 2];
     case TYPE_PTR:
-        // TODO: set pointer size based on target
-        return db.createPointerType(GetDIType(type->ty_Ptr.elem_type), 64);
+        return db.createPointerType(GetDIType(type->ty_Ptr.elem_type), platform_int_type->ty_Int.bit_size);
     case TYPE_FUNC:
     {
         auto& func_type = type->ty_Func;

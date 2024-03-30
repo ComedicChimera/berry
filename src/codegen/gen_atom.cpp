@@ -524,9 +524,8 @@ llvm::Constant* CodeGenerator::getInt8Const(uint8_t value) {
 }
 
 llvm::Constant* CodeGenerator::getPlatformIntConst(uint64_t value) {
-    // TODO: 32-bit systems...
-    llvm::APInt ap_int(64, value, false);
-    return llvm::Constant::getIntegerValue(llvm::Type::getInt64Ty(ctx), ap_int);
+    llvm::APInt ap_int(ll_platform_int_type->getBitWidth(), value, false);
+    return llvm::Constant::getIntegerValue(ll_platform_int_type, ap_int);
 }
 
 llvm::Constant* CodeGenerator::makeLLVMIntLit(Type* int_type, uint64_t value) {

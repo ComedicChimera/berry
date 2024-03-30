@@ -242,9 +242,8 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
     case AOP_ADD:
         if (lhs_type->kind == TYPE_PTR) {
             if (rhs_type->kind == TYPE_PTR) {
-                // TODO: platform sized integers
-                lhs_val = irb.CreatePtrToInt(lhs_val, llvm::IntegerType::get(ctx, 64));
-                rhs_val = irb.CreatePtrToInt(rhs_val, llvm::IntegerType::get(ctx, 64));
+                lhs_val = irb.CreatePtrToInt(lhs_val, ll_platform_int_type);
+                rhs_val = irb.CreatePtrToInt(rhs_val, ll_platform_int_type);
                 auto* sum = irb.CreateAdd(lhs_val, rhs_val);
                 return irb.CreateIntToPtr(sum, llvm::PointerType::get(ctx, 0));
             } else {
@@ -264,9 +263,8 @@ llvm::Value* CodeGenerator::genBinop(AstExpr* node) {
     case AOP_SUB:
         if (lhs_type->kind == TYPE_PTR) {
             if (rhs_type->kind == TYPE_PTR) {
-                // TODO: platform sized integers
-                lhs_val = irb.CreatePtrToInt(lhs_val, llvm::IntegerType::get(ctx, 64));
-                rhs_val = irb.CreatePtrToInt(rhs_val, llvm::IntegerType::get(ctx, 64));
+                lhs_val = irb.CreatePtrToInt(lhs_val, ll_platform_int_type);
+                rhs_val = irb.CreatePtrToInt(rhs_val, ll_platform_int_type);
                 auto* diff = irb.CreateSub(lhs_val, rhs_val);
                 return irb.CreateIntToPtr(diff, llvm::PointerType::get(ctx, 0));
             } else {

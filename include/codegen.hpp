@@ -214,6 +214,10 @@ class CodeGenerator {
 
     /* ---------------------------------------------------------------------- */
 
+    // ll_platform_int_type is the native-width integer type for the target
+    // platform.  This will be i64 for 64-bit and i32 for 32-bit.
+    llvm::IntegerType* ll_platform_int_type { nullptr };
+
     // ll_array_type is the LLVM type for all Berry arrays (opaque pointer POG).
     llvm::StructType* ll_array_type { nullptr };
     
