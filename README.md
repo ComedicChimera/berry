@@ -62,6 +62,7 @@ don't always get time (or energy) to work on it.
         - Ex: `@abientry("__berry_strhash")`
     * Make sure constants can't be tagged with variable attributes.
     * Only allow `@callconv` on external functions.
+    * Add support for `@inline`
 
 - [ ] Target 10: Meta Directives, Unsafe, and Intrinsic Macros
     * Conditional Compilation
