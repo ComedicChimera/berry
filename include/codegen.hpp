@@ -420,7 +420,8 @@ private:
     llvm::Type* genNamedBaseType(Type* type, bool alloc_type, std::string_view type_name);
     bool shouldPtrWrap(Type* type);
     bool shouldPtrWrap(llvm::Type* type);
-    uint64_t getLLVMTypeByteSize(llvm::Type* llvm_type);
+    uint64_t getLLVMByteSize(llvm::Type* llvm_type);
+    uint64_t getLLVMByteAlign(llvm::Type* llvm_type);
 };
 
 #endif

@@ -26,6 +26,7 @@ set(SRCS
     "syntax/parse_expr.cpp"
     "syntax/parse_import.cpp"
     "syntax/parse_pattern.cpp"
+    "syntax/parse_directive.cpp"
 
     "types/type_to_str.cpp"
     "types/type_cmp.cpp" 

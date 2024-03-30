@@ -107,6 +107,16 @@ void Parser::defineGlobal(Symbol* symbol) {
 void Parser::next() {
     prev = std::move(tok);
     lexer.NextToken(tok);
+
+    if (directives_enabled && tok.kind == TOK_DIRECTIVE) {
+        directives_enabled = false;
+        auto old_prev = prev;
+
+        parseDirective();
+        
+        prev = old_prev;
+        directives_enabled = true;
+    }
 }
 
 bool Parser::has(TokenKind kind) {

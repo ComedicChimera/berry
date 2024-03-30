@@ -29,6 +29,14 @@ class Parser {
     // corresponds to a struct literal rather than the opening of a block.
     std::vector<bool> allow_struct_lit_stack;
 
+    // directives_enabled is flag to indicate whether the parse should
+    // automatically called parseDirective() when a directive is encountered or
+    // whether it should simply proceed as usual.
+    bool directives_enabled { true };
+
+    // meta_if_depth counts how many if meta directives have been opened.
+    int meta_if_depth { 0 };
+
 public:
     // Creates a new parser reading from file for src_file.
     Parser(Arena& arena, std::ifstream& file, SourceFile& src_file)
@@ -39,7 +47,24 @@ public:
     
     // ParseFile runs the parser on the parser's file.
     void ParseFile();
+
+    // ParseModuleName returns the token corresponding to the file's module name
+    // if it is present.  Otherwise, an empty token is returned.
     Token ParseModuleName();
+
+    /* ---------------------------------------------------------------------- */
+
+    // PlatformMetaVars stores the meta variables specific to the target platform.
+    struct PlatformMetaVars {
+        std::string os;
+        std::string arch;
+        std::string arch_size;
+        std::string debug;
+    };
+
+    // platform_meta_vars stores the platform-specific meta variables used when
+    // parsing meta directives.
+    static PlatformMetaVars platform_meta_vars;
 
 private:
     void parseImportStmt();
@@ -87,12 +112,13 @@ private:
     AstExpr* parseAtomExpr();
     AstExpr* parseFuncCall(AstExpr* root);
     AstExpr* parseIndexOrSlice(AstExpr* root);
+    AstExpr* parseStructLit(AstExpr *root);
     AstExpr* parseAtom();
     AstExpr* parseNewExpr();
     AstExpr* parseStructPtrLit(AstExpr* root);
     AstExpr* parseArrayLit();
-    AstExpr* parseStructLit(AstExpr* root);
-    
+    AstExpr* parseMacroCall();
+
     /* ---------------------------------------------------------------------- */
 
     Type* parseTypeExt();
@@ -105,6 +131,19 @@ private:
     std::span<AstExpr*> parseExprList(TokenKind delim = TOK_COMMA);
     AstExpr* parseInitializer();
     std::vector<Token> parseIdentList(TokenKind delim = TOK_COMMA);
+
+    /* ---------------------------------------------------------------------- */
+
+    void parseDirective();
+    void parseMetaIfDirective();
+
+    std::string evaluateMetaExpr();
+    std::string evaluateMetaAndExpr();
+    std::string evaluateMetaEqExpr();
+    std::string evaluateMetaUnaryExpr();
+    std::string evaluateMetaValue();
+
+    std::string_view lookupMetaVar(const std::string& name);
 
     /* ---------------------------------------------------------------------- */
 

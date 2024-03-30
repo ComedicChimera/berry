@@ -83,6 +83,8 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
         break;
     case AST_STRING:
     case AST_BOOL:
+    case AST_SIZEOF:
+    case AST_ALIGNOF:
         // Nothing to do :)
         break;
     case AST_NULL:

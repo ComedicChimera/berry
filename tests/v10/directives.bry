@@ -1,19 +1,21 @@
 import io.std;
 
 func main() {
-    #if OS == "windows":
+    #if (OS == "windows")
         std.puts("Windows\n");
     #end
 
-    #if ARCH == "amd64" || ARCH == "i386" || ARCH == "arm64":
+    #if (ARCH == "i386" || ARCH == "arm")
+        std.puts("32 bit architecture\n");
+    #elif (ARCH == "amd64" || ARCH == "arm64")
         std.puts("64 bit architecture\n");
     #end
 
-    #if !DEBUG:
+    #if (!DEBUG)
         std.puts("Debug\n");
     #end
 
-    #if COMPILER == "berryc" && ARCH_SIZE != "32":
+    #if (COMPILER == "berryc" && ARCH_SIZE != "32")
         std.puts("berryc - x64\n");
     #end
 }

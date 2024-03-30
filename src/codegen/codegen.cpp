@@ -314,15 +314,13 @@ bool CodeGenerator::shouldPtrWrap(Type* type) {
 }
 
 bool CodeGenerator::shouldPtrWrap(llvm::Type* type) {
-    return getLLVMTypeByteSize(type) > layout.getPointerSize() * 2;
+    return getLLVMByteSize(type) > layout.getPointerSize() * 2;
 }
 
-uint64_t CodeGenerator::getLLVMTypeByteSize(llvm::Type* llvm_type) {
-    auto bit_size = layout.getTypeSizeInBits(llvm_type).getFixedSize();
+uint64_t CodeGenerator::getLLVMByteSize(llvm::Type* llvm_type) {
+    return layout.getTypeAllocSize(llvm_type).getFixedSize();
+}
 
-    if (bit_size % 8 == 0) {
-        return bit_size / 8;
-    }
-
-    return bit_size / 8 + 1;
+uint64_t CodeGenerator::getLLVMByteAlign(llvm::Type* llvm_type) {
+    return layout.getPrefTypeAlign(llvm_type).value();
 }

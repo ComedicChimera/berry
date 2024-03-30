@@ -16,6 +16,7 @@ namespace fs = std::filesystem;
 #include "llvm/IR/LegacyPassManager.h"
 
 #include "loader.hpp"
+#include "parser.hpp"
 #include "checker.hpp"
 #include "codegen.hpp"
 #include "linker.hpp"
@@ -34,11 +35,17 @@ class Compiler {
     std::string out_dir;
     bool should_delete_out_dir { false };
 
+    llvm::Triple target_triple;
+
 public:
     Compiler(const BuildConfig& cfg)
     : cfg(cfg)
     , loader(arena, cfg.import_paths)
-    {}
+    // TODO: set based on build arguments.
+    , target_triple(llvm::sys::getDefaultTargetTriple())
+    {
+        initPlatform();
+    }
 
     void Compile() {
         loader.LoadAll(cfg.input_path);
@@ -221,6 +228,28 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
+    void initPlatform() {
+        Parser::platform_meta_vars.os = target_triple.getOSName();
+        Parser::platform_meta_vars.debug = cfg.should_emit_debug ? "debug" : "";
+
+        switch (target_triple.getArch()) {
+        case llvm::Triple::x86:
+            Parser::platform_meta_vars.arch = "i386";
+            Parser::platform_meta_vars.arch_size = "32";
+            platform_int_type = &prim_i32_type;
+            platform_uint_type = &prim_u32_type;
+            break;
+        case llvm::Triple::x86_64:
+            Parser::platform_meta_vars.arch = "amd64";
+            Parser::platform_meta_vars.arch_size = "64";
+            platform_int_type = &prim_i64_type;
+            platform_uint_type = &prim_u64_type;
+            break;
+        default:
+            ReportFatal("unsupported architecture: {}", target_triple.getArchName());
+        }
+    }
+
     void initTargets() {
         llvm::InitializeNativeTarget();
         llvm::InitializeNativeTargetAsmParser();
@@ -228,18 +257,24 @@ private:
     }
 
     llvm::TargetMachine* createTargetMachine() {
-        auto native_target_triple = llvm::sys::getDefaultTargetTriple();
-
         std::string err_msg;
-        auto* target = llvm::TargetRegistry::lookupTarget(native_target_triple, err_msg);
+        auto* target = llvm::TargetRegistry::lookupTarget(target_triple.str(), err_msg);
         if (!target) {
             ReportFatal("finding native target: {}", err_msg);
         }
 
+        std::string march { "generic" };
+
+        // TODO: handle non-native targets
+        march = llvm::sys::getHostCPUName();
+        // if (target_triple.getArch() == llvm::Triple::x86_64) {
+        //     march = "x86-64-v2";
+        // }
+
         llvm::TargetOptions target_opt;
         return target->createTargetMachine(
-            native_target_triple, 
-            "generic", 
+            target_triple.str(), 
+            march, 
             "", 
             target_opt, 
             llvm::Reloc::PIC_

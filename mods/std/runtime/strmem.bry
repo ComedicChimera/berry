@@ -15,7 +15,7 @@ func strcmp(a, b: string) int {
     return a._len - b._len;
 }
 
-#if ARCH_SIZE == "64":
+#if (ARCH_SIZE == "64")
 @abientry("__berry_strhash")
 func strhash(str: string) u64 {
     // NOTE: This will be replaced with a better hash function later. 

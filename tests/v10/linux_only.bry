@@ -1,4 +1,4 @@
-#require OS == "linux"
+#require (OS == "linux")
 
 import io.std;
 

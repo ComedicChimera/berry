@@ -271,7 +271,7 @@ llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
             irb.CreateMemSet(
                 addr_val,
                 getInt8Const(0),
-                array_len_val * layout.getTypeAllocSize(ll_elem_type),
+                array_len_val * getLLVMByteSize(ll_elem_type),
                 layout.getPrefTypeAlign(ll_elem_type)
             );
 
@@ -297,7 +297,7 @@ llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
         irb.CreateMemSet(
             addr_val,
             getInt8Const(0),
-            layout.getTypeAllocSize(ll_elem_type),
+            getLLVMByteSize(ll_elem_type),
             layout.getPrefTypeAlign(ll_elem_type)
         );
 
@@ -435,7 +435,7 @@ void CodeGenerator::genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src
         pref_align,
         src,
         pref_align,
-        getPlatformIntConst(getLLVMTypeByteSize(llvm_struct_type))
+        getPlatformIntConst(getLLVMByteSize(llvm_struct_type))
     );
 }
 

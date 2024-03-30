@@ -65,11 +65,9 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
         case TYPE_FLOAT: 
             return makeLLVMFloatLit(inner_type, (double)node->an_Int.value);
         case TYPE_ENUM:
-            // TODO: platform sized integers
-            return makeLLVMIntLit(&prim_i64_type, node->an_Int.value);
+            return makeLLVMIntLit(platform_int_type, node->an_Int.value);
         case TYPE_PTR: {
-            // TODO: platform sized integers
-            auto* int_lit = makeLLVMIntLit(&prim_i64_type, node->an_Int.value);
+            auto* int_lit = makeLLVMIntLit(platform_uint_type, node->an_Int.value);
             return irb.CreateIntToPtr(int_lit, llvm::PointerType::get(ctx, 0));
         } break;
         default:
@@ -85,6 +83,10 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
         return getNullValue(genType(node->type));
     case AST_STRING:
         return genStrLit(node, alloc_loc);
+    case AST_SIZEOF:
+        return makeLLVMIntLit(platform_uint_type, getLLVMByteSize(genType(node->an_TypeMacro.type_arg, true)));
+    case AST_ALIGNOF:
+        return makeLLVMIntLit(platform_uint_type, getLLVMByteAlign(genType(node->an_TypeMacro.type_arg, true)));
     default:
         Panic("expr codegen not implemented for {}", (int)node->kind);
         break;

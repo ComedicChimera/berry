@@ -543,6 +543,8 @@ AstExpr* Parser::parseAtom() {
         auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, prev.span);
         return parseStructLit(astruct);
     } break;
+    case TOK_ATSIGN:
+        return parseMacroCall();
     default:
         reject("expected expression");
         return nullptr;
@@ -611,4 +613,41 @@ AstExpr* Parser::parseArrayLit() {
     auto* arr = allocExpr(AST_ARRAY, SpanOver(start_span, prev.span));
     arr->an_Array.elems = elems;
     return arr;
+}
+
+AstExpr* Parser::parseMacroCall() {
+    auto start_span = tok.span;
+    next();
+
+    auto macro_ident = wantAndGet(TOK_IDENT);
+
+    want(TOK_LPAREN);
+
+    AstExpr* expr;
+    if (macro_ident.value == "defined") {
+        auto var_ident = wantAndGet(TOK_IDENT);
+        want(TOK_RPAREN);
+
+        expr = allocExpr(AST_STRING, SpanOver(start_span, prev.span));
+        expr->type = &prim_string_type;
+        expr->an_String.value = lookupMetaVar(var_ident.value);
+    } else if (macro_ident.value == "sizeof") {
+        auto* type = parseTypeLabel();
+        want(TOK_RPAREN);
+
+        expr = allocExpr(AST_SIZEOF, SpanOver(start_span, prev.span));
+        expr->type = platform_uint_type;
+        expr->an_TypeMacro.type_arg = type;
+    } else if (macro_ident.value == "alignof") {
+        auto* type = parseTypeLabel();
+        want(TOK_RPAREN);
+
+        expr = allocExpr(AST_ALIGNOF, SpanOver(start_span, prev.span));
+        expr->type = platform_uint_type;
+        expr->an_TypeMacro.type_arg = type;
+    } else {
+        fatal(macro_ident.span, "unknown macro: {}", macro_ident.value);
+    }
+
+    return expr;
 }
