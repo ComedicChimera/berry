@@ -58,12 +58,15 @@ void CodeGenerator::genFuncProto(AstDef* node) {
     std::string ll_name {};
     bool exported = symbol->flags & SYM_EXPORTED;
     llvm::CallingConv::ID cconv = llvm::CallingConv::C;
-    for (auto& tag : node->attrs) {
-        if (tag.name == "extern" || tag.name == "abientry") {
+    bool inline_hint = false;
+    for (auto& attr : node->attrs) {
+        if (attr.name == "extern" || attr.name == "abientry") {
             exported = true;
-            ll_name = tag.value.size() == 0 ? symbol->name : tag.value;
-        } else if (tag.name == "callconv") {
-            cconv = cconv_name_to_id[tag.value];
+            ll_name = attr.value.size() == 0 ? symbol->name : attr.value;
+        } else if (attr.name == "callconv") {
+            cconv = cconv_name_to_id[attr.value];
+        } else if (attr.name == "inline") {
+            inline_hint = true;
         }
     }
 
@@ -79,6 +82,10 @@ void CodeGenerator::genFuncProto(AstDef* node) {
     );
 
     ll_func->setCallingConv(cconv);
+
+    if (inline_hint) {
+        ll_func->addFnAttr(llvm::Attribute::InlineHint);
+    }
 
     size_t offset = ll_func->arg_size() > node->an_Func.params.size();
     for (size_t i = 0; i < node->an_Func.params.size(); i++) {

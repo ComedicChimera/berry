@@ -52,7 +52,7 @@ don't always get time (or energy) to work on it.
     * Matching over Strings
     * Allow `ptr == null` to infer type of `null`.
 
-- [ ] Target 9: Improved Attributes
+- [x] Target 9: Improved Attributes
     * Rename metadata tags to attributes.
     * Add mutual exclusivity checking to attributes.
     * Update `abientry` and `extern` to take an optional argument.
