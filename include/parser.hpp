@@ -64,7 +64,7 @@ public:
 
     // platform_meta_vars stores the platform-specific meta variables used when
     // parsing meta directives.
-    static PlatformMetaVars platform_meta_vars;
+    static inline PlatformMetaVars platform_meta_vars;
 
 private:
     void parseImportStmt();
@@ -136,6 +136,8 @@ private:
 
     void parseDirective();
     void parseMetaIfDirective();
+
+    void skipMetaCondBody(bool should_run_else);
 
     std::string evaluateMetaExpr();
     std::string evaluateMetaAndExpr();

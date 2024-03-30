@@ -10,10 +10,20 @@ void Parser::parseDirective() {
         } else {
             reject("#elif directive without preceding #if");
         }
+    } else if (tok.value == "else") {
+        if (meta_if_depth > 0) {
+            next();
+
+            // If we reach here, then the if statement did not skip over us,
+            // so it must have been true.  Hence, we skip to the end.
+            skipMetaCondBody(false);
+        } else {
+            reject("#else directive without preceding #if or #elif");
+        }
     } else if (tok.value == "end") {
         if (meta_if_depth > 0) {
-            meta_if_depth--;
             next();
+            meta_if_depth--;
         } else {
             reject("unbalanced #end directive");
         }
@@ -35,6 +45,8 @@ void Parser::parseDirective() {
 }
 
 void Parser::parseMetaIfDirective() {
+    next();
+
     want(TOK_LPAREN);
 
     auto expr_result = evaluateMetaExpr();
@@ -42,25 +54,43 @@ void Parser::parseMetaIfDirective() {
     want(TOK_RPAREN);
 
     if (expr_result.size() == 0) {
-        // Skip until we either reach the end of the file or find a matching
-        // #end token for the #if directive.
-        int nested_ifs = 0;
-        while (tok.kind != TOK_EOF) {
-            if (tok.kind == TOK_DIRECTIVE) {
-                if (tok.value == "if") {
-                    nested_ifs++;
-                } else if (tok.value == "end") {
-                    if (nested_ifs > 0) {
-                        nested_ifs--;
-                    } else {
-                        next();
-                        break;
+        skipMetaCondBody(true);
+    }
+}
+
+void Parser::skipMetaCondBody(bool should_run_else) {
+    int nested_ifs = 0;
+    while (tok.kind != TOK_EOF) {
+        if (tok.kind == TOK_DIRECTIVE) {
+            if (tok.value == "if") {
+                nested_ifs++;
+            } else if (tok.value == "end") {
+                if (nested_ifs > 0) {
+                    nested_ifs--;
+                } else {
+                    next();
+                    break;
+                }
+            } else if (tok.value == "elif") {
+                if (should_run_else) {
+                    if (nested_ifs == 0) {
+                        // Leave the #elif so we can run it again.
+                        return;
                     }
+                } else {
+                    // #elif inside a #else
+                    reject("#elif directive without preceding #if");
+                }
+            } else if (tok.value == "else") {
+                if (should_run_else && nested_ifs == 0) {
+                    // Skip the #else so the code after can run unimpeded.
+                    next();
+                    return;
                 }
             }
-
-            next();
         }
+
+        next();
     }
 }
 
@@ -89,7 +119,7 @@ std::string Parser::evaluateMetaAndExpr() {
     while (has(TOK_AND)) {
         next();
 
-        auto rhs = evaluateMetaUnaryExpr();
+        auto rhs = evaluateMetaEqExpr();
 
         if (lhs.size() > 0 && rhs.size() > 0)
             lhs = "true";
@@ -142,7 +172,7 @@ std::string Parser::evaluateMetaValue() {
     case TOK_IDENT:
         next();
         return std::string(lookupMetaVar(prev.value));
-    case TOK_STRING:
+    case TOK_STRLIT:
     case TOK_INTLIT:
         next();
         return prev.value;
@@ -167,15 +197,15 @@ std::string Parser::evaluateMetaValue() {
 }
 
 std::string_view Parser::lookupMetaVar(const std::string& name) {
-    if (prev.value == "OS") {
+    if (name == "OS") {
         return platform_meta_vars.os;
-    } else if (prev.value == "ARCH") {
+    } else if (name == "ARCH") {
         return platform_meta_vars.arch;
-    } else if (prev.value == "ARCH_SIZE") {
+    } else if (name == "ARCH_SIZE") {
         return platform_meta_vars.arch_size;
-    } else if (prev.value == "DEBUG") {
+    } else if (name == "DEBUG") {
         return platform_meta_vars.debug;
-    } else if (prev.value == "COMPILER") {
+    } else if (name == "COMPILER") {
         return "berryc";
     } else {
         return "";

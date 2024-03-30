@@ -7,7 +7,7 @@ struct Vec4 {
 func main() {
     std.puts("Sizeof = ");
     std.putint(@sizeof(Vec4) as int);
-    std.putr('\n')
+    std.putr('\n');
 
     std.puts("Alignof = ");
     std.putint(@alignof(Vec4) as int);

@@ -229,7 +229,7 @@ private:
     /* ---------------------------------------------------------------------- */
 
     void initPlatform() {
-        Parser::platform_meta_vars.os = target_triple.getOSName();
+        Parser::platform_meta_vars.os = target_triple.getOSName().str();
         Parser::platform_meta_vars.debug = cfg.should_emit_debug ? "debug" : "";
 
         switch (target_triple.getArch()) {
@@ -246,7 +246,7 @@ private:
             platform_uint_type = &prim_u64_type;
             break;
         default:
-            ReportFatal("unsupported architecture: {}", target_triple.getArchName());
+            ReportFatal("unsupported architecture: {}", target_triple.getArchName().str());
         }
     }
 

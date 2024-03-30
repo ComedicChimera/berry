@@ -108,7 +108,7 @@ void Parser::next() {
     prev = std::move(tok);
     lexer.NextToken(tok);
 
-    if (directives_enabled && tok.kind == TOK_DIRECTIVE) {
+    while (directives_enabled && tok.kind == TOK_DIRECTIVE) {
         directives_enabled = false;
         auto old_prev = prev;
 

@@ -164,6 +164,13 @@ void Loader::loadRootModule(fs::path& root_mod_abs_path) {
 
         auto mod_name = getModuleName(src_file);
         if (mod_name == "") {
+            if (ErrorCount() == 0) {
+                // This only happens when #require exits compilation on the root
+                // module.  It is very weird edge case that results in a
+                // null-pointer error later on if improperly logged.
+                ReportError("root module contains no viable source files");
+            }
+            
             return;
         }
 
@@ -222,7 +229,7 @@ Module& Loader::initModule(const fs::path& local_path, const fs::path& mod_abs_p
         }
 
         if (mod.files.size() == 0) {
-            ReportFatal("module {} contains no source files: located at {}", mod.name, mod_abs_path.string());
+            ReportFatal("module {} contains no viable source files: located at {}", mod.name, mod_abs_path.string());
         }
     } else if (fs::is_regular_file(mod_abs_path)) {
         mod.files.emplace_back(

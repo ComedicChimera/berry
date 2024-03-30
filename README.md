@@ -64,7 +64,7 @@ don't always get time (or energy) to work on it.
     * Only allow `@callconv` on external functions.
     * Add support for `@inline`
 
-- [ ] Target 10: Meta Directives, Unsafe, and Intrinsic Macros
+- [x] Target 10: Meta Directives, Unsafe, and Intrinsic Macros
     * Conditional Compilation
         - `#require` and `#if`
         - Builtin Defines: `OS`, `ARCH`, `ARCH_SIZE`, `COMPILER`, and `DEBUG`
