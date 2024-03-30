@@ -7,7 +7,7 @@ func ExitProcess(exit_code: u32);
 func _umain();
 
 @abientry("__berry_start")
-func _rt_start() {
+func _rtstart() {
     _umain();
 
     ExitProcess(0);

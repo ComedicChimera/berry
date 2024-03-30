@@ -118,6 +118,9 @@ void Lexer::NextToken(Token& tok) {
         case '@':
             lexSingle(tok, TOK_ATSIGN);
             return;
+        case '#':
+            lexDirective(tok);
+            return;
         default:
             if (isdigit(ahead)) {
                 lexNumberLit(tok);
@@ -151,6 +154,7 @@ static std::unordered_map<std::string, TokenKind> keyword_patterns {
     { "do", TOK_DO },
     { "match", TOK_MATCH },
     { "case", TOK_CASE },
+    { "unsafe", TOK_UNSAFE },
     { "break", TOK_BREAK },
     { "continue", TOK_CONTINUE },
     { "return", TOK_RETURN },
@@ -192,6 +196,21 @@ void Lexer::lexKeywordOrIdent(Token& tok) {
     } else {
         makeToken(tok, TOK_IDENT);
     }
+}
+
+void Lexer::lexDirective(Token& tok) {
+    mark();
+    skip();
+
+    while (peek() && (isalpha(ahead) || ahead == '_')) {
+        read();
+    }
+
+    if (tok_buff.size() == 0) {
+        fatal("expected directive name");
+    }
+
+    makeToken(tok, TOK_DIRECTIVE);
 }
 
 /* -------------------------------------------------------------------------- */

@@ -1,0 +1,7 @@
+#require OS == "windows"
+
+import io.std;
+
+func main() {
+    std.puts("Windows only\n");
+}

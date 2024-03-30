@@ -32,7 +32,9 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
     switch (aop) {
     case AOP_ADD:
     case AOP_SUB:
-        return_type = maybeApplyPtrArithOp(lhs_type, rhs_type);
+        if (unsafe_depth > 0) {
+            return_type = maybeApplyPtrArithOp(lhs_type, rhs_type);
+        }
         
         if (return_type == nullptr && tctx.Equal(lhs_type, rhs_type) && tctx.IsNumberType(lhs_type)) {
             return_type = lhs_type;

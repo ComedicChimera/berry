@@ -14,6 +14,12 @@ bool Checker::checkStmt(AstStmt* node) {
         break;
     case AST_MATCH:
         return checkMatchStmt(node);
+    case AST_UNSAFE: {
+        unsafe_depth++;
+        bool always_returns = checkBlock(node);
+        unsafe_depth--;
+        return always_returns;
+    } break;
     case AST_LOCAL_VAR:
         checkLocalVar(node);
         break;

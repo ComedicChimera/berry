@@ -17,6 +17,7 @@ std::string kindNames[TOKENS_COUNT] = {
     "do",
     "match",
     "case",
+    "unsafe",
     "break",
     "continue",
     "return",
@@ -92,6 +93,7 @@ std::string kindNames[TOKENS_COUNT] = {
     "bool literal",
     "string literal",
     "rune literal",
+    "meta directive",
     "end of file"
 };
 

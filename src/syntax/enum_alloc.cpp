@@ -16,6 +16,7 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_stmt.an_While),
     sizeof(size_ref_stmt.an_For),
     sizeof(size_ref_stmt.an_Match),
+    sizeof(size_ref_stmt.an_Block),
     sizeof(size_ref_stmt.an_LocalVar),
     sizeof(size_ref_stmt.an_Assign),
     sizeof(size_ref_stmt.an_IncDec),
@@ -51,6 +52,10 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_expr.an_Bool),
     0,
     sizeof(size_ref_expr.an_String),
+
+    sizeof(size_ref_expr.an_TypeMacro),
+    sizeof(size_ref_expr.an_TypeMacro),
+
     sizeof(size_ref_expr.an_PatternList)
 };
 #define LARGEST_DEF_VARIANT_SIZE sizeof(size_ref_def.an_Func)

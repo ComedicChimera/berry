@@ -1,0 +1,7 @@
+#require OS == "linux"
+
+import io.std;
+
+func main() {
+    std.puts("Linux only\n");
+}

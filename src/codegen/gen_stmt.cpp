@@ -5,6 +5,7 @@ void CodeGenerator::genStmt(AstStmt* node) {
 
     switch (node->kind) {
     case AST_BLOCK:
+    case AST_UNSAFE:
         for (auto& stmt : node->an_Block.stmts) {
             genStmt(stmt);
 

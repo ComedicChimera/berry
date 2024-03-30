@@ -9,7 +9,7 @@ func WriteConsoleA(h: *u8, buff: *u8, n_to_write: i32, n_written: *i32, reserved
 
 let stdout: *u8 = runtime._stdout;
 let out_buff: []u8 = new u8[4096];
-let out_cursor: i64;
+let out_cursor: int;
 
 func write(b: []u8) {
     for let i = 0; i < b._len; i++ {
@@ -34,7 +34,7 @@ func flush() {
 
 /* ------------------------------------------------------------------------- */
 
-pub func putint(n: i64) {
+pub func putint(n: int) {
     let digit_buff = new u8[20];
 
     let is_neg = false;
@@ -45,7 +45,7 @@ pub func putint(n: i64) {
 
     let i = 19; 
     do {
-        let digit = n % 10 as i32;
+        let digit = n % 10 as rune;
         digit_buff[i] = '0' + digit as u8;
 
         n /= 10;

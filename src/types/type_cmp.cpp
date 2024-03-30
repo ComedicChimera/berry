@@ -154,7 +154,10 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
 
     switch (src->kind) {
     case TYPE_INT:
-        return innerIsNumberType(dest) || dest->kind == TYPE_BOOL || dest->kind == TYPE_PTR || dest->kind == TYPE_ENUM;
+        if ((flags & TC_UNSAFE) && (dest->kind == TYPE_PTR || dest->kind == TYPE_ENUM))
+            return true;
+        
+        return innerIsNumberType(dest) || dest->kind == TYPE_BOOL;
     case TYPE_FLOAT:
         return innerIsNumberType(dest);
     case TYPE_BOOL:
@@ -163,12 +166,12 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
         }
         break;
     case TYPE_PTR:
-        if (dest->kind == TYPE_INT || dest->kind == TYPE_PTR) {
+        if ((flags & TC_UNSAFE) && (dest->kind == TYPE_INT || dest->kind == TYPE_PTR)) {
             return true;
         }
         break;
     case TYPE_ARRAY:
-        if (dest->kind == TYPE_STRING) {
+        if ((flags & TC_UNSAFE) && dest->kind == TYPE_STRING) {
             return Equal(src->ty_Array.elem_type, &prim_u8_type);
         }
         break;

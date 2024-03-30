@@ -1,0 +1,15 @@
+import io.std;
+
+func main() {
+    let arr = [1, 2, 3, 4, 5];
+    
+    unsafe {
+        let p = arr._ptr;
+        let end = p + arr._len;
+
+        for ; p < end; p++ {
+            std.putint(*p);
+            std.putr('\n');
+        }
+    }
+}

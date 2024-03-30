@@ -37,7 +37,12 @@ class Checker {
     // used for break and continue checking.
     int loop_depth { 0 };
 
+    // fallthrough_stack keeps track of both the current match depth and whether
+    // fallthough is enabled for a specific case.
     std::vector<bool> fallthrough_stack;
+
+    // unsafe_depth keeps track of how many enclosing unsafe blocks there are.
+    int unsafe_depth { 0 };
 
     // core_dep is a pointer to the core module dependency.  This will non-null
     // in every module except the core module itself.

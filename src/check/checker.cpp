@@ -133,6 +133,12 @@ void Checker::mustSubType(const TextSpan &span, Type* sub, Type* super) {
 void Checker::mustCast(const TextSpan &span, Type* src, Type* dest) {
     tctx.flags |= TC_INFER;
 
+    if (unsafe_depth > 0) {
+        tctx.flags |= TC_UNSAFE;
+    } else {
+        tctx.flags &= ~TC_UNSAFE;
+    }
+
     if (!tctx.Cast(src, dest)) {
         fatal(span, "{} cannot be cast to {}", src->ToString(), dest->ToString());
     }

@@ -1,0 +1,19 @@
+import io.std;
+
+struct Vec4 {
+    x, y, z, w: int;
+}
+
+func main() {
+    std.puts("Sizeof = ");
+    std.putint(@sizeof(Vec4));
+    std.putr('\n')
+
+    std.puts("Alignof = ");
+    std.putint(@alignof(Vec4));
+    std.putr('\n');
+
+    std.puts("OS = ");
+    std.puts(@defined(OS));
+    std.putr('\n');
+}

@@ -48,6 +48,9 @@ private:
     // lexKeywordOrIdent lexes a keyword or identifier.
     void lexKeywordOrIdent(Token &tok);
 
+    // lexDirective lexes a meta directive tag.
+    void lexDirective(Token &tok);
+
     /* ---------------------------------------------------------------------- */
 
     // lexNumberLit lexes a number literal.

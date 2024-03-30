@@ -3,6 +3,14 @@ module core;
 pub type byte = u8;
 pub type rune = i32;
 
+#if ARCH_SIZE == "64":
+pub type int = i64;
+pub type uint = u64;
+#else
+pub type int = i32;
+pub type uint = i64;
+#end
+
 /* ------------------------------------------------------------------------- */
 
 pub func abs(n: i64) i64 {

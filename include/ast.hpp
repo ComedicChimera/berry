@@ -15,6 +15,7 @@ enum AstKind {
     AST_WHILE,
     AST_FOR,
     AST_MATCH,
+    AST_UNSAFE,
     AST_LOCAL_VAR,
     AST_ASSIGN,
     AST_INCDEC,
@@ -50,6 +51,9 @@ enum AstKind {
     AST_BOOL,
     AST_NULL,
     AST_STRING,
+
+    AST_SIZEOF,
+    AST_ALIGNOF,
 
     AST_PATTERN_LIST,
 
@@ -203,6 +207,10 @@ struct AstExpr : public AstNode {
         struct {
             std::string_view value;
         } an_String;
+
+        struct {
+            Type* type_arg;
+        } an_TypeMacro;
 
         struct {
             std::span<AstExpr*> patterns;

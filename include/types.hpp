@@ -106,7 +106,8 @@ enum UntypedKind {
 typedef int TypeCtxFlags;
 enum {
     TC_DEFAULT = 0,
-    TC_INFER = 1
+    TC_INFER = 1,
+    TC_UNSAFE = 2
 };
 
 // TypeContext is the state used for type checking and inference.

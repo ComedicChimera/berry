@@ -20,6 +20,7 @@ enum TokenKind {
     TOK_DO,
     TOK_MATCH,
     TOK_CASE,
+    TOK_UNSAFE,
 
     TOK_BREAK,
     TOK_CONTINUE,
@@ -108,6 +109,8 @@ enum TokenKind {
     TOK_BOOLLIT,
     TOK_STRLIT,
     TOK_RUNELIT,
+
+    TOK_DIRECTIVE,
 
     TOK_EOF,
 

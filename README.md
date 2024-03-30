@@ -67,7 +67,7 @@ don't always get time (or energy) to work on it.
 - [ ] Target 10: Meta Directives, Unsafe, and Intrinsic Macros
     * Conditional Compilation
         - `#require` and `#if`
-        - Builtin Defines: `OS`, `ARCH`, `COMPILER`, and `DEBUG`
+        - Builtin Defines: `OS`, `ARCH`, `ARCH_SIZE`, `COMPILER`, and `DEBUG`
         - The meta language is purely string-based.
             * Only has `==`, `!=`, `!`, `&&`, and `||`
             * Empty string is false, anything else is true
@@ -85,7 +85,7 @@ don't always get time (or energy) to work on it.
             * Int to Enum
             * String to Byte Array
     * `@sizeof` and `@alignof`
-    * Extract defines in code via `@get_defined`
+    * Extract defines in code via `@defined`
     * Platform Sized Ints: `int` and `uint`
         - Update compiler code to user platform-sized integers where appropriate
 

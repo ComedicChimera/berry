@@ -63,6 +63,17 @@ AstStmt* Parser::parseStmt() {
         return parseForLoop();
     case TOK_MATCH:
         return parseMatchStmt();
+    case TOK_UNSAFE: {
+        next();
+        auto start_span = prev.span;
+
+        auto* block = parseBlock();
+        block->kind = AST_UNSAFE;
+        block->span.start_line = start_span.start_line;
+        block->span.start_col = start_span.start_col;
+
+        return block;
+    } break;
     default:
         stmt = parseExprAssignStmt();
     }
