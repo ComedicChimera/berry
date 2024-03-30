@@ -15,11 +15,11 @@ void Parser::ParseFile() {
         parseImportStmt();
     }
 
-    MetadataMap meta;
+    AttributeMap attr_map;
     bool exported = false;
     while (!has(TOK_EOF)) {
         if (has(TOK_ATSIGN)) {
-            parseMetadata(meta);
+            parseAttrList(attr_map);
         }
 
         if (has(TOK_PUB)) {
@@ -29,7 +29,7 @@ void Parser::ParseFile() {
             exported = false;
         }
 
-        parseDef(std::move(meta), exported);
+        parseDef(std::move(attr_map), exported);
     }
 }
 

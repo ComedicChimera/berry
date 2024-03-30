@@ -22,23 +22,23 @@ static std::string boolStr(bool b) {
     return b ? "true" : "false";
 }
 
-static void printMetadata(std::span<MetadataTag> meta) {
+static void printMetadata(std::span<Attribute> attrs) {
     std::cout << '[';
 
     int i = 0;
-    for (auto& tag : meta) {
+    for (auto& attr : attrs) {
         if (i > 0) {
             std::cout << ", ";
         }
 
-        if (tag.value.size() > 0) {
+        if (attr.value.size() > 0) {
             std::cout << std::format(
-                "Metadata({}, {}, {}, {})", 
-                tag.name, spanToStr(tag.name_span),
-                tag.value, spanToStr(tag.value_span)
+                "Attribute({}, {}, {}, {})", 
+                attr.name, spanToStr(attr.name_span),
+                attr.value, spanToStr(attr.value_span)
             );
         } else {
-            std::cout << std::format("Metadata({}, {})", tag.name, spanToStr(tag.name_span));
+            std::cout << std::format("Attribute({}, {})", attr.name, spanToStr(attr.name_span));
         }
 
         i++;
@@ -525,8 +525,8 @@ static void printStmt(AstStmt* stmt) {
 /* -------------------------------------------------------------------------- */
 
 static void printFunc(AstDef* node) {
-    std::cout << std::format("FuncDef(span={}, meta=", spanToStr(node->span));
-    printMetadata(node->metadata);
+    std::cout << std::format("FuncDef(span={}, attrs=", spanToStr(node->span));
+    printMetadata(node->attrs);
 
     auto& fn = node->an_Func;
 
@@ -563,8 +563,8 @@ static void printStruct(AstDef* node) {
 }   
 
 static void printGlobalVar(AstDef* node) {
-    std::cout << std::format("GlobalVarDef(span={}, meta=", spanToStr(node->span));
-    printMetadata(node->metadata);
+    std::cout << std::format("GlobalVarDef(span={}, attrs=", spanToStr(node->span));
+    printMetadata(node->attrs);
 
     auto* symbol = node->an_GlVar.symbol;
     std::cout << std::format("type={}, name={}, init=", typeToStr(symbol->type), symbol->name);

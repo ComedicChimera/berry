@@ -3,67 +3,6 @@
 
 #include "symbol.hpp"
 
-// AstOpKind enumerates the different possible opcodes for AST operators.
-enum AstOpKind {
-    AOP_ADD,
-    AOP_SUB,
-    AOP_MUL,
-    AOP_DIV,
-    AOP_MOD,
-
-    AOP_SHL,
-    AOP_SHR,
-
-    AOP_EQ,
-    AOP_NE,
-    AOP_LT,
-    AOP_GT,
-    AOP_LE,
-    AOP_GE,
-
-    AOP_BWAND,
-    AOP_BWOR,
-    AOP_BWXOR,
-    AOP_BWNEG,
-
-    AOP_LGAND,
-    AOP_LGOR,
-
-    AOP_NEG,
-    AOP_NOT,
-
-    AOP_NONE
-};
-
-// AstAllocMode indicates what kind of allocation should be generated for an
-// "allocated" object.  In most cases, this defaults to heap allocation.
-// However, the compiler will always try to choose the most efficient allocation
-// mode it can.  
-enum AstAllocMode {
-    A_ALLOC_STACK,
-    A_ALLOC_GLOBAL,
-    A_ALLOC_HEAP
-};
-
-// MetadataTag represents a Berry metadata tag.
-struct MetadataTag {
-    // The name of the tag.
-    std::string_view name;
-
-    // The source span containing the tag name.
-    TextSpan name_span;
-
-    // The value of the tag (may be empty if no value).
-    std::string_view value;
-
-    // The source span containing the value (if it exists).
-    TextSpan value_span;
-};
-
-typedef std::unordered_map<std::string_view, MetadataTag> MetadataMap;
-
-/* -------------------------------------------------------------------------- */
-
 enum AstKind {
     AST_FUNC,
     AST_GLVAR,
@@ -123,6 +62,48 @@ struct AstNode {
 };
 
 /* -------------------------------------------------------------------------- */
+
+// AstOpKind enumerates the different possible opcodes for AST operators.
+enum AstOpKind {
+    AOP_ADD,
+    AOP_SUB,
+    AOP_MUL,
+    AOP_DIV,
+    AOP_MOD,
+
+    AOP_SHL,
+    AOP_SHR,
+
+    AOP_EQ,
+    AOP_NE,
+    AOP_LT,
+    AOP_GT,
+    AOP_LE,
+    AOP_GE,
+
+    AOP_BWAND,
+    AOP_BWOR,
+    AOP_BWXOR,
+    AOP_BWNEG,
+
+    AOP_LGAND,
+    AOP_LGOR,
+
+    AOP_NEG,
+    AOP_NOT,
+
+    AOP_NONE
+};
+
+// AstAllocMode indicates what kind of allocation should be generated for an
+// "allocated" object.  In most cases, this defaults to heap allocation.
+// However, the compiler will always try to choose the most efficient allocation
+// mode it can.  
+enum AstAllocMode {
+    A_ALLOC_STACK,
+    A_ALLOC_GLOBAL,
+    A_ALLOC_HEAP
+};
 
 struct AstExpr;
 
@@ -298,7 +279,21 @@ struct AstStmt : public AstNode {
 
 /* -------------------------------------------------------------------------- */
 
-typedef std::span<MetadataTag> Metadata;
+// Attribute represents a Berry definition attribute.
+struct Attribute {
+    // The name of the tag.
+    std::string_view name;
+
+    // The source span containing the tag name.
+    TextSpan name_span;
+
+    // The value of the tag (may be empty if no value).
+    std::string_view value;
+
+    // The source span containing the value (if it exists).
+    TextSpan value_span;
+};
+typedef std::unordered_map<std::string_view, Attribute> AttributeMap;
 
 struct AstVariantInit {
     AstExpr* init_expr;
@@ -310,7 +305,7 @@ struct AstVariantInit {
 
 struct AstDef : public AstNode {
     size_t parent_file_number;
-    Metadata metadata;
+    std::span<Attribute> attrs;
 
     union {
         struct {

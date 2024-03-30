@@ -1,13 +1,13 @@
 #include "parser.hpp"
 
-void Parser::parseMetadata(MetadataMap& meta) {
+void Parser::parseAttrList(AttributeMap& attr_map) {
     next();
 
     if (has(TOK_LBRACKET)) {
         next();
 
         while (true) {
-            parseMetaTag(meta);
+            parseAttribute(attr_map);
 
             if (has(TOK_COMMA)) {
                 next();
@@ -18,11 +18,11 @@ void Parser::parseMetadata(MetadataMap& meta) {
 
         want(TOK_RBRACKET);
     } else {
-        parseMetaTag(meta);
+        parseAttribute(attr_map);
     }
 }
 
-void Parser::parseMetaTag(MetadataMap& meta) {
+void Parser::parseAttribute(AttributeMap& attr_map) {
     auto name_tok = wantAndGet(TOK_IDENT);
     auto name = arena.MoveStr(std::move(name_tok.value));
 
@@ -31,14 +31,14 @@ void Parser::parseMetaTag(MetadataMap& meta) {
         auto value_tok = wantAndGet(TOK_STRLIT);
         want(TOK_RPAREN);
 
-        meta.emplace(name, MetadataTag{
+        attr_map.emplace(name, Attribute{
             name,
             name_tok.span,
             arena.MoveStr(std::move(value_tok.value)),
             value_tok.span
         });
     } else {
-        meta.emplace(name, MetadataTag{ 
+        attr_map.emplace(name, Attribute{ 
             name,
             name_tok.span
         });
@@ -47,23 +47,23 @@ void Parser::parseMetaTag(MetadataMap& meta) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseDef(MetadataMap&& meta, bool exported) {
+void Parser::parseDef(AttributeMap&& attr_map, bool exported) {
     switch (tok.kind) {
     case TOK_FUNC:
-        parseFuncDef(std::move(meta), exported);
+        parseFuncDef(std::move(attr_map), exported);
         break;
     case TOK_LET:
     case TOK_CONST:
-        parseGlobalVarDef(std::move(meta), exported);
+        parseGlobalVarDef(std::move(attr_map), exported);
         break;
     case TOK_STRUCT:
-        parseStructDef(std::move(meta), exported);
+        parseStructDef(std::move(attr_map), exported);
         break;
     case TOK_TYPE:
-        parseAliasDef(std::move(meta), exported);
+        parseAliasDef(std::move(attr_map), exported);
         break;
     case TOK_ENUM:
-        parseEnumDef(std::move(meta), exported);
+        parseEnumDef(std::move(attr_map), exported);
         break;
     default:
         reject("expected global definition");
@@ -73,7 +73,7 @@ void Parser::parseDef(MetadataMap&& meta, bool exported) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
+void Parser::parseFuncDef(AttributeMap&& attr_map, bool exported) {
     auto start_span = tok.span;
     want(TOK_FUNC);
 
@@ -133,7 +133,7 @@ void Parser::parseFuncDef(MetadataMap&& meta, bool exported) {
 
     defineGlobal(symbol);
 
-    auto* afunc = allocDef(AST_FUNC, SpanOver(start_span, end_span), std::move(meta));
+    auto* afunc = allocDef(AST_FUNC, SpanOver(start_span, end_span), std::move(attr_map));
     afunc->an_Func.symbol = symbol;
     afunc->an_Func.params = arena.MoveVec(std::move(params));
     afunc->an_Func.return_type = return_type;
@@ -177,7 +177,7 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
+void Parser::parseGlobalVarDef(AttributeMap&& attr_map, bool exported) {
     auto start_span = tok.span;
     bool comptime = tok.kind == TOK_CONST;
     next();
@@ -214,7 +214,7 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
 
     defineGlobal(symbol);
 
-    auto* aglobal = allocDef(AST_GLVAR, SpanOver(start_span, end_span), std::move(meta));
+    auto* aglobal = allocDef(AST_GLVAR, SpanOver(start_span, end_span), std::move(attr_map));
     aglobal->an_GlVar.symbol = symbol;
     aglobal->an_GlVar.init_expr = init_expr;
     aglobal->an_GlVar.const_value = nullptr;
@@ -224,7 +224,7 @@ void Parser::parseGlobalVarDef(MetadataMap&& meta, bool exported) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
+void Parser::parseStructDef(AttributeMap&& attr_map, bool exported) {
     auto start_span = tok.span;
     next();
 
@@ -236,7 +236,7 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
     std::vector<StructField> fields;
     std::unordered_map<std::string_view, size_t> name_map;
     do {
-        // TODO: field metadata
+        // TODO: field attrs
 
         if (has(TOK_PUB)) {
             if (!exported) {
@@ -294,13 +294,13 @@ void Parser::parseStructDef(MetadataMap&& meta, bool exported) {
 
     defineGlobal(symbol);
 
-    auto* astruct = allocDef(AST_STRUCT, SpanOver(start_span, prev.span), std::move(meta));
+    auto* astruct = allocDef(AST_STRUCT, SpanOver(start_span, prev.span), std::move(attr_map));
     astruct->an_Struct.symbol = symbol;
 
     src_file.parent->defs.push_back(astruct);
 }
 
-void Parser::parseAliasDef(MetadataMap&& meta, bool exported) {
+void Parser::parseAliasDef(AttributeMap&& attr_map, bool exported) {
     auto start_span = tok.span;
     next();
 
@@ -330,13 +330,13 @@ void Parser::parseAliasDef(MetadataMap&& meta, bool exported) {
 
     defineGlobal(symbol);
 
-    auto* aalias = allocDef(AST_ALIAS, SpanOver(start_span, prev.span), std::move(meta));
+    auto* aalias = allocDef(AST_ALIAS, SpanOver(start_span, prev.span), std::move(attr_map));
     aalias->an_Alias.symbol = symbol;
     
     src_file.parent->defs.push_back(aalias);
 }
 
-void Parser::parseEnumDef(MetadataMap&& meta, bool exported) {
+void Parser::parseEnumDef(AttributeMap&& attr_map, bool exported) {
     auto start_span = tok.span;
     next();
 
@@ -390,7 +390,7 @@ void Parser::parseEnumDef(MetadataMap&& meta, bool exported) {
 
     defineGlobal(symbol);
 
-    auto* aenum = allocDef(AST_ENUM, SpanOver(start_span, prev.span), std::move(meta));
+    auto* aenum = allocDef(AST_ENUM, SpanOver(start_span, prev.span), std::move(attr_map));
     aenum->an_Enum.symbol = symbol;
     aenum->an_Enum.variant_inits = arena.MoveVec(std::move(variant_inits));
 

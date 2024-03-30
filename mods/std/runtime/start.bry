@@ -3,12 +3,12 @@ module runtime;
 @[extern, callconv("win64")]
 func ExitProcess(exit_code: u32);
 
-@extern
-func __berry_main();
+@extern("__berry_main")
+func _umain();
 
-@abientry
-func __berry_start() {
-    __berry_main();
+@abientry("__berry_start")
+func _rt_start() {
+    _umain();
 
     ExitProcess(0);
 }

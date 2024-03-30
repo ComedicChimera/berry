@@ -1,19 +1,19 @@
 module runtime;
 
-@abientry
-func __berry_panic_oob() {
+@abientry("__berry_panic_oob")
+func _panic_oob() {
     rputs("panic: index out of bounds\n");
     dopanic();
 }
 
-@abientry
-func __berry_panic_badslice() {
+@abientry("__berry_panic_badslice")
+func _panic_badslice() {
     rputs("panic: bad slice range\n");
     dopanic();
 }
 
-@abientry
-func __berry_panic_unreachable() {
+@abientry("__berry_panic_unreachable")
+func _panic_unreachable() {
     rputs("panic: unreachable\n");
     dopanic();
 }

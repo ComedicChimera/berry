@@ -55,19 +55,21 @@ void CodeGenerator::genFuncProto(AstDef* node) {
 
     auto* ll_func_type = llvm::dyn_cast<llvm::FunctionType>(ll_type);
 
-    bool should_mangle = true;
+    std::string ll_name {};
     bool exported = symbol->flags & SYM_EXPORTED;
     llvm::CallingConv::ID cconv = llvm::CallingConv::C;
-    for (auto& tag : node->metadata) {
+    for (auto& tag : node->attrs) {
         if (tag.name == "extern" || tag.name == "abientry") {
             exported = true;
-            should_mangle = false;
+            ll_name = tag.value.size() == 0 ? symbol->name : tag.value;
         } else if (tag.name == "callconv") {
             cconv = cconv_name_to_id[tag.value];
         }
     }
 
-    std::string ll_name { should_mangle ? mangleName(symbol->name) : symbol->name };
+    if (ll_name.size() == 0) {
+        ll_name = mangleName(symbol->name);
+    }
 
     llvm::Function* ll_func = llvm::Function::Create(
         ll_func_type, 
@@ -168,8 +170,8 @@ void CodeGenerator::genGlobalVarDecl(AstDef* node) {
         return;
     }
 
-    // TODO: handle metadata
-    Assert(node->metadata.size() == 0, "metadata for global variables not implemented");
+    // TODO: handle attributes
+    Assert(node->attrs.size() == 0, "attributes for global variables not implemented");
 
     llvm::Constant* init_value;
     if (aglobal.const_value == nullptr)

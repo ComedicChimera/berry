@@ -78,11 +78,11 @@ void DebugGenerator::BeginFuncBody(AstDef* fd, llvm::Function* ll_func) {
     Assert(curr_file != nullptr, "function debug info missing enclosing file");
 
     auto call_conv = llvm::dwarf::DW_CC_normal;
-    for (auto& meta_tag : fd->metadata) {
-        if (meta_tag.name == "callconv") {
-            if (meta_tag.value == "win64") {
+    for (auto& attr : fd->attrs) {
+        if (attr.name == "callconv") {
+            if (attr.value == "win64") {
                 call_conv = llvm::dwarf::DW_CC_LLVM_Win64;
-            } else if (meta_tag.value == "stdcall") {
+            } else if (attr.value == "stdcall") {
                 // TOOD: borland stdcall?
                 call_conv = llvm::dwarf::DW_CC_BORLAND_stdcall;
             }    

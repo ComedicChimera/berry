@@ -34,17 +34,19 @@ llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, AstDef* node) {
 
     auto* ll_func_type = llvm::dyn_cast<llvm::FunctionType>(ll_type);
 
-    bool should_mangle = true;
+    std::string ll_name {};
     llvm::CallingConv::ID cconv = llvm::CallingConv::C;
-    for (auto& tag : node->metadata) {
-        if (tag.name == "extern" || tag.name == "abientry") {
-            should_mangle = false;
-        } else if (tag.name == "callconv") {
-            cconv = cconv_name_to_id[tag.value];
+    for (auto& attr : node->attrs) {
+        if (attr.name == "extern" || attr.name == "abientry") {
+            ll_name = attr.value.size() == 0 ? symbol->name : attr.value;
+        } else if (attr.name == "callconv") {
+            cconv = cconv_name_to_id[attr.value];
         }
     }
 
-    std::string ll_name { should_mangle ? mangleName(imported_mod, symbol->name) : symbol->name };
+    if (ll_name.size() == 0) {
+        ll_name = mangleName(imported_mod, symbol->name);
+    }
 
     llvm::Function* ll_func = llvm::Function::Create(
         ll_func_type, 
@@ -65,8 +67,8 @@ llvm::Value* CodeGenerator::genImportGlobalVar(Module& imported_mod, AstDef* nod
 
     auto* ll_type = genType(symbol->type);
 
-    // TODO: handle metadata
-    Assert(node->metadata.size() == 0, "metadata for global variables not implemented");
+    // TODO: handle attributes
+    Assert(node->attrs.size() == 0, "attributes for global variables not implemented");
 
     return new llvm::GlobalVariable(
         mod, 

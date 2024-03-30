@@ -74,15 +74,16 @@ public:
 
 private:
     void checkDef(AstDef* def);
-    bool checkMetadata(const Metadata& metadata, AstKind meta_kind);
     void checkFuncDef(AstDef* node);
+    void checkFuncAttrs(AstDef* def);
 
     struct InitCycle {
         std::vector<size_t> nodes;
         bool done { false };
     };
 
-    void checkGlobalVar(AstDef* node);
+    void checkGlobalVarDef(AstDef* node);
+    void checkGlobalVarAttrs(AstDef* node);
     bool checkInitOrder(size_t def_number, InitCycle& cycle);
 
     struct TypeCycle {

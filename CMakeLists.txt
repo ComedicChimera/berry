@@ -39,6 +39,7 @@ set(SRCS
     "check/check_expr.cpp"
     "check/check_op.cpp"
     "check/check_pattern.cpp"
+    "check/check_attr.cpp"
 
     "codegen/codegen.cpp"
     "codegen/gen_def.cpp"

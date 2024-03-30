@@ -46,16 +46,18 @@ private:
     void parseModulePath();
     size_t findOrAddModuleDep(const std::vector<Token>& tok_mod_path);
 
-    void parseMetadata(MetadataMap& meta);
-    void parseMetaTag(MetadataMap& meta);
+    void parseAttrList(AttributeMap& attr_map);
+    void parseAttribute(AttributeMap& attr_map);
 
-    void parseDef(MetadataMap&& meta, bool exported);
-    void parseFuncDef(MetadataMap&& meta, bool exported);
+    void parseDef(AttributeMap&& attr_map, bool exported);
+    void parseFuncDef(AttributeMap&& attr_map, bool exported);
     void parseFuncParams(std::vector<Symbol*>& params);
-    void parseGlobalVarDef(MetadataMap&& meta, bool exported);
-    void parseStructDef(MetadataMap&& meta, bool exported);
-    void parseAliasDef(MetadataMap&& meta, bool exported);
-    void parseEnumDef(MetadataMap &&meta, bool exported);
+
+    void parseGlobalVarDef(AttributeMap&& attr_map, bool exported);
+    
+    void parseStructDef(AttributeMap&& attr_map, bool exported);
+    void parseAliasDef(AttributeMap&& attr_map, bool exported);
+    void parseEnumDef(AttributeMap &&attr_map, bool exported);
 
     /* ---------------------------------------------------------------------- */
 
@@ -112,8 +114,8 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    Metadata moveMetadataToArena(MetadataMap&& meta_map);
-    AstDef *allocDef(AstKind kind, const TextSpan &span, MetadataMap &&metadata);
+    std::span<Attribute> moveAttrsToArena(AttributeMap&& meta_map);
+    AstDef *allocDef(AstKind kind, const TextSpan& span, AttributeMap&& metadata);
     AstStmt* allocStmt(AstKind kind, const TextSpan& span);
     AstExpr* allocExpr(AstKind kind, const TextSpan& span);
     Type *allocType(TypeKind kind);

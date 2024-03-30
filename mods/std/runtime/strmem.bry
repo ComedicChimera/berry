@@ -1,7 +1,7 @@
 module runtime;
 
-@abientry
-func __berry_strcmp(a, b: string) i64 {
+@abientry("__berry_strcmp")
+func strcmp(a, b: string) i64 {
     // NOTE: This will be replaced with a more efficient implementation later.
     
     let size = min(a._len, b._len);
@@ -15,8 +15,8 @@ func __berry_strcmp(a, b: string) i64 {
     return a._len - b._len;
 }
 
-@abientry
-func __berry_strhash(str: string) u64 {
+@abientry("__berry_strhash")
+func strhash(str: string) u64 {
     // NOTE: This will be replaced with a better hash function later. 
     // This is just the FNV1a hash right now.
 

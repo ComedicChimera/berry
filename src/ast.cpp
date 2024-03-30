@@ -10,7 +10,7 @@ bool AstExpr::IsLValue() const {
     case AST_INDEX:
         return an_Index.array->IsLValue() && !immut;
     case AST_FIELD:
-        return an_Field.root->IsLValue();
+        return an_Field.root->type->Inner()->kind == TYPE_PTR || an_Field.root->IsLValue();
     case AST_STATIC_GET:
         return !an_Field.imported_sym->immut;
     }

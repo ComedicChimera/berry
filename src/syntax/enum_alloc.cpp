@@ -57,21 +57,21 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
 #define LARGEST_STMT_VARIANT_SIZE sizeof(size_ref_stmt.an_For)
 #define LARGEST_EXPR_VARIANT_SIZE sizeof(size_ref_expr.an_Field)
 
-Metadata Parser::moveMetadataToArena(MetadataMap&& meta_map) {
-    auto n_meta = meta_map.size();
-    auto* metadata = (MetadataTag*)arena.Alloc(sizeof(MetadataTag) * n_meta);
+std::span<Attribute> Parser::moveAttrsToArena(AttributeMap&& attr_map) {
+    auto n_attrs = attr_map.size();
+    auto* attr_data = (Attribute*)arena.Alloc(sizeof(Attribute) * n_attrs);
 
     int n = 0;
-    for (auto& pair : meta_map) {
-        metadata[n] = pair.second;
+    for (auto& pair : attr_map) {
+        attr_data[n] = pair.second;
         n++;
     }
 
-    meta_map.clear();
-    return Metadata(metadata, n_meta);
+    attr_map.clear();
+    return std::span<Attribute>(attr_data, n_attrs);
 }
 
-AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, MetadataMap&& meta_map) {
+AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, AttributeMap&& attr_map) {
     Assert(kind <= AST_ENUM, "invalid kind for allocDef");
 
     size_t var_size = ast_variant_sizes[(int)kind];
@@ -81,7 +81,7 @@ AstDef* Parser::allocDef(AstKind kind, const TextSpan& span, MetadataMap&& meta_
     def->kind = kind;
     def->span = span;
     def->parent_file_number = src_file.file_number;
-    def->metadata = moveMetadataToArena(std::move(meta_map));
+    def->attrs = moveAttrsToArena(std::move(attr_map));
 
     return def;
 }
