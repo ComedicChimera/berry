@@ -1,0 +1,17 @@
+module windows;
+
+@[extern, callconv("win64")]
+pub func ExitProcess(uExitCode: UINT);
+
+@[extern, callconv("win64")]
+pub func GetStdHandle(nStdHandle: DWORD) HANDLE;
+
+@[extern, callconv("win64")]
+pub func WriteConsoleA(
+    hConsoleOutput: HANDLE, 
+    lpBuffer: *u8, 
+    nNumberOfCharsToWrite: DWORD, 
+    lpNumberOfCharsWritten: *DWORD, 
+    lpReserved: *u8
+) bool;
+

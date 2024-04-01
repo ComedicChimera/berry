@@ -1,0 +1,6 @@
+module windows;
+
+type HANDLE = *u8;
+
+type UINT = u32;
+type DWORD = u32;

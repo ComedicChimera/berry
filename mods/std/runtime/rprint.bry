@@ -1,0 +1,5 @@
+module runtime;
+
+func rputs(s: string) {
+    sys_eprint(s as []u8);
+}

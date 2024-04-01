@@ -1,15 +1,14 @@
 module runtime;
 
-@[extern, callconv("win64")]
-func ExitProcess(exit_code: u32);
-
 @extern("__berry_main")
 func _umain();
 
 @abientry("__berry_start")
-func _rtstart() {
+func _rtstartup() {
+    _sys_init();
+
     _umain();
 
-    ExitProcess(0);
+    exit(0);
 }
 

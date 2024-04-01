@@ -2,22 +2,34 @@ module runtime;
 
 @abientry("__berry_panic_oob")
 func _panic_oob() {
-    rputs("panic: index out of bounds\n");
-    dopanic();
+    _panic("index out of bounds");
 }
 
 @abientry("__berry_panic_badslice")
 func _panic_badslice() {
-    rputs("panic: bad slice range\n");
-    dopanic();
+    _panic("bad slice range");
 }
 
 @abientry("__berry_panic_unreachable")
 func _panic_unreachable() {
-    rputs("panic: unreachable\n");
-    dopanic();
+    _panic("unreachable");
 }
 
-func dopanic() {
-    ExitProcess(1);
+let panicking: bool = false;
+
+@abientry("__berry_panic_impl")
+func _panic(message: string) {
+    if panicking {
+        fatal();
+    }
+
+    panicking = true;
+
+    rputs("panic: ");
+    rputs(message);
+    rputs("\n\n");
+
+    // TODO: stack tracing
+
+    exit(1);
 }

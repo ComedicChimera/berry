@@ -1,0 +1,7 @@
+module runtime;
+
+func fatal() {
+    // TODO: dump runtime state for debugging
+
+    sys_exit(-1);
+}

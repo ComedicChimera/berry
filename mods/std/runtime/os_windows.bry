@@ -1,0 +1,20 @@
+#require (OS == "windows")
+
+module runtime;
+
+import sys.windows;
+
+func _sys_init() {
+    sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
+}
+
+func sys_exit(exit_code: int) {
+    windows.ExitProcess(exit_code as windows.UINT);
+}
+
+let sys_stderr: windows.HANDLE;
+
+func sys_eprint(b: []u8) {
+    windows.WriteConsoleA(sys_stderr, b._ptr, b._len as windows.DWORD, null, null);
+}
+

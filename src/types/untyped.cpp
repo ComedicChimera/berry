@@ -72,7 +72,7 @@ void TypeContext::InferAll() {
         if (entry.concrete_type == nullptr) {
             switch (entry.kind) {
             case UK_INT: case UK_NUM:
-                ut->ty_Untyp.concrete_type = &prim_i64_type;
+                ut->ty_Untyp.concrete_type = platform_int_type;
                 break;
             case UK_FLOAT:
                 ut->ty_Untyp.concrete_type = &prim_f64_type;
