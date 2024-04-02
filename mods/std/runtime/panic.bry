@@ -2,34 +2,71 @@ module runtime;
 
 @abientry("__berry_panic_oob")
 func _panic_oob() {
-    _panic("index out of bounds");
+    rputs("panic: index out of bounds\n\n");
+
+    _dopanic();
 }
 
 @abientry("__berry_panic_badslice")
 func _panic_badslice() {
-    _panic("bad slice range");
+    rputs("panic: bad slice range\n\n");
+
+    _dopanic();
 }
 
 @abientry("__berry_panic_unreachable")
 func _panic_unreachable() {
-    _panic("unreachable");
+    rputs("panic: unreachable\n\n");
+
+    _dopanic();
 }
 
-let panicking: bool = false;
-
-@abientry("__berry_panic_impl")
-func _panic(message: string) {
-    if panicking {
-        fatal();
-    }
-
-    panicking = true;
-
+@abientry("__berry_panic_user")
+func _panic_user(message: string) {
     rputs("panic: ");
     rputs(message);
     rputs("\n\n");
 
+    _dopanic();
+}
+
+enum PanicMode {
+    Normal;
+    Throw;
+    Abort;
+};
+
+let panic_mode: PanicMode = .Normal;
+
+func _dopanic() {
+    match panic_mode {
+    case .Normal:
+        panic_mode = .Throw;
+    case .Throw:
+        throw("panic inside runtime");
+    case _:
+        // This is PanicMode.Abort or an invalid panic mode.  In either case,
+        // the runtime state is badly corrupted, and we want to crash and burn.
+        abort();
+    }
+
     // TODO: stack tracing
 
     exit(1);
+}
+
+/* -------------------------------------------------------------------------- */
+
+func throw(message: string) {
+    panic_mode = .Abort;
+
+    rputs("throw: ");
+    rputs(message);
+    rputs("\n\n");
+
+    exit(-1);
+}
+
+func abort() {
+    sys_exit(-1);
 }

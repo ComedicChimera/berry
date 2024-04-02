@@ -2,5 +2,6 @@ module runtime;
 
 func exit(exit_code: int) {
     // TODO: exit handlers
+    
     sys_exit(exit_code);
 }
