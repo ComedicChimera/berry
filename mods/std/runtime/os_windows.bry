@@ -6,6 +6,8 @@ import sys.windows;
 
 func _sys_init() {
     sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
+
+    AddVectoredExceptionHandler(0, @_funcaddr(_win_veh_handler));
 }
 
 func sys_exit(exit_code: int) {
@@ -18,3 +20,52 @@ func sys_eprint(b: []u8) {
     windows.WriteConsoleA(sys_stderr, b._ptr, b._len as windows.DWORD, null, null);
 }
 
+enum _WinExcCode {
+    AccessViolation = windows.EXCEPTION_ACCESS_VIOLATION;
+    IntDivideByZero = windows.EXCEPTION_INT_DIVIDE_BY_ZERO;
+    StackOverflow = windows.EXCEPTION_STACK_OVERFLOW;
+    IntOverflow = windows.EXCEPTION_INT_OVERFLOW;
+    FltDenormalOperand = windows.EXCEPTION_FLT_DENORMAL_OPERAND;
+    FltDivideByZero = windows.EXCEPTION_FLT_DIVIDE_BY_ZERO;
+    FltInexactResult = windows.EXCEPTION_FLT_INEXACT_RESULT;
+    FltOverflow = windows.EXCEPTION_FLT_OVERFLOW;
+    FltUnderflow = windows.EXCEPTION_FLT_UNDERFLOW;
+}
+
+func _win_veh_handler(exc_info: *windows.EXCEPTION_POINTERS) {
+    let code: _WinExcCode;
+    unsafe {
+        code = exc_info.ExceptionRecord.ExceptionCode as _WinExcCode;
+    }
+
+    match code {
+    case .AccessViolation:
+        _panic_mem(exc_info.ExceptionRecord._info2 as uint);
+    case .IntDivideByZero:
+        _panic_divide();
+    case .StackOverflow:
+        _panic_stack();
+    case .IntOverflow:
+        _panic_overflow();
+    case .FltDenormalOperand | .FltDivideByZero | .FltInexactResult | .FltOverflow | .FltUnderflow:
+        _panic_float();
+    case _:
+        return windows.EXCEPTION_CONTINUE_SEARCH;
+    }
+
+    // TODO: should we ever able to continue execution?  If so, we need to
+    // increment rip appropriately which will require us to explicitly provide
+    // an implementation for CONTEXT in sys.windows.  That could be dangerous
+    // business indeed.
+    // if (exc_info.ExceptionRecord.ExceptionFlags & windows.EXCEPTION_NONCONTINUABLE) > 0 {
+    //     // TODO: fix for multithreading
+    //     exit(1);
+    // }
+
+    // return windows.EXCEPTION_CONTINUE_EXECUTION;
+
+    // All panic handlers should kill their current thread and thus never
+    // return. If we reach here, something is very wrong with the runtime, and
+    // we should abort immediately.
+    abort();
+}

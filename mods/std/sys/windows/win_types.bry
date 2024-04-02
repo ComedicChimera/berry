@@ -2,5 +2,40 @@ module windows;
 
 type HANDLE = *u8;
 
+type BOOL = i32;
 type UINT = u32;
+type ULONG = u32;
 type DWORD = u32;
+type DWORD64 = u64;
+
+/* -------------------------------------------------------------------------- */
+
+struct EXCEPTION_POINTERS {
+    ExceptionRecord: *EXCEPTION_RECORD;
+    ContextRecord: *u8; 
+}
+
+#if (ARCH_SIZE == 64)
+struct EXCEPTION_RECORD {
+    ExceptionCode: DWORD;
+    ExceptionFlags: DWORD;
+    ExceptionRecord: DWORD64;
+    ExceptionAddress: DWORD64;
+    NumberParameters: DWORD;
+    __align: DWORD;
+    
+    _info1: DWORD64;
+    _info2: DWORD64;
+}
+#else
+struct EXCEPTION_RECORD {
+    ExceptionCode: DWORD;
+    ExceptionFlags: DWORD;
+    ExceptionRecord: DWORD;
+    ExceptionAddress: DWORD;
+    NumberParameters: DWORD;
+    
+    _info1: DWORD;
+    _info2: DWORD;
+}
+#end

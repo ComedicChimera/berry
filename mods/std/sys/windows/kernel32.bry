@@ -13,5 +13,10 @@ pub func WriteConsoleA(
     nNumberOfCharsToWrite: DWORD, 
     lpNumberOfCharsWritten: *DWORD, 
     lpReserved: *u8
-) bool;
+) BOOL;
 
+@[extern, callconv("win64")]
+pub func AddVectoredExceptionHandler(
+    First: ULONG,
+    Handler: *u8
+) *u8;

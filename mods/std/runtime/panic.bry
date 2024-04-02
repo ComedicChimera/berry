@@ -1,5 +1,43 @@
 module runtime;
 
+// NOTE: The panic functions not tagged @abientry are directly called by the
+// signal handler implemented in the appropriate os_*.bry source file.
+
+func _panic_stack() {
+    rputs("panic: stack overflow\n\n");
+
+    _dopanic();
+}
+
+func _panic_overflow() {
+    rputs("panic: integer overflow\n\n");
+
+    _dopanic();
+}
+
+func _panic_divide() {
+    rputs("panic: integer divide by zero\n\n");
+
+    _dopanic();
+}
+
+func _panic_mem(addr: uint) {
+    if addr == 0 {
+        rputs("panic: null pointer dereference\n\n");
+    } else {
+        // TODO: print address
+        rputs("panic: invalid memory access\n\n");
+    }
+
+    _dopanic();
+}
+
+func _panic_float() {
+    rputs("panic: floating point error");
+
+    _dopanic();
+}
+
 @abientry("__berry_panic_oob")
 func _panic_oob() {
     rputs("panic: index out of bounds\n\n");
