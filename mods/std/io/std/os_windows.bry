@@ -1,3 +1,5 @@
+module std;
+
 #require (OS == "windows")
 
 import sys.windows;

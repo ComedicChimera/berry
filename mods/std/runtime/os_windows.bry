@@ -7,7 +7,7 @@ import sys.windows;
 func _sys_init() {
     sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
 
-    AddVectoredExceptionHandler(0, @_funcaddr(_win_veh_handler));
+    windows.AddVectoredExceptionHandler(0, @_funcaddr(_win_veh_handler));
 }
 
 func sys_exit(exit_code: int) {
@@ -32,7 +32,7 @@ enum _WinExcCode {
     FltUnderflow = windows.EXCEPTION_FLT_UNDERFLOW;
 }
 
-func _win_veh_handler(exc_info: *windows.EXCEPTION_POINTERS) {
+func _win_veh_handler(exc_info: *windows.EXCEPTION_POINTERS) windows.DWORD {
     let code: _WinExcCode;
     unsafe {
         code = exc_info.ExceptionRecord.ExceptionCode as _WinExcCode;
@@ -68,4 +68,7 @@ func _win_veh_handler(exc_info: *windows.EXCEPTION_POINTERS) {
     // return. If we reach here, something is very wrong with the runtime, and
     // we should abort immediately.
     abort();
+
+    // Unreachable.
+    return windows.EXCEPTION_CONTINUE_SEARCH;
 }

@@ -72,7 +72,7 @@ enum PanicMode {
     Normal;
     Throw;
     Abort;
-};
+}
 
 let panic_mode: PanicMode = .Normal;
 

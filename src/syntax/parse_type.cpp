@@ -114,8 +114,9 @@ Type* Parser::parseNamedTypeLabel() {
     NamedTypeTable::Ref* ref;
     bool first_ref = false;
     if (has(TOK_DOT)) {
-        auto mod_name_tok = wantAndGet(TOK_IDENT);
-
+        auto mod_name_tok = prev;
+        next();
+        
         auto mod_name = arena.MoveStr(std::move(mod_name_tok.value));
         auto it_dep = src_file.import_table.find(mod_name);
         if (it_dep == src_file.import_table.end()) {
@@ -124,6 +125,7 @@ Type* Parser::parseNamedTypeLabel() {
 
         auto& refs = src_file.parent->named_table.external_refs[it_dep->second];
 
+        want(TOK_IDENT);
         auto it_ref = refs.find(prev.value);
         if (it_ref == refs.end()) {
             ref = &refs.emplace(prev.value, NamedTypeTable::Ref{}).first->second;

@@ -635,16 +635,23 @@ AstExpr* Parser::parseMacroCall() {
         auto* type = parseTypeLabel();
         want(TOK_RPAREN);
 
-        expr = allocExpr(AST_SIZEOF, SpanOver(start_span, prev.span));
+        expr = allocExpr(AST_MACRO_SIZEOF, SpanOver(start_span, prev.span));
         expr->type = platform_uint_type;
         expr->an_TypeMacro.type_arg = type;
     } else if (macro_ident.value == "alignof") {
         auto* type = parseTypeLabel();
         want(TOK_RPAREN);
 
-        expr = allocExpr(AST_ALIGNOF, SpanOver(start_span, prev.span));
+        expr = allocExpr(AST_MACRO_ALIGNOF, SpanOver(start_span, prev.span));
         expr->type = platform_uint_type;
         expr->an_TypeMacro.type_arg = type;
+    } else if (macro_ident.value == "_funcaddr") {
+        auto* arg_expr = parseExpr();
+        want(TOK_RPAREN);
+
+        expr = allocExpr(AST_MACRO_FUNCADDR, SpanOver(start_span, prev.span));
+        expr->type = &prim_ptr_u8_type;
+        expr->an_ValueMacro.expr = arg_expr;
     } else {
         fatal(macro_ident.span, "unknown macro: {}", macro_ident.value);
     }

@@ -83,10 +83,13 @@ llvm::Value* CodeGenerator::genExpr(AstExpr* node, bool expect_addr, llvm::Value
         return getNullValue(genType(node->type));
     case AST_STRING:
         return genStrLit(node, alloc_loc);
-    case AST_SIZEOF:
+    case AST_MACRO_SIZEOF:
         return makeLLVMIntLit(platform_uint_type, getLLVMByteSize(genType(node->an_TypeMacro.type_arg, true)));
-    case AST_ALIGNOF:
+    case AST_MACRO_ALIGNOF:
         return makeLLVMIntLit(platform_uint_type, getLLVMByteAlign(genType(node->an_TypeMacro.type_arg, true)));
+    case AST_MACRO_FUNCADDR:
+        // TODO: make this more sophisticated later...
+        return genExpr(node->an_ValueMacro.expr);
     default:
         Panic("expr codegen not implemented for {}", (int)node->kind);
         break;

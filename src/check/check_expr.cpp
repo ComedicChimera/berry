@@ -83,9 +83,12 @@ void Checker::checkExpr(AstExpr* node, Type* infer_type) {
         break;
     case AST_STRING:
     case AST_BOOL:
-    case AST_SIZEOF:
-    case AST_ALIGNOF:
+    case AST_MACRO_SIZEOF:
+    case AST_MACRO_ALIGNOF:
         // Nothing to do :)
+        break;
+    case AST_MACRO_FUNCADDR:
+        checkExpr(node->an_ValueMacro.expr);
         break;
     case AST_NULL:
         if (infer_type) {

@@ -110,6 +110,11 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
     case AST_STRUCT_LIT_NAMED: 
         value = evalComptimeStructLitNamed(node);
         break; 
+    case AST_ENUM_LIT:
+        value = allocComptime(CONST_ENUM);
+        value->v_enum.enum_type = node->type->FullUnwrap();
+        value->v_enum.variant_id = node->an_Field.field_index;
+        break;
     case AST_IDENT: {
         auto* symbol = node->an_Ident.symbol;
         Assert(symbol->flags & SYM_COMPTIME, "comptime eval with non-comptime symbol");
@@ -229,6 +234,8 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         value->DEST_ = (TYPE_)src->v_f64; \
     case CONST_BOOL: \
         value->DEST_ = (TYPE_)src->v_bool; \
+    case CONST_ENUM: \
+        Panic("enum to int cast not yet implemented"); \
     }
 
 ConstValue* CodeGenerator::evalComptimeCast(AstExpr* node) {
@@ -348,6 +355,12 @@ ConstValue* CodeGenerator::evalComptimeCast(AstExpr* node) {
 
         value->v_str.mod_id = src_mod.id;
         value->v_str.alloc_loc = nullptr;
+        break;
+    case TYPE_ENUM:
+        value = allocComptime(CONST_ENUM);
+        value->v_enum.enum_type = node->type->FullUnwrap();
+        
+        COMPTIME_INT_CAST(v_enum.variant_id, size_t);
         break;
     }
 
@@ -1047,6 +1060,8 @@ llvm::Constant* CodeGenerator::genComptime(ConstValue* value, ComptimeGenFlags f
         return genComptimeString(value, flags);
     case CONST_STRUCT:
         return genComptimeStruct(value, flags);
+    case CONST_ENUM:
+        return value->v_enum.enum_type->ty_Enum.tag_values[value->v_enum.variant_id];
     default:
         Panic("unimplemented comptime value");
         break;

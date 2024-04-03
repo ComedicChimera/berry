@@ -234,6 +234,8 @@ inline Type prim_bool_type { .kind { TYPE_BOOL }};
 inline Type prim_unit_type { .kind { TYPE_UNIT }};
 inline Type prim_string_type { .kind{ TYPE_STRING }, .ty_Array{ &prim_u8_type } };
 
+inline Type prim_ptr_u8_type { .kind{ TYPE_PTR }, .ty_Ptr{ &prim_u8_type } };
+
 inline Type* platform_int_type { nullptr };
 inline Type* platform_uint_type { nullptr };
 

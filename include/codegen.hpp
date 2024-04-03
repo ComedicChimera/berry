@@ -26,6 +26,7 @@ enum ConstKind {
     CONST_ZERO_ARRAY,
     CONST_STRING,
     CONST_STRUCT,
+    CONST_ENUM,
 
     CONSTS_COUNT
 };
@@ -35,14 +36,14 @@ struct ConstValue {
     union {
         int8_t v_i8;
         uint8_t v_u8;
-        int16_t v_i16 ;
+        int16_t v_i16;
         uint16_t v_u16;
         int32_t v_i32;
         uint32_t v_u32;
         int64_t v_i64;
         uint64_t v_u64;
-        float v_f32 ;
-        double v_f64 ;
+        float v_f32;
+        double v_f64;
         bool v_bool;
         size_t v_ptr;
         Symbol* v_func;
@@ -69,6 +70,10 @@ struct ConstValue {
             size_t mod_id;
             llvm::Constant* alloc_loc;
         } v_struct;
+        struct {
+            Type* enum_type;
+            size_t variant_id;
+        } v_enum;
     };
 };
 

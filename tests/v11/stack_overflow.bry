@@ -1,0 +1,14 @@
+import io.std;
+
+func overflow(x: int) {
+    x++;
+
+    std.putint(x);
+    std.putr('\n');
+
+    overflow(x);
+}
+
+func main() {
+    overflow(0);
+}

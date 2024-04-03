@@ -1,0 +1,13 @@
+import io.std;
+
+func main() {
+    let x = 10;
+    let y = 0;
+
+    // NOTE: This doesn't actually cause an exception... 
+    // I may have to generate an explicit check for divide by zero in codegen
+    let z = x / y;
+
+    std.putint(z);
+    std.putr('\n');
+}

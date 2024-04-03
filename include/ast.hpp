@@ -52,8 +52,9 @@ enum AstKind {
     AST_NULL,
     AST_STRING,
 
-    AST_SIZEOF,
-    AST_ALIGNOF,
+    AST_MACRO_SIZEOF,
+    AST_MACRO_ALIGNOF,
+    AST_MACRO_FUNCADDR,
 
     AST_PATTERN_LIST,
 
@@ -211,6 +212,9 @@ struct AstExpr : public AstNode {
         struct {
             Type* type_arg;
         } an_TypeMacro;
+        struct {
+            AstExpr* expr;
+        } an_ValueMacro;
 
         struct {
             std::span<AstExpr*> patterns;

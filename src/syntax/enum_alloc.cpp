@@ -55,6 +55,7 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
 
     sizeof(size_ref_expr.an_TypeMacro),
     sizeof(size_ref_expr.an_TypeMacro),
+    sizeof(size_ref_expr.an_ValueMacro),
 
     sizeof(size_ref_expr.an_PatternList)
 };

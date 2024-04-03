@@ -1,0 +1,6 @@
+func main() {
+    let p: *u8 = null;
+
+    // Null Pointer Dereference
+    *p = 10;
+}
