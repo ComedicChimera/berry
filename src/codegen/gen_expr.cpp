@@ -181,12 +181,12 @@ llvm::Value* CodeGenerator::genCast(AstExpr* node) {
             return irb.CreateIntToPtr(src_val, ll_dtype);
         }
         break;
-    case TYPE_ARRAY:
+    case TYPE_SLICE:
         if (src_kind == TYPE_STRING)
             return src_val;
         break;
     case TYPE_STRING:
-        if (src_kind == TYPE_ARRAY)
+        if (src_kind == TYPE_SLICE)
             return src_val;
         break;
     case TYPE_ENUM:

@@ -33,9 +33,9 @@ bool TypeContext::innerEqual(Type* a, Type* b) {
         return b->kind == TYPE_UNIT;
     case TYPE_STRING:
         return b->kind == TYPE_STRING;
-    case TYPE_ARRAY:
-        if (b->kind == TYPE_ARRAY) {
-            return Equal(a->ty_Array.elem_type, b->ty_Array.elem_type);
+    case TYPE_SLICE:
+        if (b->kind == TYPE_SLICE) {
+            return Equal(a->ty_Slice.elem_type, b->ty_Slice.elem_type);
         }
         break;
     case TYPE_PTR:
@@ -170,14 +170,14 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
             return true;
         }
         break;
-    case TYPE_ARRAY:
+    case TYPE_SLICE:
         if ((flags & TC_UNSAFE) && dest->kind == TYPE_STRING) {
-            return Equal(src->ty_Array.elem_type, &prim_u8_type);
+            return Equal(src->ty_Slice.elem_type, &prim_u8_type);
         }
         break;
     case TYPE_STRING:
-        if (dest->kind == TYPE_ARRAY) {
-            return Equal(dest->ty_Array.elem_type, &prim_u8_type);
+        if (dest->kind == TYPE_SLICE) {
+            return Equal(dest->ty_Slice.elem_type, &prim_u8_type);
         }
         break;
     case TYPE_ENUM:

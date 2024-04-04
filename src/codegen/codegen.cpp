@@ -257,7 +257,7 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
 
         return llvm::FunctionType::get(ll_return_type, ll_param_types, false);
     } break;
-    case TYPE_ARRAY: 
+    case TYPE_SLICE: 
     case TYPE_STRING:
         return ll_array_type;
     case TYPE_STRUCT:

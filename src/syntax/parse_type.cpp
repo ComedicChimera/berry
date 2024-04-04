@@ -57,8 +57,8 @@ Type* Parser::parseTypeLabel() {
         next();
         want(TOK_RBRACKET);
 
-        auto* arr_type = allocType(TYPE_ARRAY);
-        arr_type->ty_Array.elem_type = parseTypeLabel();
+        auto* arr_type = allocType(TYPE_SLICE);
+        arr_type->ty_Slice.elem_type = parseTypeLabel();
         return arr_type;
     } break;
     case TOK_STRUCT:

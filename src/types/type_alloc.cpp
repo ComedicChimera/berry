@@ -10,8 +10,8 @@ static size_t type_variant_sizes[TYPES_COUNT] = {
 
     sizeof(prim_i8_type.ty_Ptr),    
     sizeof(prim_i8_type.ty_Func),   
-    sizeof(prim_i8_type.ty_Array),  
-    sizeof(prim_i8_type.ty_Array),
+    sizeof(prim_i8_type.ty_Slice),  
+    sizeof(prim_i8_type.ty_Slice),
 
     sizeof(prim_i8_type.ty_Named),
     sizeof(prim_i8_type.ty_Named),

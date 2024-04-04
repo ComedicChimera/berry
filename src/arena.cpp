@@ -11,13 +11,7 @@
 #define max(a, b) ((a) < (b) ? b : a)
 
 Arena::~Arena() {
-    ArenaChunk* chunk = curr_chunk;
-    ArenaChunk* prev_chunk;
-    while (chunk != nullptr) {
-        prev_chunk = chunk->prev;
-        sysFree(chunk);
-        chunk = prev_chunk;
-    }
+    Release();
 }
 
 Arena::Arena(Arena&& arena) {
@@ -77,6 +71,31 @@ size_t Arena::alignSize(size_t size) {
         return size;
 
     return size + (ARENA_ALIGN - size % ARENA_ALIGN);
+}
+
+/* -------------------------------------------------------------------------- */
+
+void Arena::Release() {
+    ArenaChunk* prev_chunk;
+    while (curr_chunk != nullptr) {
+        prev_chunk = curr_chunk->prev;
+        sysFree(curr_chunk);
+        curr_chunk = prev_chunk;
+    }
+}
+
+void Arena::Reset() {
+    if (curr_chunk == nullptr)
+        return;
+
+    auto* prev_chunk = curr_chunk->prev;
+    while (prev_chunk != nullptr) {
+        sysFree(curr_chunk);
+        curr_chunk = prev_chunk;
+        prev_chunk = curr_chunk->prev;
+    }
+
+    curr_chunk->n_used = 0;
 }
 
 /* -------------------------------------------------------------------------- */

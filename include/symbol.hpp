@@ -50,6 +50,21 @@ struct Symbol {
     llvm::Value* llvm_value { nullptr };
 };
 
+// Attribute represents a Berry definition attribute.
+struct Attribute {
+    // The name of the tag.
+    std::string_view name;
+
+    // The source span containing the tag name.
+    TextSpan name_span;
+
+    // The value of the tag (may be empty if no value).
+    std::string_view value;
+
+    // The source span containing the value (if it exists).
+    TextSpan value_span;
+};
+
 /* -------------------------------------------------------------------------- */
 
 struct SourceFile;

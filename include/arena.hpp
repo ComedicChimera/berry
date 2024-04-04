@@ -56,6 +56,13 @@ public:
     // contiguous. If the allocation cannot be performed, NULL is returned.
     void* Alloc(size_t size);
 
+    // Reset resets the arena allocation pointer back to the start of the arena
+    // and releases all but the first chunk.
+    void Reset();
+
+    // Release releases all the memory associated with the arena back to the OS.
+    void Release();
+
     /* ---------------------------------------------------------------------- */
 
     // New makes a new object of type T in the arena's storage passing args

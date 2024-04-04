@@ -246,7 +246,7 @@ llvm::DIType* DebugGenerator::GetDIType(Type* type, uint call_conv) {
             call_conv
         );
     }
-    case TYPE_ARRAY: case TYPE_STRUCT: case TYPE_NAMED: case TYPE_STRING:
+    case TYPE_SLICE: case TYPE_STRUCT: case TYPE_NAMED: case TYPE_STRING:
         // TODO: unimplemented
         return prim_type_table[1];
     }

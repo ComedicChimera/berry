@@ -61,7 +61,7 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
         lhs_type = lhs_type->Inner();
 
         switch (lhs_type->kind) {
-        case TYPE_ARRAY:
+        case TYPE_SLICE:
         case TYPE_FUNC:
         case TYPE_STRUCT:
             break;

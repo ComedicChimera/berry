@@ -16,7 +16,8 @@ enum TypeKind {
 
     TYPE_PTR,       // Pointer type
     TYPE_FUNC,      // Function type
-    TYPE_ARRAY,     // Array Type
+    TYPE_ARRAY,     // Array Type (fixed size)
+    TYPE_SLICE,     // Slice Type
     TYPE_STRING,    // String Type
     
     TYPE_NAMED,     // Named Type 
@@ -60,7 +61,11 @@ struct Type {
         } ty_Func;
         struct {
             Type* elem_type;
+            size_t len;
         } ty_Array;
+        struct {
+            Type* elem_type;
+        } ty_Slice;
 
         struct {
             size_t mod_id;
@@ -74,8 +79,7 @@ struct Type {
             llvm::Type* llvm_type;
         } ty_Struct;
         struct {
-            std::span<llvm::Constant*> tag_values;
-            MapView<size_t> name_map;
+            MapView<size_t> tag_map;
         } ty_Enum;
 
         struct {
@@ -232,7 +236,7 @@ inline Type prim_f32_type { .kind{ TYPE_FLOAT }, .ty_Float{ 32 } };
 inline Type prim_f64_type { .kind{ TYPE_FLOAT }, .ty_Float{ 64 } };
 inline Type prim_bool_type { .kind { TYPE_BOOL }};
 inline Type prim_unit_type { .kind { TYPE_UNIT }};
-inline Type prim_string_type { .kind{ TYPE_STRING }, .ty_Array{ &prim_u8_type } };
+inline Type prim_string_type { .kind{ TYPE_STRING }, .ty_Slice{ &prim_u8_type } };
 
 inline Type prim_ptr_u8_type { .kind{ TYPE_PTR }, .ty_Ptr{ &prim_u8_type } };
 

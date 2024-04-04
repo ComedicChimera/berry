@@ -39,7 +39,7 @@ llvm::Value* CodeGenerator::genCall(AstExpr* node, llvm::Value* alloc_loc) {
 llvm::Value* CodeGenerator::genIndexExpr(AstExpr* node, bool expect_addr) {
     auto& aindex = node->an_Index;
 
-    // Assert(aindex.array->type->Inner()->kind == TYPE_ARRAY, "index on non-array type in codegen");
+    // Assert(aindex.array->type->Inner()->kind == TYPE_SLICE, "index on non-array type in codegen");
 
     auto* array_val = genExpr(aindex.array);
     auto* index_val = genExpr(aindex.index);
@@ -59,7 +59,7 @@ llvm::Value* CodeGenerator::genIndexExpr(AstExpr* node, bool expect_addr) {
 llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) {
     auto& aslice = node->an_Slice;
 
-    // Assert(aslice.array->type->Inner()->kind == TYPE_ARRAY, "slice on non-array type in codegen");
+    // Assert(aslice.array->type->Inner()->kind == TYPE_SLICE, "slice on non-array type in codegen");
 
     auto* array_val = genExpr(aslice.array);
     auto* len_val = getArrayLen(array_val);
@@ -97,7 +97,7 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
         setCurrentBlock(bb_is_good_slice);
     }
 
-    auto* ll_elem_type = genType(node->type->ty_Array.elem_type, true);
+    auto* ll_elem_type = genType(node->type->ty_Slice.elem_type, true);
 
     auto* new_arr_data = irb.CreateGEP(llvm::ArrayType::get(ll_elem_type, 0), getArrayData(array_val), { getInt32Const(0), start_ndx_val });
     auto* new_arr_len = irb.CreateSub(end_ndx_val, start_ndx_val);
@@ -137,7 +137,7 @@ llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
                 root_ptr, 
                 { getInt32Const(0), getInt32Const(afield.field_index)}
             );
-        case TYPE_ARRAY:
+        case TYPE_SLICE:
         case TYPE_STRING:
             if (afield.field_name == "_ptr") {
                 return getArrayDataPtr(root_ptr);
@@ -173,7 +173,7 @@ llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
             } else {
                 return irb.CreateExtractValue(root_val, afield.field_index);
             }
-        case TYPE_ARRAY:
+        case TYPE_SLICE:
         case TYPE_STRING:
             if (afield.field_name == "_ptr") {
                 return getArrayData(root_val);

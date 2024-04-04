@@ -168,10 +168,10 @@ void Checker::checkIndex(AstExpr* node) {
     checkExpr(index.index, platform_int_type);
 
     auto* array_type = index.array->type->Inner();
-    if (array_type->kind == TYPE_ARRAY || array_type->kind == TYPE_STRING) {
+    if (array_type->kind == TYPE_SLICE || array_type->kind == TYPE_STRING) {
         mustIntType(index.index->span, index.index->type);
 
-        node->type = array_type->ty_Array.elem_type;
+        node->type = array_type->ty_Slice.elem_type;
 
         node->immut = index.array->immut || array_type->kind == TYPE_STRING;
     } else {
@@ -191,7 +191,7 @@ void Checker::checkSlice(AstExpr* node) {
         checkExpr(slice.end_index, platform_int_type);
 
     auto* inner_type = slice.array->type->Inner();
-    if (inner_type->kind == TYPE_ARRAY || inner_type->kind == TYPE_STRING) {
+    if (inner_type->kind == TYPE_SLICE || inner_type->kind == TYPE_STRING) {
         if (slice.start_index)
             mustIntType(slice.start_index->span, slice.start_index->type);
 
@@ -290,13 +290,13 @@ void Checker::checkField(AstExpr* node, bool expect_type) {
             return;
         }
     } break;
-    case TYPE_ARRAY:
+    case TYPE_SLICE:
     case TYPE_STRING:
         if (fld.field_name == "_ptr") {
             is_comptime_expr = false;
 
             node->type = AllocType(arena, TYPE_PTR);
-            node->type->ty_Ptr.elem_type = root_type->ty_Array.elem_type;
+            node->type->ty_Ptr.elem_type = root_type->ty_Slice.elem_type;
             return;
         } else if (fld.field_name == "_len") {
             node->type = platform_int_type;
@@ -363,8 +363,8 @@ void Checker::checkArray(AstExpr* node, Type* infer_type) {
     if (infer_type) {
         infer_type = infer_type->Inner();
 
-        if (infer_type->kind == TYPE_ARRAY)
-            elem_infer_type = infer_type->ty_Array.elem_type;
+        if (infer_type->kind == TYPE_SLICE)
+            elem_infer_type = infer_type->ty_Slice.elem_type;
     }
 
     for (auto& elem : arr.elems) {
@@ -376,8 +376,8 @@ void Checker::checkArray(AstExpr* node, Type* infer_type) {
         mustEqual(arr.elems[i]->span, first_type, arr.elems[i]->type);
     }
 
-    node->type = AllocType(arena, TYPE_ARRAY);
-    node->type->ty_Array.elem_type = first_type;
+    node->type = AllocType(arena, TYPE_SLICE);
+    node->type->ty_Slice.elem_type = first_type;
 
     arr.alloc_mode = enclosing_return_type ? A_ALLOC_STACK : A_ALLOC_GLOBAL;
 }
@@ -400,8 +400,8 @@ void Checker::checkNewExpr(AstExpr* node) {
 
         mustIntType(size_expr->span, size_expr->type);
 
-        node->type = AllocType(arena, TYPE_ARRAY);
-        node->type->ty_Array.elem_type = node->an_New.elem_type;
+        node->type = AllocType(arena, TYPE_SLICE);
+        node->type->ty_Slice.elem_type = node->an_New.elem_type;
     } else {
         is_comptime_expr = false;
 

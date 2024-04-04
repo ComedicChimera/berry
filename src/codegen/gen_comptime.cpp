@@ -100,7 +100,7 @@ ConstValue* CodeGenerator::evalComptime(AstExpr* node) {
         }
 
         value->v_array.elems = arena.MoveVec(std::move(elems));
-        value->v_array.elem_type = node->type->Inner()->ty_Array.elem_type->Inner();
+        value->v_array.elem_type = node->type->Inner()->ty_Slice.elem_type->Inner();
         value->v_array.mod_id = src_mod.id;
         value->v_array.alloc_loc = nullptr;
     } break;
@@ -318,7 +318,7 @@ ConstValue* CodeGenerator::evalComptimeCast(AstExpr* node) {
             COMPTIME_INT_CAST(v_ptr, size_t);
         }
         break;
-    case TYPE_ARRAY:
+    case TYPE_SLICE:
         if (src->kind == CONST_STRING) {
             value = allocComptime(CONST_ARRAY);
 
@@ -947,10 +947,10 @@ ConstValue* CodeGenerator::getComptimeNull(Type* type) {
         value = allocComptime(CONST_FUNC);
         value->v_func = nullptr;
         break;
-    case TYPE_ARRAY:
+    case TYPE_SLICE:
         value = allocComptime(CONST_ARRAY);
         value->v_array.elems = {};
-        value->v_array.elem_type = type->ty_Array.elem_type->Inner();
+        value->v_array.elem_type = type->ty_Slice.elem_type->Inner();
         value->v_array.mod_id = src_mod.id;
         value->v_array.alloc_loc = nullptr;
         break;
