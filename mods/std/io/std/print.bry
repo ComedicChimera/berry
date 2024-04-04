@@ -2,7 +2,7 @@ module std;
 
 import runtime;
 
-let out_buff: []u8 = new u8[4096];
+let out_buff: [4096]u8;
 let out_cursor: int;
 
 func write(b: []u8) {
@@ -29,7 +29,7 @@ func flush() {
 /* ------------------------------------------------------------------------- */
 
 pub func putint(n: int) {
-    let digit_buff = new u8[20];
+    let digit_buff: [20]u8;
 
     let is_neg = false;
     if n < 0 {

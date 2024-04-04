@@ -89,19 +89,96 @@ don't always get time (or energy) to work on it.
     * Platform Sized Ints: `int` and `uint`
         - Update compiler code to user platform-sized integers where appropriate
 
-- [ ] Target 11: Dynamic Memory and Error Handling
-    * Factor platform bindings into `sys.windows`
-    * Dynamic Allocator
-    * Signal Handling 
-    * Stack Unwinding and Traceback Support
+- [ ] Target 11: Arrays and Slices
+    * Rename variable length arrays to slices
+    * Add a fixed size array type: `[N]Type`
+    * All array constants default to array.
+    * Arrays implicitly convert to slices
 
-- [ ] Target 12: Garbage Collection
-    * Garbage Collector
+- [ ] Target 12: Error Handling
+    * Factor platform bindings into `sys.windows`
+    * Signal Handling
+        - Stack Overflow
+        - Access Violation
+        - Int and Float Errors 
+    * Stack Unwinding and Traceback Support
+    * Proper Handling of Divide by Zero and Invalid Shifts
+        - Capture poison values as they occur
+    * Use `llvm.expect` to speed up checks for optimizer
+
+- [ ] Target 13: Threads and Semaphores
+    * Primitive Thread Operations
+        - Create, Suspend, Kill, GetID
+    * Thread Local Storage + TL Runtime State
+        - Allocate TLS data globally for now (just use a big array)
+        - We will replace this with dynamic memory in the next target
+    * Semaphores and Mutexes
+
+- [ ] Target 14: Dynamic Memory
+    * Multithreaded Allocator
+        - Doesn't need to be to advanced, but good enough to last for a while.
+        - Should support multi-threading
+        - Base it off either glibc malloc or tcmalloc
+        - We can improve it later
+    * Move TLS to the heap
+
+- [ ] Target 15: Garbage Collection
+    * Simple Mark-and-Sweep Garbage Collector
+        - We can make it better letter on.
     * Automatic Heap Allocation
     * Escape Analysis
 
-- [ ] Target 13: Debug Info
+- [ ] Target 16: Debug Info
     * Fix DIType generation
     * Add code for debug assignment
     * Get debugging working on Windows (enable stepping through the program)
+    * Proper handling of breakpoints and state dumping
+
+- [ ] Target 17: Methods
+    * Method Binding `interf for`
+    * Method Calling Syntax
+    * Method importing and scoping
+    * Default methods for arrays, slices, and strings.
+        - `.len()`
+        - Make accessing properties directly `unsafe` only.
+
+- [ ] Target 18: Interfaces
+    * Interface Declarations 
+    * Interface Inheritance
+    * Virtual methods
+    * The `any` type
+
+- [ ] Target 19: Better Functions
+    * Variadic Arguments
+    * Named Arguments
+    * Function Overloading
+
+- [ ] Target 20: Formatted IO
+    * Make `io.std` more usable `std.println`, etc...
+
+- [ ] Target 21: Pattern Matching
+
+- [ ] Target 22: Tagged Unions
+
+- [ ] Target 23: Generics
+    * Generic Type Inference
+    * Generic Types and Functions
+    * Generic Interface Binding
+
+- [ ] Target 24: Closures
+
+- [ ] Target 25: Monadic Error Handling
+
+- [ ] Target 26: Operator Overloading
+
+- [ ] Target 27: Builtin Collections
+
+- [ ] Target 28: Iterators and Sequences
+
+
+
+
+
+
+
 
