@@ -21,8 +21,6 @@ namespace fs = std::filesystem;
 #include "codegen.hpp"
 #include "linker.hpp"
 
-#include "test/ast_print.hpp"
-
 /* -------------------------------------------------------------------------- */
 
 class Compiler {
@@ -79,11 +77,6 @@ public:
 
             emit();
             break;
-        case OUTFMT_DUMPAST:
-            for (auto& mod : loader) {
-                PrintModuleAst(mod);
-            }
-            return;
         }
     }
 

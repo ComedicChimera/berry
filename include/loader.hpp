@@ -13,7 +13,8 @@ namespace fs = std::filesystem;
 class Loader {
     using ModuleTable = std::unordered_map<std::string, Module>;
 
-    Arena& arena;
+    Arena& global_arena;
+    Arena& ast_arena;
     ModuleTable mod_table;
     std::vector<fs::path> import_paths;
 
@@ -29,7 +30,7 @@ class Loader {
     std::queue<LoadEntry> load_queue;
 
 public:
-    Loader(Arena& arena, const std::vector<std::string>& import_paths);
+    Loader(Arena& global_arena, Arena& ast_arena, const std::vector<std::string>& import_paths);
     void LoadAll(const std::string& root_mod);
 
     std::vector<Module*> SortModulesByDepGraph();
@@ -75,11 +76,7 @@ private:
     void parseModule(Module& mod);
     void resolveImports(const fs::path& local_path, Module& mod);
     std::optional<fs::path> findModule(const fs::path& search_path, const std::vector<std::string>& mod_path);
-
-    /* ---------------------------------------------------------------------- */
-
     void checkForImportCycles();
-    void resolveNamedTypes();
 
     /* ---------------------------------------------------------------------- */
 

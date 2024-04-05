@@ -1,169 +1,169 @@
-#ifndef IR_H_INC
-#define IR_H_INC
+#ifndef HIR_H_INC
+#define HIR_H_INC
 
 #include "symbol.hpp"
 
-enum IrKind {
-    IR_FUNC,
-    IR_GLOBAL_VAR,
-    IR_GLOBAL_CONST,
-    IR_STRUCT,      // uses ir_TypeDef
-    IR_ALIAS,       // uses ir_TypeDef 
-    IR_ENUM,        // uses ir_TypeDef
+enum HirKind {
+    HIR_FUNC,
+    HIR_GLOBAL_VAR,
+    HIR_GLOBAL_CONST,
+    HIR_STRUCT,         // uses ir_TypeDef
+    HIR_ALIAS,          // uses ir_TypeDef 
+    HIR_ENUM,           // uses ir_TypeDef
 
-    IR_BLOCK,
-    IR_IF,
-    IR_WHILE,
-    IR_DO_WHILE,    // uses ir_While
-    IR_FOR,
-    IR_MATCH,
-    IR_UNSAFE,      // uses ir_Block
-    IR_LOCAL_VAR,
-    IR_LOCAL_CONST,
-    IR_ASSIGN,
-    IR_CPD_ASSIGN,
-    IR_INCDEC,
-    IR_EXPR_STMT,
-    IR_RETURN,
-    IR_BREAK,
-    IR_CONTINUE,
-    IR_FALLTHRU,
+    HIR_BLOCK,
+    HIR_IF,
+    HIR_WHILE,
+    HIR_DO_WHILE,       // uses ir_While
+    HIR_FOR,
+    HIR_MATCH,
+    HIR_UNSAFE,         // uses ir_Block
+    HIR_LOCAL_VAR,
+    HIR_LOCAL_CONST,
+    HIR_ASSIGN,
+    HIR_CPD_ASSIGN,
+    HIR_INCDEC,
+    HIR_EXPR_STMT,
+    HIR_RETURN,
+    HIR_BREAK,
+    HIR_CONTINUE,
+    HIR_FALLTHRU,
 
-    IR_TEST_MATCH,
-    IR_CAST,
-    IR_BINOP,
-    IR_UNOP,
-    IR_ADDR,
-    IR_DEREF,
-    IR_CALL,
-    IR_INDEX,
-    IR_SLICE,
-    IR_FIELD,
-    IR_DEREF_FIELD, // uses ir_Field
-    IR_NEW,
-    IR_NEW_ARRAY,
-    IR_NEW_STRUCT,
-    IR_ARRAY_LIT,
-    IR_STRUCT_LIT,
-    IR_ENUM_LIT,
-    IR_IDENT,
-    IR_NUM_LIT,
-    IR_FLOAT_LIT,
-    IR_BOOL_LIT,
-    IR_STRING_LIT,
-    IR_NULL,
+    HIR_TEST_MATCH,
+    HIR_CAST,
+    HIR_BINOP,
+    HIR_UNOP,
+    HIR_ADDR,
+    HIR_DEREF,
+    HIR_CALL,
+    HIR_INDEX,
+    HIR_SLICE,
+    HIR_FIELD,
+    HIR_DEREF_FIELD,    // uses ir_Field
+    HIR_NEW,
+    HIR_NEW_ARRAY,
+    HIR_NEW_STRUCT,
+    HIR_ARRAY_LIT,
+    HIR_STRUCT_LIT,
+    HIR_ENUM_LIT,
+    HIR_IDENT,
+    HIR_NUM_LIT,
+    HIR_FLOAT_LIT,
+    HIR_BOOL_LIT,
+    HIR_STRING_LIT,
+    HIR_NULL,
 
-    IR_MACRO_SIZEOF,
-    IR_MACRO_ALIGNOF,
-    IR_MACRO_FUNCADDR,
+    HIR_MACRO_SIZEOF,
+    HIR_MACRO_ALIGNOF,
+    HIR_MACRO_FUNCADDR,
 
-    IRS_COUNT
+    HIRS_COUNT
 };
 
-struct IrNode {
-    IrKind kind;
+struct HirNode {
+    HirKind kind;
     TextSpan span;
 };
 
 /* -------------------------------------------------------------------------- */
 
-enum IrOpKind {
-    IROP_ADD,
-    IROP_SUB,
-    IROP_MUL,
-    IROP_DIV,
-    IROP_MOD,
-    IROP_SHL,
-    IROP_SHR,
-    IROP_EQ,
-    IROP_NE,
-    IROP_LT,
-    IROP_GT,
-    IROP_LE,
-    IROP_GE,
-    IROP_BWAND,
-    IROP_BWOR,
-    IROP_BWXOR,
-    IROP_LGAND,
-    IROP_LGOR,
+enum HirOpKind {
+    HIROP_ADD,
+    HIROP_SUB,
+    HIROP_MUL,
+    HIROP_DIV,
+    HIROP_MOD,
+    HIROP_SHL,
+    HIROP_SHR,
+    HIROP_EQ,
+    HIROP_NE,
+    HIROP_LT,
+    HIROP_GT,
+    HIROP_LE,
+    HIROP_GE,
+    HIROP_BWAND,
+    HIROP_BWOR,
+    HIROP_BWXOR,
+    HIROP_LGAND,
+    HIROP_LGOR,
 
-    IROP_NEG,
-    IROP_NOT,
-    IROP_BWNEG
+    HIROP_NEG,
+    HIROP_NOT,
+    HIROP_BWNEG
 };
 
-enum IrAllocMode {
-    IRMEM_STACK,
-    IRMEM_HEAP,
-    IRMEM_GLOBAL
+enum HirAllocMode {
+    HIRMEM_STACK,
+    HIRMEM_HEAP,
+    HIRMEM_GLOBAL
 };
 
-struct IrFieldInit {
-    IrExpr* expr;
+struct HirFieldInit {
+    HirExpr* expr;
     size_t field_index;
 };
 
-struct IrExpr : public IrNode {
+struct HirExpr : public HirNode {
     Type* type;
     bool assignable;
 
     union {
         struct {
-            IrExpr* expr;
-            std::span<IrExpr*> patterns;
+            HirExpr* expr;
+            std::span<HirExpr*> patterns;
         } ir_TestMatch;
         struct {
-            IrExpr* expr;
+            HirExpr* expr;
         } ir_Cast;
         struct {
-            IrExpr* lhs;
-            IrExpr* rhs;
-            IrOpKind op;
+            HirExpr* lhs;
+            HirExpr* rhs;
+            HirOpKind op;
         } ir_Binop;
         struct {
-            IrExpr* expr;
-            IrOpKind op;
+            HirExpr* expr;
+            HirOpKind op;
         } ir_Unop;
         struct {
-            IrExpr* expr;
+            HirExpr* expr;
         } ir_Addr;
         struct {
-            IrExpr* expr;
+            HirExpr* expr;
         } ir_Deref;
         struct {
-            IrExpr* func;
-            std::span<IrExpr*> args;
+            HirExpr* func;
+            std::span<HirExpr*> args;
         } ir_Call;
         struct {
-            IrExpr* expr;
-            IrExpr* index;
+            HirExpr* expr;
+            HirExpr* index;
         } ir_Index;
         struct {
-            IrExpr* expr;
-            IrExpr* low;
-            IrExpr* hi;
+            HirExpr* expr;
+            HirExpr* low;
+            HirExpr* hi;
         } ir_Slice;
         struct {
-            IrExpr* expr;
+            HirExpr* expr;
             size_t field_index;
         } ir_Field;
         struct {
-            IrAllocMode alloc_mode;
+            HirAllocMode alloc_mode;
         } ir_New;
         struct {
-            IrAllocMode alloc_mode;
-            IrExpr* len;
+            HirAllocMode alloc_mode;
+            HirExpr* len;
         } ir_NewArray;
         struct {
-            std::span<IrFieldInit> field_inits;
-            IrAllocMode alloc_mode;
+            std::span<HirFieldInit> field_inits;
+            HirAllocMode alloc_mode;
         } ir_NewStruct;
         struct {
-            std::span<IrExpr*> items;
-            IrAllocMode alloc_mode;
+            std::span<HirExpr*> items;
+            HirAllocMode alloc_mode;
         } ir_ArrayLit;
         struct {
-            std::span<IrFieldInit> field_inits;
+            std::span<HirFieldInit> field_inits;
         } ir_StructLit;
         struct {
             size_t tag_value;
@@ -188,7 +188,7 @@ struct IrExpr : public IrNode {
             Type* arg;
         } ir_TypeMacro;
         struct {
-            IrExpr* arg;
+            HirExpr* arg;
         } ir_ValueMacro;
     };
 };
@@ -266,88 +266,88 @@ struct ConstValue {
 
 /* -------------------------------------------------------------------------- */
 
-struct IrStmt;
+struct HirStmt;
 
-struct IrIfBranch {
-    IrExpr* cond;
-    IrStmt* body;
+struct HirIfBranch {
+    HirExpr* cond;
+    HirStmt* body;
 };
 
-struct IrCaseBlock {
-    std::span<IrExpr*> patterns;
-    IrStmt* body;
+struct HirCaseBlock {
+    std::span<HirExpr*> patterns;
+    HirStmt* body;
 };
 
-struct IrStmt : public IrNode {
+struct HirStmt : public HirNode {
     union {
         struct {
-            std::span<IrStmt*> stmts;
+            std::span<HirStmt*> stmts;
         } ir_Block;
         struct {
-            std::span<IrIfBranch> branches;
-            IrStmt* else_stmt;
+            std::span<HirIfBranch> branches;
+            HirStmt* else_stmt;
         } ir_If;
         struct {
-            IrExpr* cond;
-            IrStmt* body;
-            IrStmt* else_stmt;
+            HirExpr* cond;
+            HirStmt* body;
+            HirStmt* else_stmt;
         } ir_While;
         struct {
-            IrStmt* iter_var;
-            IrExpr* cond;
-            IrStmt* update_stmt;
-            IrStmt* body;
-            IrStmt* else_stmt;
+            HirStmt* iter_var;
+            HirExpr* cond;
+            HirStmt* update_stmt;
+            HirStmt* body;
+            HirStmt* else_stmt;
         } ir_For;
         struct {
-            IrExpr* expr;
-            std::span<IrCaseBlock> cases;
+            HirExpr* expr;
+            std::span<HirCaseBlock> cases;
             bool is_implicit_exhaustive;
         } ir_Match;
         struct {
             Symbol* symbol;
-            IrExpr* init;
+            HirExpr* init;
         } ir_LocalVar;
         struct {
             Symbol* symbol;
             ConstValue* init;
         } ir_LocalConst;
         struct {
-            IrExpr* lhs;
-            IrExpr* rhs;
+            HirExpr* lhs;
+            HirExpr* rhs;
         } ir_Assign;
         struct {
-            IrExpr* lhs;
-            IrExpr* rhs;
-            IrOpKind op;
+            HirExpr* lhs;
+            HirExpr* rhs;
+            HirOpKind op;
         } ir_CpdAssign;
         struct {
-            IrExpr* expr;
-            IrOpKind op;
+            HirExpr* expr;
+            HirOpKind op;
         } ir_IncDec;
         struct {
-            IrExpr* expr;
+            HirExpr* expr;
         } ir_ExprStmt;
         struct {
-            IrExpr* expr;
+            HirExpr* expr;
         } ir_Return;
     };
 };
 
 /* -------------------------------------------------------------------------- */
 
-struct IrDecl : public IrNode {
+struct HirDecl : public HirNode {
     std::span<Attribute> attrs;
 
     struct {
         Symbol* symbol;
         std::span<Symbol*> params;
         Type* return_type;
-        IrStmt* body;
+        HirStmt* body;
     } ir_Func;
     struct {
         Symbol* symbol;
-        IrExpr* init;
+        HirExpr* init;
     } ir_GlobalVar;
     struct {
         Symbol* symbol;

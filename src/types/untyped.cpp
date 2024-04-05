@@ -30,7 +30,7 @@ Type* Type::FullUnwrap() {
 /* -------------------------------------------------------------------------- */
 
 void TypeContext::AddUntyped(Type* ut, UntypedKind kind) {
-    uint64_t key = unt_uf.size();
+    size_t key = unt_uf.size();
     ut->ty_Untyp.key = key;
     ut->ty_Untyp.parent = this;
     ut->ty_Untyp.concrete_type = nullptr;
@@ -93,7 +93,7 @@ void TypeContext::Clear() {
 
 /* -------------------------------------------------------------------------- */
 
-bool TypeContext::tryConcrete(uint64_t key, Type* other) {
+bool TypeContext::tryConcrete(size_t key, Type* other) {
     auto& entry = find(key);
 
     bool compat = false;
@@ -119,7 +119,7 @@ bool TypeContext::tryConcrete(uint64_t key, Type* other) {
     return compat;
 }
 
-TypeContext::untypedTableEntry& TypeContext::find(uint64_t key) {
+TypeContext::untypedTableEntry& TypeContext::find(size_t key) {
     while (key != unt_uf[key]->ty_Untyp.key) {
         key = unt_uf[key]->ty_Untyp.key;
     }
@@ -127,7 +127,7 @@ TypeContext::untypedTableEntry& TypeContext::find(uint64_t key) {
     return unt_table[key];
 }
 
-TypeContext::untypedTableEntry& TypeContext::find(uint64_t key, int* rank) {
+TypeContext::untypedTableEntry& TypeContext::find(size_t key, int* rank) {
     *rank = 0;
 
     while (key != unt_uf[key]->ty_Untyp.key) {
@@ -138,7 +138,7 @@ TypeContext::untypedTableEntry& TypeContext::find(uint64_t key, int* rank) {
     return unt_table[key];
 }
 
-bool TypeContext::tryUnion(uint64_t a, uint64_t b) {
+bool TypeContext::tryUnion(size_t a, size_t b) {
     int arank, brank;
     auto& aentry = find(a, &arank);
     auto& bentry = find(b, &brank);

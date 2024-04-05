@@ -12,9 +12,9 @@ enum OutputFormat {
     OUTFMT_OBJ,
     OUTFMT_ASM,
     OUTFMT_LLVM,
-    OUTFMT_DUMPAST,
 
     OUTFMT_DEFAULT,
+    
     OUTFMTS_COUNT
 };
 

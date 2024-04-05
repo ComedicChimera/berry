@@ -114,6 +114,18 @@ enum {
     TC_UNSAFE = 2
 };
 
+// TypeConvResult indicates the result of a particular type conversion (cast or
+// coerce) It is used by the checker to determine a) if a conversion is valid
+// and b) if it requires a type cast (explicit or implicit).  The goal is to
+// make sure that the backend always has a cast HIR node when a cast might
+// occur: implicit type conversions don't have a cast node in the AST but should
+// in the HIR.
+enum TypeConvResult {
+    TY_CONV_FAIL,   // Type conversion is not possible
+    TY_CONV_CAST,   // Type cast *might* be required
+    TY_CONV_EQ      // No type conversion required
+};
+
 // TypeContext is the state used for type checking and inference.
 class TypeContext {
     // unt_uf is the union-find used to "merge" untyped instances.
@@ -147,13 +159,19 @@ public:
     // infer types (ie: compilation requires that Equal(a, b) is true).
 
     // Equal returns whether types a and b are equal.
-    bool Equal(Type* a, Type* b);
+    inline bool Equal(Type* a, Type* b) {
+        return innerEqual(a->Inner(), b->Inner());
+    }
 
     // SubType returns whether sub is a subtype of super.
-    bool SubType(Type* sub, Type* super);
+    inline TypeConvResult SubType(Type* sub, Type* super) {
+        return innerSubType(sub->Inner(), super->Inner());
+    }
 
     // Cast returns whether src can be cast to dest.
-    bool Cast(Type* src, Type* dest);
+    inline TypeConvResult Cast(Type* src, Type* dest) {
+        return innerCast(src->Inner(), dest->Inner());
+    }
 
     // IsNumberType returns whether type is a number type. 
     bool IsNumberType(Type* type);
@@ -192,11 +210,11 @@ private:
     
     // innerSubType returns whether inner-unwrapped sub is a subtype of
     // inner-unwrapped super.
-    bool innerSubType(Type *sub, Type *super);
+    TypeConvResult innerSubType(Type *sub, Type *super);
 
-    // Cast returns whether inner-unwrapped src can be cast to inner-unwrapped
-    // dest.
-    bool innerCast(Type *src, Type *dest);
+    // innerCast returns whether inner-unwrapped src can be cast to
+    // inner-unwrapped dest.
+    TypeConvResult innerCast(Type *src, Type *dest);
 
     /* ---------------------------------------------------------------------- */
 

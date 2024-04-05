@@ -40,6 +40,8 @@ std::string Type::ToString() const {
 
         return sb;
     }
+    case TYPE_ARRAY:
+        return std::format("[{}]{}", ty_Array.len, ty_Array.elem_type->ToString());
     case TYPE_SLICE:
         return std::format("[]{}", ty_Slice.elem_type->ToString());
     case TYPE_UNTYP:

@@ -76,8 +76,9 @@ static std::string createDisplayPath(const fs::path& local_path, const fs::path&
 
 /* -------------------------------------------------------------------------- */
 
-Loader::Loader(Arena& arena, const std::vector<std::string>& import_paths_) 
-: arena(arena)
+Loader::Loader(Arena& global_arena, Arena& ast_arena, const std::vector<std::string>& import_paths_) 
+: global_arena(global_arena)
+, ast_arena(ast_arena)
 {
     import_paths.reserve(import_paths_.size());
     for (auto& str_path : import_paths_) {
@@ -121,7 +122,6 @@ void Loader::LoadAll(const std::string& root_mod) {
     }
 
     checkForImportCycles();
-    resolveNamedTypes();
 }
 
 std::vector<Module*> Loader::SortModulesByDepGraph() {
@@ -253,7 +253,7 @@ void Loader::parseModule(Module& mod) {
         }
 
         try {
-            Parser p(arena, file, src_file);
+            Parser p(global_arena, ast_arena, file, src_file);
             p.ParseFile();
         } catch (CompileError&) {
             // Nothing to do, just stop error bubbling.
@@ -293,8 +293,8 @@ void Loader::resolveImports(const fs::path& local_path, Module& mod) {
             n++;
         }
 
-        for (auto& loc : dep.import_locs) {
-            ReportCompileError(mod.files[loc.file_number].display_path, loc.span, "could not find module {}", fmt_mod_path);
+        for (const auto& [file_number, span] : dep.import_locs) {
+            ReportCompileError(mod.files[file_number].display_path, span, "unable to import module: {}", fmt_mod_path);
         }
     }
 }
@@ -311,7 +311,7 @@ std::optional<fs::path> Loader::findModule(const fs::path& search_path, const st
         std::ifstream file;
         if (file) {
             SourceFile src_file { nullptr, 0, path.string(), createDisplayPath(search_path, path)};
-            Parser p(arena, file, src_file);
+            Parser p(global_arena, ast_arena, file, src_file);
 
             auto mod_name_tok = p.ParseModuleName();
             file.close();
@@ -331,11 +331,9 @@ std::optional<fs::path> Loader::findModule(const fs::path& search_path, const st
     return {};
 }
 
-/* -------------------------------------------------------------------------- */
-
 struct ImportCycle {
     std::vector<Module*> nodes;
-    Module::Dependency* bad_dep { nullptr };
+    Module::DepEntry* bad_dep { nullptr };
     bool done { false };
 };
 
@@ -389,10 +387,10 @@ void Loader::checkForImportCycles() {
         if (colors[mod.id] == COLOR_WHITE) {
             ImportCycle cycle;
             if (findCycle(mod, colors, cycle)) {
-                for (auto& loc : cycle.bad_dep->import_locs) {
+                for (const auto& [file_number, span] : cycle.bad_dep->import_locs) {
                     ReportCompileError(
-                        mod.files[loc.file_number].display_path,
-                        loc.span,
+                        mod.files[file_number].display_path,
+                        span,
                         "import of module {} creates cycle",
                         cycle.bad_dep->mod->name
                     );
@@ -419,81 +417,6 @@ void Loader::checkForImportCycles() {
 
 /* -------------------------------------------------------------------------- */
 
-static bool resolveNamedInDep(Type* type, Module::Dependency& dep) {
-    auto& named = type->ty_Named;
-
-    auto it = dep.mod->symbol_table.find(named.name);
-    if (it != dep.mod->symbol_table.end()) {
-        auto* symbol = it->second;
-        if ((symbol->flags & SYM_EXPORTED) == 0) {
-            return false;
-        }
-
-        type->kind = symbol->type->kind;
-        named.mod_id = dep.mod->id;
-        named.mod_name = dep.mod->name;
-        named.type = symbol->type->ty_Named.type;
-
-        dep.usages.insert(symbol->def_number);
-        return true;
-    }
-
-    return false;
-}
-
-void Loader::resolveNamedTypes() {
-    for (auto& mod : *this) {
-        auto* core_dep = mod.deps.empty() ? nullptr : &mod.deps.back();
-
-        for (auto& pair : mod.named_table.internal_refs) {
-            auto& ref = pair.second;
-            auto& named = ref.named_type->ty_Named;
-
-            auto it = mod.symbol_table.find(named.name);
-            if (it != mod.symbol_table.end()) {
-                ref.named_type->kind = it->second->type->kind;
-                named.mod_id = mod.id;
-                named.mod_name = mod.name;
-                named.type = it->second->type->ty_Named.type;
-                continue;
-            }
-
-            if (core_dep == nullptr || !resolveNamedInDep(ref.named_type, *core_dep)) {
-                for (auto& loc : ref.locs) {
-                    ReportCompileError(
-                        mod.files[loc.file_number].display_path,
-                        loc.span,
-                        "undefined symbol: {}", 
-                        named.name
-                    );
-                }
-            }        
-        }
-
-        for (size_t dep_id = 0; dep_id < mod.named_table.external_refs.size(); dep_id++) {
-            auto& dep = mod.deps[dep_id];
-
-            for (auto& pair : mod.named_table.external_refs[dep_id]) {
-                auto* named_type = pair.second.named_type;
-                
-                if (!resolveNamedInDep(named_type, dep)) {
-                    for (auto& loc : pair.second.locs) {
-                        ReportCompileError(
-                            mod.files[loc.file_number].display_path,
-                            loc.span,
-                            "module {} has no exported symbol named {}", 
-                            dep.mod->name, 
-                            named_type->ty_Named.name
-                        );
-                    }
-                }
-            }
-        }
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
 Module& Loader::addModule(const fs::path& mod_abs_path, const std::string& mod_name) {
     return mod_table.emplace(mod_abs_path.string(), Module{
         mod_table.size(),
@@ -508,7 +431,7 @@ std::string Loader::getModuleName(SourceFile& src_file) {
             ReportFatal("opening file: {}", strerror(errno));
         }
 
-        Parser p(arena, file, src_file);
+        Parser p(global_arena, ast_arena, file, src_file);
         auto mod_tok = p.ParseModuleName();
         file.close();
 

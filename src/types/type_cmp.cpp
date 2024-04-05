@@ -1,10 +1,5 @@
 #include "types.hpp"
 
-
-bool TypeContext::Equal(Type* a, Type* b) {
-    return innerEqual(a->Inner(), b->Inner());
-}
-
 bool TypeContext::innerEqual(Type* a, Type* b) {
     if (a->kind == TYPE_UNTYP) {
         if (b->kind == TYPE_UNTYP) {
@@ -36,6 +31,11 @@ bool TypeContext::innerEqual(Type* a, Type* b) {
     case TYPE_SLICE:
         if (b->kind == TYPE_SLICE) {
             return Equal(a->ty_Slice.elem_type, b->ty_Slice.elem_type);
+        }
+        break;
+    case TYPE_ARRAY:
+        if (b->kind == TYPE_ARRAY) {
+            return a->ty_Array.len == b->ty_Array.len && Equal(a->ty_Array.elem_type, b->ty_Array.elem_type);
         }
         break;
     case TYPE_PTR:
@@ -97,36 +97,36 @@ bool TypeContext::innerEqual(Type* a, Type* b) {
 
 /* -------------------------------------------------------------------------- */
 
-bool TypeContext::SubType(Type* sub, Type* super) {
-    return innerSubType(sub->Inner(), super->Inner());
-}
+TypeConvResult TypeContext::innerSubType(Type* sub, Type* super) {
+    if (sub->kind == TYPE_ARRAY && super->kind == TYPE_SLICE) {
+        return Equal(super->ty_Slice.elem_type, sub->ty_Array.elem_type) ? TY_CONV_CAST : TY_CONV_FAIL;
+    }
 
-bool TypeContext::innerSubType(Type* sub, Type* super) {
-    // TODO: subtyping logic
-
-    return innerEqual(sub, super);
+    return innerEqual(sub, super) ? TY_CONV_EQ : TY_CONV_FAIL;
 }
 
 /* -------------------------------------------------------------------------- */
 
-bool TypeContext::Cast(Type* src, Type* dest) {
+TypeConvResult TypeContext::Cast(Type* src, Type* dest) {
     return innerCast(src->Inner(), dest->Inner());
 }
 
-bool TypeContext::innerCast(Type* src, Type* dest) {
+TypeConvResult TypeContext::innerCast(Type* src, Type* dest) {
     if (src->kind == TYPE_UNTYP) {        
         if (innerIsNumberType(dest)) {
             // We don't care if the types are incompatible: this mechanism just
             // allows us to optimize out the cast as necessary.
             tryConcrete(src->ty_Untyp.key, dest);
 
-            return true;
+            // We explicitly set the inner type of untyped to dest, so we don't
+            // ever need to cast it.
+            return TY_CONV_EQ;
         } else if (dest->kind == TYPE_BOOL || dest->kind == TYPE_PTR) {
             auto& entry = find(src->ty_Untyp.key);
 
             switch (entry.kind) {
             case UK_INT:
-                return true;
+                return TY_CONV_CAST;
             case UK_NUM:
                 if (flags & TC_INFER) {
                     entry.kind = UK_INT;
@@ -135,13 +135,11 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
                 // Because casts are always "terminal" expression, we know we
                 // can always convert UK_NUM to integer if necessary: it will
                 // never be later narrowed to float.
-                return true;
-            default:
-                return false;
+                return TY_CONV_CAST;
             }
         }
         
-        return false;
+        return TY_CONV_FAIL;
     }
 
     if (dest->kind == TYPE_NAMED) {
@@ -155,33 +153,41 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
     switch (src->kind) {
     case TYPE_INT:
         if ((flags & TC_UNSAFE) && (dest->kind == TYPE_PTR || dest->kind == TYPE_ENUM))
-            return true;
+            return TY_CONV_CAST;
         
-        return innerIsNumberType(dest) || dest->kind == TYPE_BOOL;
+        if (innerIsNumberType(dest) || dest->kind == TYPE_BOOL)
+            return TY_CONV_CAST;
+
+        // Conversion is never possible if the above test fails.
+        return TY_CONV_FAIL;
     case TYPE_FLOAT:
-        return innerIsNumberType(dest);
+        return innerIsNumberType(dest) ? TY_CONV_CAST : TY_CONV_FAIL;
     case TYPE_BOOL:
         if (dest->kind == TYPE_INT) {
-            return true;
+            return TY_CONV_CAST;
         }
         break;
     case TYPE_PTR:
         if ((flags & TC_UNSAFE) && (dest->kind == TYPE_INT || dest->kind == TYPE_PTR)) {
-            return true;
+            return TY_CONV_CAST;
         }
         break;
     case TYPE_SLICE:
-        if ((flags & TC_UNSAFE) && dest->kind == TYPE_STRING) {
-            return Equal(src->ty_Slice.elem_type, &prim_u8_type);
+        if ((flags & TC_UNSAFE)) {
+            if (dest->kind == TYPE_STRING) {
+                return Equal(src->ty_Slice.elem_type, &prim_u8_type) ? TY_CONV_CAST : TY_CONV_FAIL;
+            } else if (dest->kind == TYPE_ARRAY) {
+                return Equal(src->ty_Slice.elem_type, dest->ty_Array.elem_type) ? TY_CONV_CAST : TY_CONV_FAIL;
+            }
         }
         break;
     case TYPE_STRING:
         if (dest->kind == TYPE_SLICE) {
-            return Equal(dest->ty_Slice.elem_type, &prim_u8_type);
+            return Equal(dest->ty_Slice.elem_type, &prim_u8_type) ? TY_CONV_CAST : TY_CONV_FAIL;
         }
         break;
     case TYPE_ENUM:
-        return dest->kind == TYPE_INT;
+        return dest->kind == TYPE_INT ? TY_CONV_CAST : TY_CONV_FAIL;
     }
 
     return innerSubType(src, dest);

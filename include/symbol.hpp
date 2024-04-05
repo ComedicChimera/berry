@@ -69,7 +69,7 @@ struct Attribute {
 
 struct SourceFile;
 struct AstDecl;
-struct IrDecl;
+struct HirDecl;
 
 // Module represents a Berry module.
 struct Module {
@@ -93,8 +93,8 @@ struct Module {
         // ast_decl is the declaration AST node.
         AstDecl* ast_decl;
 
-        // ir_decl is the declaration IR node.
-        IrDecl* ir_decl;
+        // hir_decl is the declaration HIR node.
+        HirDecl* hir_decl { nullptr };
 
         Decl(size_t file_number_, AstDecl* adecl_)
         : file_number(file_number_)
@@ -118,6 +118,10 @@ struct Module {
         // usages stores the definition numbers exported symbols accessed
         // through this dependency.
         std::unordered_set<size_t> usages;
+
+        // import_locs stores the source location of all imports of this
+        // dependency.  This is to simplify error handling.
+        std::vector<std::pair<size_t, TextSpan>> import_locs;
 
         DepEntry(std::vector<std::string>&& mod_path_)
         : mod(nullptr)
@@ -149,23 +153,9 @@ struct SourceFile {
 
     // display_path is the path displayed to the user to identify the file.
     std::string display_path;
-
-    // ImportEntry is an entry in the file's import table.
-    struct ImportEntry {
-        // dep_id is the module-local ID of the dependency.
-        size_t dep_id;
-
-        // span is the source location of the module path.
-        TextSpan span;
-
-        ImportEntry(size_t dep_id_, const TextSpan& span_)
-        : dep_id(dep_id_)
-        , span(span_)
-        {}
-    };
-
+    
     // import_table stores the package's imports.
-    std::unordered_map<std::string_view, ImportEntry> import_table;
+    std::unordered_map<std::string_view, size_t> import_table;
 
     // llvm_di_file is the debug info scope associated with this file.
     llvm::DIFile* llvm_di_file { nullptr };

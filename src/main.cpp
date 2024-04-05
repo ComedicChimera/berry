@@ -185,8 +185,7 @@ std::unordered_map<std::string_view, OutputFormat> out_fmt_names {
     { "shared", OUTFMT_SHARED },
     { "obj", OUTFMT_OBJ },
     { "asm", OUTFMT_ASM },
-    { "llvm", OUTFMT_LLVM },
-    { "dumpast", OUTFMT_DUMPAST },
+    { "llvm", OUTFMT_LLVM }
 };
 
 std::unordered_map<std::string_view, DebugInfoFormat> dbg_fmt_names {
