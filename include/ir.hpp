@@ -268,7 +268,7 @@ struct ConstValue {
 
 struct IrStmt;
 
-struct IrCondBranch {
+struct IrIfBranch {
     IrExpr* cond;
     IrStmt* body;
 };
@@ -284,7 +284,7 @@ struct IrStmt : public IrNode {
             std::span<IrStmt*> stmts;
         } ir_Block;
         struct {
-            std::span<IrCondBranch> branches;
+            std::span<IrIfBranch> branches;
             IrStmt* else_stmt;
         } ir_If;
         struct {
@@ -342,7 +342,8 @@ struct IrDecl : public IrNode {
     struct {
         Symbol* symbol;
         std::span<Symbol*> params;
-        IrExpr* body;
+        Type* return_type;
+        IrStmt* body;
     } ir_Func;
     struct {
         Symbol* symbol;
