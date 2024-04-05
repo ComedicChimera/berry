@@ -1,0 +1,27 @@
+import io.std;
+
+let arr: [N]int = [1, 2, 3];
+
+const N: int = 3;
+
+let arr2: [N + 4]string = [
+    "Red",
+    "Orange",
+    "Yellow",
+    "Green",
+    "Blue",
+    "Indigo",
+    "Violet"
+];
+
+func main() {
+    for let i = 0; i < arr._len; i++ {
+        std.putint(arr[i]);
+        std.putr('\n');
+    }
+
+    for let i = 0; i < arr2._len; i++ {
+        std.puts(arr2[i]);
+        std.putr('\n');
+    }
+}
