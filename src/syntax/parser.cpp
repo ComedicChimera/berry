@@ -29,14 +29,14 @@ void Parser::ParseFile() {
             exported = false;
         }
 
-        parseDef(std::move(attr_map), exported);
+        parseDecl(std::move(attr_map), exported);
     }
 }
 
 /* -------------------------------------------------------------------------- */
 
-std::span<AstExpr*> Parser::parseExprList(TokenKind delim) {
-    std::vector<AstExpr*> exprs;
+AstNode* Parser::parseExprList(TokenKind delim) {
+    std::vector<AstNode*> exprs;
 
     while (true) {
         exprs.emplace_back(parseExpr());
@@ -48,10 +48,12 @@ std::span<AstExpr*> Parser::parseExprList(TokenKind delim) {
         }
     }
 
-    return arena.MoveVec(std::move(exprs));
+    auto* alist = allocNode(AST_EXPR_LIST, SpanOver(exprs[0]->span, exprs.back()->span));
+    alist->an_ExprList.exprs = ast_arena.MoveVec(std::move(exprs));
+    return alist;
 }
 
-AstExpr* Parser::parseInitializer() {
+AstNode* Parser::parseInitializer() {
     want(TOK_ASSIGN);
     return parseExpr();
 }

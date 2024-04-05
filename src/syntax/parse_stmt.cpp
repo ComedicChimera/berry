@@ -1,10 +1,10 @@
 #include "parser.hpp"
 
-AstStmt* Parser::parseBlock() {
+AstNode* Parser::parseBlock() {
     auto start_span = tok.span;
     want(TOK_LBRACE);
 
-    std::vector<AstStmt*> stmts;
+    std::vector<AstNode*> stmts;
     while (!has(TOK_RBRACE)) {
         stmts.emplace_back(parseStmt());
     }
@@ -13,13 +13,13 @@ AstStmt* Parser::parseBlock() {
     auto end_span = tok.span;
     want(TOK_RBRACE);
 
-    AstStmt* block = allocStmt(AST_BLOCK, SpanOver(start_span, end_span));
-    block->an_Block.stmts = arena.MoveVec(std::move(stmts));
+    AstNode* block = allocNode(AST_BLOCK, SpanOver(start_span, end_span));
+    block->an_Block.stmts = ast_arena.MoveVec(std::move(stmts));
     return block;
 }
 
-AstStmt* Parser::parseStmt() {
-    AstStmt* stmt;
+AstNode* Parser::parseStmt() {
+    AstNode* stmt;
 
     switch (tok.kind) {
     case TOK_LET:
@@ -28,15 +28,15 @@ AstStmt* Parser::parseStmt() {
         break;
     case TOK_BREAK:
         next();
-        stmt = allocStmt(AST_BREAK, prev.span);
+        stmt = allocNode(AST_BREAK, prev.span);
         break;
     case TOK_CONTINUE:
         next();
-        stmt = allocStmt(AST_CONTINUE, prev.span);
+        stmt = allocNode(AST_CONTINUE, prev.span);
         break;
     case TOK_FALLTHROUGH:
         next();
-        stmt = allocStmt(AST_FALLTHROUGH, prev.span);
+        stmt = allocNode(AST_FALLTHRU, prev.span);
         break;
     case TOK_RETURN: {
         next();
@@ -46,11 +46,11 @@ AstStmt* Parser::parseStmt() {
             auto expr = parseExpr();
 
             auto span = SpanOver(start_span, expr->span);
-            stmt = allocStmt(AST_RETURN, span);
-            stmt->an_Return.value = expr;
+            stmt = allocNode(AST_RETURN, span);
+            stmt->an_Return.expr = expr;
         } else {
-            stmt = allocStmt(AST_RETURN, prev.span);
-            stmt->an_Return.value = nullptr;
+            stmt = allocNode(AST_RETURN, prev.span);
+            stmt->an_Return.expr = nullptr;
         }
     } break;
     case TOK_IF:
@@ -84,7 +84,7 @@ AstStmt* Parser::parseStmt() {
 
 /* -------------------------------------------------------------------------- */
 
-AstStmt* Parser::parseIfStmt() {
+AstNode* Parser::parseIfStmt() {
     std::vector<AstCondBranch> branches;
 
     while (true) {
@@ -109,15 +109,15 @@ AstStmt* Parser::parseIfStmt() {
         }
     }
 
-    auto else_block = maybeParseElse();
-    auto span = SpanOver(branches[0].span, else_block != nullptr ? else_block->span : branches.back().span);
-    auto* aif = allocStmt(AST_IF, span);
-    aif->an_If.branches = arena.MoveVec(std::move(branches));
-    aif->an_If.else_block = else_block;
+    auto else_stmt = maybeParseElse();
+    auto span = SpanOver(branches[0].span, else_stmt != nullptr ? else_stmt->span : branches.back().span);
+    auto* aif = allocNode(AST_IF, span);
+    aif->an_If.branches = ast_arena.MoveVec(std::move(branches));
+    aif->an_If.else_stmt = else_stmt;
     return aif;
 }
 
-AstStmt* Parser::parseWhileLoop() {
+AstNode* Parser::parseWhileLoop() {
     next();
     auto start_span = prev.span;
 
@@ -126,18 +126,17 @@ AstStmt* Parser::parseWhileLoop() {
     popAllowStructLit();
 
     auto body = parseBlock();
-    auto else_block = maybeParseElse();
+    auto else_stmt = maybeParseElse();
 
-    auto span = SpanOver(start_span, else_block ? else_block->span : body->span);
-    auto* awhile = allocStmt(AST_WHILE, span);
-    awhile->an_While.cond_expr = cond_expr;
+    auto span = SpanOver(start_span, else_stmt ? else_stmt->span : body->span);
+    auto* awhile = allocNode(AST_WHILE, span);
+    awhile->an_While.cond = cond_expr;
     awhile->an_While.body = body;
-    awhile->an_While.else_block = else_block;
-    awhile->an_While.is_do_while = false;
+    awhile->an_While.else_stmt = else_stmt;
     return awhile;
 }
 
-AstStmt* Parser::parseDoWhileLoop() {
+AstNode* Parser::parseDoWhileLoop() {
     next();
     auto start_span = prev.span;
 
@@ -146,45 +145,44 @@ AstStmt* Parser::parseDoWhileLoop() {
     want(TOK_WHILE);
     auto cond_expr = parseExpr();
 
-    AstStmt* else_block { nullptr };
+    AstNode* else_stmt { nullptr };
     TextSpan end_span;
     if (has(TOK_ELSE)) {
         next();
 
-        else_block = parseBlock();
-        end_span = else_block->span;
+        else_stmt = parseBlock();
+        end_span = else_stmt->span;
     } else {
         want(TOK_SEMI);
         end_span = prev.span;
     }
 
-    auto* awhile = allocStmt(AST_WHILE, SpanOver(start_span, end_span));
-    awhile->an_While.cond_expr = cond_expr;
+    auto* awhile = allocNode(AST_DO_WHILE, SpanOver(start_span, end_span));
+    awhile->an_While.cond = cond_expr;
     awhile->an_While.body = body;
-    awhile->an_While.else_block = else_block;
-    awhile->an_While.is_do_while = true;
+    awhile->an_While.else_stmt = else_stmt;
     return awhile;
 }  
 
-AstStmt* Parser::parseForLoop() {
+AstNode* Parser::parseForLoop() {
     next();
     auto start_span = prev.span;
 
-    AstStmt* var_def { nullptr };
+    AstNode* iter_var { nullptr };
     if (has(TOK_LET)) {
-        var_def = parseLocalVarDef();
+        iter_var = parseLocalVarDef();
     }
 
     want(TOK_SEMI);
 
-    AstExpr* cond_expr { nullptr }; 
+    AstNode* cond_expr { nullptr }; 
     if (!has(TOK_SEMI)) {
         cond_expr = parseExpr();
     }
 
     want(TOK_SEMI);
 
-    AstStmt* update_stmt { nullptr };
+    AstNode* update_stmt { nullptr };
     if (!has(TOK_LBRACE)) {
         pushAllowStructLit(false);
         update_stmt = parseExprAssignStmt();
@@ -192,19 +190,19 @@ AstStmt* Parser::parseForLoop() {
     }
 
     auto body = parseBlock();
-    auto else_block = maybeParseElse();
+    auto else_stmt = maybeParseElse();
 
-    auto span = SpanOver(start_span, else_block ? else_block->span : body->span);
-    auto* afor = allocStmt(AST_FOR, span);
-    afor->an_For.var_def = var_def;
-    afor->an_For.cond_expr = cond_expr;
+    auto span = SpanOver(start_span, else_stmt ? else_stmt->span : body->span);
+    auto* afor = allocNode(AST_FOR, span);
+    afor->an_For.iter_var = iter_var;
+    afor->an_For.cond = cond_expr;
     afor->an_For.update_stmt = update_stmt;
     afor->an_For.body = body;
-    afor->an_For.else_block = else_block;
+    afor->an_For.else_stmt = else_stmt;
     return afor;
 }
 
-AstStmt* Parser::maybeParseElse() {
+AstNode* Parser::maybeParseElse() {
     if (has(TOK_ELSE)) {
         next();
 
@@ -214,7 +212,7 @@ AstStmt* Parser::maybeParseElse() {
     return nullptr;
 }
 
-AstStmt* Parser::parseMatchStmt() {
+AstNode* Parser::parseMatchStmt() {
     auto start_span = tok.span;
     next();
 
@@ -233,15 +231,15 @@ AstStmt* Parser::parseMatchStmt() {
 
         want(TOK_COLON);
 
-        std::vector<AstStmt*> stmts;
+        std::vector<AstNode*> stmts;
         while (!has(TOK_CASE) && !has(TOK_RBRACE)) {
             stmts.push_back(parseStmt());
         }
 
-        AstStmt* case_block;
+        AstNode* case_block;
         if (stmts.size() > 0) {
-            case_block = allocStmt(AST_BLOCK, SpanOver(stmts[0]->span, stmts.back()->span));
-            case_block->an_Block.stmts = arena.MoveVec(std::move(stmts));
+            case_block = allocNode(AST_BLOCK, SpanOver(stmts[0]->span, stmts.back()->span));
+            case_block->an_Block.stmts = ast_arena.MoveVec(std::move(stmts));
         }
         
         cases.emplace_back(SpanOver(case_start_span, prev.span), pattern, case_block);
@@ -249,16 +247,15 @@ AstStmt* Parser::parseMatchStmt() {
 
     want(TOK_RBRACE);
 
-    auto* amatch = allocStmt(AST_MATCH, SpanOver(start_span, prev.span));
+    auto* amatch = allocNode(AST_MATCH, SpanOver(start_span, prev.span));
     amatch->an_Match.expr = expr;
-    amatch->an_Match.cases = arena.MoveVec(std::move(cases));
-    amatch->an_Match.is_enum_exhaustive = false;
+    amatch->an_Match.cases = ast_arena.MoveVec(std::move(cases));
     return amatch;
 }
 
 /* -------------------------------------------------------------------------- */
 
-AstStmt* Parser::parseLocalVarDef() {
+AstNode* Parser::parseLocalVarDef() {
     auto start_span = tok.span;
     bool comptime = false;
     if (has(TOK_CONST)) {
@@ -270,8 +267,8 @@ AstStmt* Parser::parseLocalVarDef() {
 
     auto name_tok = wantAndGet(TOK_IDENT);
 
-    Type* type = nullptr;
-    AstExpr* init_expr { nullptr };
+    AstNode* type = nullptr;
+    AstNode* init_expr { nullptr };
     TextSpan end_span;
     if (has(TOK_COLON)) {
         type = parseTypeExt();
@@ -287,109 +284,71 @@ AstStmt* Parser::parseLocalVarDef() {
         end_span = init_expr->span;
     }
 
-    Symbol* symbol = arena.New<Symbol>(
+    Symbol* symbol = global_arena.New<Symbol>(
         src_file.parent->id,
-        arena.MoveStr(std::move(name_tok.value)),
+        global_arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
         comptime ? SYM_CONST : SYM_VAR,
         0,
-        type,
+        nullptr,
         comptime
     );
 
-    auto* alocal = allocStmt(AST_LOCAL_VAR, SpanOver(start_span, end_span));
-    alocal->an_LocalVar.symbol = symbol;
-    alocal->an_LocalVar.init_expr = init_expr;
+    auto* alocal = allocNode(AST_VAR, SpanOver(start_span, end_span));
+    alocal->an_Var.symbol = symbol;
+    alocal->an_Var.type = type;
+    alocal->an_Var.init = init_expr;
     return alocal;
 }
 
-AstStmt* Parser::parseExprAssignStmt() {
+AstNode* Parser::parseExprAssignStmt() {
     auto lhs = parseExpr();
 
-    AstOpKind assign_op = AOP_NONE;
+    AstOper assign_op { tok.span, tok.kind };
     switch (tok.kind) {
     case TOK_ASSIGN:
-        next();
-        break;
     case TOK_PLUS_ASSIGN:
-        next();
-        assign_op = AOP_ADD;
-        break;
     case TOK_MINUS_ASSIGN:
-        next();
-        assign_op = AOP_SUB;
-        break;
     case TOK_STAR_ASSIGN:
-        next();
-        assign_op = AOP_MUL;
-        break;
     case TOK_FSLASH_ASSIGN:
-        next();
-        assign_op = AOP_DIV;
-        break;
     case TOK_MOD_ASSIGN:
-        next();
-        assign_op = AOP_MOD;
-        break;
     case TOK_SHL_ASSIGN:
-        next();
-        assign_op = AOP_SHL;
-        break;
     case TOK_SHR_ASSIGN:
-        next();
-        assign_op = AOP_SHR;
-        break;
     case TOK_AMP_ASSIGN:
-        next();
-        assign_op = AOP_BWAND;
-        break;
     case TOK_PIPE_ASSIGN:
-        next();
-        assign_op = AOP_BWOR;
-        break;
     case TOK_CARRET_ASSIGN:
-        next();
-        assign_op = AOP_BWXOR;
-        break;
     case TOK_AND_ASSIGN:
-        next();
-        assign_op = AOP_LGAND;
-        break;
     case TOK_OR_ASSIGN:
         next();
-        assign_op = AOP_LGOR;
         break;
     case TOK_INC: {
         next();
         auto span = SpanOver(lhs->span, prev.span);
 
-        auto* aid = allocStmt(AST_INCDEC, span);
+        auto* aid = allocNode(AST_INCDEC, span);
         aid->an_IncDec.lhs = lhs;
-        aid->an_IncDec.op = AOP_ADD;
+        aid->an_IncDec.op = assign_op;
         return aid;
     } break;    
     case TOK_DEC:{
         next();
         auto span = SpanOver(lhs->span, prev.span);
 
-        auto* aid = allocStmt(AST_INCDEC, span);
+        auto* aid = allocNode(AST_INCDEC, span);
         aid->an_IncDec.lhs = lhs;
-        aid->an_IncDec.op = AOP_SUB;
+        aid->an_IncDec.op = assign_op;
         return aid;
     } break;
-    default: {
-        auto* expr_stmt = allocStmt(AST_EXPR_STMT, lhs->span);
-        expr_stmt->an_ExprStmt.expr = lhs;
-        return expr_stmt;
-    } break;
+    default: 
+        return lhs;
     }
 
     auto rhs = parseExpr();
 
     auto span = SpanOver(lhs->span, rhs->span);
-    auto* aassign = allocStmt(AST_ASSIGN, span);
+    auto* aassign = allocNode(AST_ASSIGN, span);
     aassign->an_Assign.lhs = lhs;
     aassign->an_Assign.rhs = rhs;
-    aassign->an_Assign.assign_op = assign_op;
+    aassign->an_Assign.op = assign_op;
     return aassign;
 }

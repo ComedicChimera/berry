@@ -24,7 +24,7 @@ void Parser::parseAttrList(AttributeMap& attr_map) {
 
 void Parser::parseAttribute(AttributeMap& attr_map) {
     auto name_tok = wantAndGet(TOK_IDENT);
-    auto name = arena.MoveStr(std::move(name_tok.value));
+    auto name = global_arena.MoveStr(std::move(name_tok.value));
 
     if (has(TOK_LPAREN)) {
         next();
@@ -34,7 +34,7 @@ void Parser::parseAttribute(AttributeMap& attr_map) {
         attr_map.emplace(name, Attribute{
             name,
             name_tok.span,
-            arena.MoveStr(std::move(value_tok.value)),
+            global_arena.MoveStr(std::move(value_tok.value)),
             value_tok.span
         });
     } else {
@@ -47,56 +47,61 @@ void Parser::parseAttribute(AttributeMap& attr_map) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseDef(AttributeMap&& attr_map, bool exported) {
+void Parser::parseDecl(AttributeMap&& attr_map, bool exported) {
+    AstNode* node { nullptr };
+
     switch (tok.kind) {
     case TOK_FUNC:
-        parseFuncDef(std::move(attr_map), exported);
+        node = parseFuncDecl(exported);
         break;
     case TOK_LET:
     case TOK_CONST:
-        parseGlobalVarDef(std::move(attr_map), exported);
+        node = parseGlobalVarDecl(exported);
         break;
     case TOK_STRUCT:
-        parseStructDef(std::move(attr_map), exported);
+        node = parseStructDecl(exported);
         break;
     case TOK_TYPE:
-        parseAliasDef(std::move(attr_map), exported);
+        node = parseAliasDecl(exported);
         break;
     case TOK_ENUM:
-        parseEnumDef(std::move(attr_map), exported);
+        node = parseEnumDecl(exported);
         break;
     default:
         reject("expected global definition");
         break;
     }
+
+    auto* adecl = (AstDecl*)ast_arena.Alloc(sizeof(AstDecl));
+    adecl->attrs = moveAttrsToArena(std::move(attr_map));
+    adecl->node = node;
+    
+    src_file.parent->decls.emplace_back(src_file.file_number, adecl);
 }
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseFuncDef(AttributeMap&& attr_map, bool exported) {
+AstNode* Parser::parseFuncDecl(bool exported) {
     auto start_span = tok.span;
     want(TOK_FUNC);
 
     auto name_tok = wantAndGet(TOK_IDENT);
 
-    std::vector<Symbol*> params;
+    std::vector<AstFuncParam> params;
     want(TOK_LPAREN);
     if (!has(TOK_RPAREN)) {
         parseFuncParams(params);
     }
     want(TOK_RPAREN);
     
-    Type* return_type;
-    switch (tok.kind) {
-    case TOK_SEMI: case TOK_LBRACE:
-        return_type = &prim_unit_type;
-        break;
-    default:
+    AstNode* return_type { nullptr };
+    if (tok.kind != TOK_SEMI && tok.kind != TOK_LBRACE) {
         return_type = parseTypeLabel();
-        break;
     }
 
-    AstStmt* body { nullptr };
+    auto sig_end_span = prev.span;
+
+    AstNode* body { nullptr };
     TextSpan end_span;
     switch (tok.kind) {
     case TOK_SEMI:
@@ -112,59 +117,49 @@ void Parser::parseFuncDef(AttributeMap&& attr_map, bool exported) {
         break;
     }
 
-    std::vector<Type*> param_types;
-    for (auto* param_symbol : params) {
-        param_types.push_back(param_symbol->type);
-    }
+    auto* afunc_type = allocNode(AST_TYPE_FUNC, SpanOver(start_span, sig_end_span));
+    afunc_type->an_TypeFunc.params = ast_arena.MoveVec(std::move(params));
+    afunc_type->an_TypeFunc.return_type = return_type;
 
-    auto* func_type = allocType(TYPE_FUNC);
-    func_type->ty_Func.param_types = arena.MoveVec(std::move(param_types));
-    func_type->ty_Func.return_type = return_type;
-
-    Symbol* symbol = arena.New<Symbol>(
+    Symbol* symbol = global_arena.New<Symbol>(
         src_file.parent->id,
-        arena.MoveStr(std::move(name_tok.value)),
+        global_arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
         exported ? SYM_FUNC | SYM_EXPORTED : SYM_FUNC,
-        src_file.parent->defs.size(),
-        func_type,
+        src_file.parent->decls.size(),
+        nullptr,
         true
     );
 
     defineGlobal(symbol);
 
-    auto* afunc = allocDef(AST_FUNC, SpanOver(start_span, end_span), std::move(attr_map));
+    auto* afunc = allocNode(AST_FUNC, SpanOver(start_span, end_span));
     afunc->an_Func.symbol = symbol;
-    afunc->an_Func.params = arena.MoveVec(std::move(params));
-    afunc->an_Func.return_type = return_type;
+    afunc->an_Func.func_type = afunc_type;
     afunc->an_Func.body = body;
-
-    src_file.parent->defs.push_back(afunc);
+   
+    return afunc;
 }
 
-void Parser::parseFuncParams(std::vector<Symbol*>& params) {
+void Parser::parseFuncParams(std::vector<AstFuncParam>& params) {
     std::unordered_set<std::string_view> param_names;
     while (true) {
         auto name_toks = parseIdentList();
-        Type* type = parseTypeExt();
+        auto* type = parseTypeExt();
 
         for (auto& name_tok : name_toks) {
-            Symbol* symbol = arena.New<Symbol>(
-                src_file.parent->id,
-                arena.MoveStr(std::move(name_tok.value)),
-                name_tok.span,
-                SYM_VAR,
-                0,
-                type,
-                false
-            );
+            AstFuncParam aparam {
+                SpanOver(name_tok.span, type->span),
+                global_arena.MoveStr(std::move(name_tok.value)),
+                type
+            };
 
-            if (param_names.contains(symbol->name)) {
-                error(symbol->span, "multiple parameters named {}", symbol->name);
+            if (param_names.contains(aparam.name)) {
+                error(name_tok.span, "multiple parameters named {}", aparam.name);
             }
 
-            params.push_back(symbol);
-            param_names.insert(symbol->name);
+            params.push_back(aparam);
+            param_names.insert(aparam.name);
         }
         
         if (has(TOK_COMMA)) {
@@ -177,7 +172,7 @@ void Parser::parseFuncParams(std::vector<Symbol*>& params) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseGlobalVarDef(AttributeMap&& attr_map, bool exported) {
+AstNode* Parser::parseGlobalVarDecl(bool exported) {
     auto start_span = tok.span;
     bool comptime = tok.kind == TOK_CONST;
     next();
@@ -190,7 +185,7 @@ void Parser::parseGlobalVarDef(AttributeMap&& attr_map, bool exported) {
 
     auto* type = parseTypeExt();
 
-    AstExpr* init_expr = nullptr;
+    AstNode* init_expr = nullptr;
     if (has(TOK_ASSIGN)) {
         init_expr = parseInitializer();
     }
@@ -202,29 +197,29 @@ void Parser::parseGlobalVarDef(AttributeMap&& attr_map, bool exported) {
     if (exported)
         flags |= SYM_EXPORTED;
 
-    Symbol* symbol = arena.New<Symbol>(
+    Symbol* symbol = global_arena.New<Symbol>(
         src_file.parent->id,
-        arena.MoveStr(std::move(name_tok.value)),
+        global_arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
         flags,
-        src_file.parent->defs.size(),
-        type,
+        src_file.parent->decls.size(),
+        nullptr,
         comptime  
     );
 
     defineGlobal(symbol);
 
-    auto* aglobal = allocDef(AST_GLVAR, SpanOver(start_span, end_span), std::move(attr_map));
-    aglobal->an_GlVar.symbol = symbol;
-    aglobal->an_GlVar.init_expr = init_expr;
-    aglobal->an_GlVar.const_value = nullptr;
+    auto* avar = allocNode(comptime ? AST_VAR : AST_CONST, SpanOver(start_span, end_span));
+    avar->an_Var.symbol = symbol;
+    avar->an_Var.type = type;
+    avar->an_Var.init = init_expr;
 
-    src_file.parent->defs.push_back(aglobal);
+    return avar;
 }
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseStructDef(AttributeMap&& attr_map, bool exported) {
+AstNode* Parser::parseStructDecl(bool exported) {
     auto start_span = tok.span;
     next();
 
@@ -233,7 +228,7 @@ void Parser::parseStructDef(AttributeMap&& attr_map, bool exported) {
     want(TOK_LBRACE);
 
     bool field_exported = false;
-    std::vector<StructField> fields;
+    std::vector<AstStructField> fields;
     std::unordered_map<std::string_view, size_t> name_map;
     do {
         // TODO: field attrs
@@ -253,14 +248,15 @@ void Parser::parseStructDef(AttributeMap&& attr_map, bool exported) {
         auto field_type = parseTypeExt();
 
         for (auto& field_name_tok : field_name_toks) {
-            auto field_name = arena.MoveStr(std::move(field_name_tok.value));
+            auto field_name = global_arena.MoveStr(std::move(field_name_tok.value));
 
             if (name_map.contains(field_name)) {
                 error(field_name_tok.span, "multiple fields named {}", field_name);
             }
 
             name_map.emplace(field_name, fields.size());
-            fields.emplace_back(StructField{
+            fields.emplace_back(AstStructField{
+                SpanOver(field_name_tok.span, field_type->span),
                 field_name,
                 field_type,
                 field_exported
@@ -270,37 +266,36 @@ void Parser::parseStructDef(AttributeMap&& attr_map, bool exported) {
         want(TOK_SEMI);
     } while (!has(TOK_RBRACE));
     next();
-
-    auto struct_type = allocType(TYPE_STRUCT);
-    struct_type->ty_Struct.fields = arena.MoveVec(std::move(fields));
-    struct_type->ty_Struct.name_map = MapView<size_t>(arena, std::move(name_map));
-    struct_type->ty_Struct.llvm_type = nullptr;
     
-    auto named_type = allocType(TYPE_NAMED);
+    auto named_type = AllocType(global_arena, TYPE_NAMED);
     named_type->ty_Named.mod_id = src_file.parent->id;
     named_type->ty_Named.mod_name = src_file.parent->name;  // No need to move to arena here.
-    named_type->ty_Named.name = arena.MoveStr(std::move(name_tok.value));
-    named_type->ty_Named.type = struct_type;
+    named_type->ty_Named.name = global_arena.MoveStr(std::move(name_tok.value));
+    named_type->ty_Named.type = nullptr;
 
-    auto* symbol = arena.New<Symbol>(
+    auto* symbol = global_arena.New<Symbol>(
         src_file.parent->id,
         named_type->ty_Named.name,
         name_tok.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
-        src_file.parent->defs.size(),
+        src_file.parent->decls.size(),
         named_type,
         false
     );
 
     defineGlobal(symbol);
 
-    auto* astruct = allocDef(AST_STRUCT, SpanOver(start_span, prev.span), std::move(attr_map));
-    astruct->an_Struct.symbol = symbol;
+    auto* astruct_type = allocNode(AST_TYPE_STRUCT, SpanOver(start_span, prev.span));
+    astruct_type->an_TypeStruct.fields = ast_arena.MoveVec(std::move(fields));
 
-    src_file.parent->defs.push_back(astruct);
+    auto* astruct = allocNode(AST_TYPEDEF, SpanOver(start_span, prev.span));
+    astruct->an_TypeDef.symbol = symbol;
+    astruct->an_TypeDef.type = astruct_type;
+
+    return astruct;
 }
 
-void Parser::parseAliasDef(AttributeMap&& attr_map, bool exported) {
+AstNode* Parser::parseAliasDecl(bool exported) {
     auto start_span = tok.span;
     next();
 
@@ -312,31 +307,32 @@ void Parser::parseAliasDef(AttributeMap&& attr_map, bool exported) {
 
     want(TOK_SEMI);
 
-    auto* alias_type = allocType(TYPE_ALIAS);
+    auto* alias_type = AllocType(global_arena, TYPE_ALIAS);
     alias_type->ty_Named.mod_id = src_file.parent->id;
     alias_type->ty_Named.mod_name = src_file.parent->name;
-    alias_type->ty_Named.name = arena.MoveStr(std::move(ident.value));
-    alias_type->ty_Named.type = base_type;
+    alias_type->ty_Named.name = global_arena.MoveStr(std::move(ident.value));
+    alias_type->ty_Named.type = nullptr;
 
-    auto* symbol = arena.New<Symbol>(
+    auto* symbol = global_arena.New<Symbol>(
         src_file.parent->id,
         alias_type->ty_Named.name,
         ident.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
-        src_file.parent->defs.size(),
+        src_file.parent->decls.size(),
         alias_type,
         false
     );
 
     defineGlobal(symbol);
 
-    auto* aalias = allocDef(AST_ALIAS, SpanOver(start_span, prev.span), std::move(attr_map));
-    aalias->an_Alias.symbol = symbol;
+    auto* aalias = allocNode(AST_TYPEDEF, SpanOver(start_span, prev.span));
+    aalias->an_TypeDef.symbol = symbol;
+    aalias->an_TypeDef.type = base_type;
     
-    src_file.parent->defs.push_back(aalias);
+    return aalias;
 }
 
-void Parser::parseEnumDef(AttributeMap&& attr_map, bool exported) {
+AstNode* Parser::parseEnumDecl(bool exported) {
     auto start_span = tok.span;
     next();
 
@@ -345,54 +341,61 @@ void Parser::parseEnumDef(AttributeMap&& attr_map, bool exported) {
     want(TOK_LBRACE);
 
     std::unordered_map<std::string_view, size_t> name_map;
-    std::vector<AstVariantInit> variant_inits;
+    std::vector<AstNode*> variants;
     do {
         auto var_name_tok = wantAndGet(TOK_IDENT);
 
-        AstExpr* variant_init_expr { nullptr };
+        AstNode* variant_init_expr { nullptr };
         if (has(TOK_ASSIGN)) {
             variant_init_expr = parseInitializer();
         }
         want(TOK_SEMI);
 
-        auto variant_name = arena.MoveStr(std::move(var_name_tok.value));
+        auto variant_name = global_arena.MoveStr(std::move(var_name_tok.value));
         if (name_map.contains(variant_name)) {
             error(var_name_tok.span, "multiple variants named {}", variant_name);
+            continue;
+        } 
+        
+        AstNode* variant;
+        if (variant_init_expr) {
+            variant = allocNode(AST_NAMED_INIT, SpanOver(var_name_tok.span, variant_init_expr->span));
+            variant->an_NamedInit.name = variant_name;
+            variant->an_NamedInit.init = variant_init_expr;
         } else {
-            name_map.emplace(variant_name, variant_inits.size());
-            variant_inits.emplace_back(variant_init_expr);
+            variant = allocNode(AST_IDENT, var_name_tok.span);
+            variant->an_Ident.name = variant_name;
+            variant->an_Ident.symbol = nullptr;
         }
+
+        variants.push_back(variant);
     } while (!has(TOK_RBRACE));
     next();
 
-    auto* enum_type = allocType(TYPE_ENUM);
-    
-    auto* tag_values_ptr = (llvm::Constant**)arena.Alloc(sizeof(llvm::Constant*) * variant_inits.size());
-    memset(tag_values_ptr, 0, variant_inits.size() * sizeof(llvm::Constant*));
-    enum_type->ty_Enum.tag_values = std::span<llvm::Constant*>(tag_values_ptr, variant_inits.size());
-    enum_type->ty_Enum.name_map = MapView<size_t>(arena, std::move(name_map));
-
-    auto* named_type = allocType(TYPE_NAMED);
+    auto* named_type = AllocType(global_arena, TYPE_NAMED);
     named_type->ty_Named.mod_id = src_file.parent->id;
     named_type->ty_Named.mod_name = src_file.parent->name;
-    named_type->ty_Named.name = arena.MoveStr(std::move(ident.value));
-    named_type->ty_Named.type = enum_type;
+    named_type->ty_Named.name = global_arena.MoveStr(std::move(ident.value));
+    named_type->ty_Named.type = nullptr;
 
-    auto* symbol = arena.New<Symbol>(
+    auto* symbol = global_arena.New<Symbol>(
         src_file.parent->id,
         named_type->ty_Named.name,
         ident.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
-        src_file.parent->defs.size(),
+        src_file.parent->decls.size(),
         named_type,
         false
     );
 
     defineGlobal(symbol);
 
-    auto* aenum = allocDef(AST_ENUM, SpanOver(start_span, prev.span), std::move(attr_map));
-    aenum->an_Enum.symbol = symbol;
-    aenum->an_Enum.variant_inits = arena.MoveVec(std::move(variant_inits));
+    auto* aenum_type = allocNode(AST_TYPE_ENUM, SpanOver(start_span, prev.span));
+    aenum_type->an_TypeEnum.variants = ast_arena.MoveVec(std::move(variants));    
 
-    src_file.parent->defs.push_back(aenum);
+    auto* aenum = allocNode(AST_TYPEDEF, SpanOver(start_span, prev.span));
+    aenum->an_TypeDef.symbol = symbol;
+    aenum->an_TypeDef.type = aenum_type;
+
+    return aenum;
 }

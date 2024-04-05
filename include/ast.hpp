@@ -35,16 +35,17 @@ enum AstKind {
     AST_INDEX,
     AST_SLICE,
     AST_SELECTOR,
-    AST_STATIC_GET,     // not created by parser, but by resolver
+    AST_STATIC_GET,     // created by resolver only
     AST_ARRAY_LIT,      // uses an_ExprList
+    AST_STRUCT_LIT,     
     AST_NEW,
     AST_NEW_ARRAY,
-    AST_NEW_STRUCT,
-    AST_STRUCT_LIT,     // uses an_ExprList
+    AST_NEW_STRUCT,     // uses an_StructLit
     AST_IDENT,
     AST_NUM_LIT,
     AST_FLOAT_LIT,
     AST_BOOL_LIT,
+    AST_RUNE_LIT,
     AST_STRING_LIT,
     AST_NULL,
 
@@ -61,16 +62,24 @@ enum AstKind {
 
     AST_EXPR_LIST,
     AST_NAMED_INIT,
+    AST_DOT,
 
     ASTS_COUNT
 };
 
 struct AstNode;
 
-struct AstField {
+struct AstFuncParam {
     TextSpan span;
-    AstNode* name;
+    std::string_view name;
     AstNode* type;
+};
+
+struct AstStructField {
+    TextSpan span;
+    std::string_view name;
+    AstNode* type;
+    bool exported;
 };
 
 struct AstCondBranch {
@@ -166,7 +175,7 @@ struct AstNode {
         } an_Deref;
         struct {
             AstNode* func;
-            std::span<AstNode*> args;
+            AstNode* args;
         } an_Call;
         struct {
             AstNode* expr;
@@ -174,8 +183,8 @@ struct AstNode {
         } an_Index;
         struct {
             AstNode* expr;
-            AstNode* lo;
-            AstNode* hi;
+            AstNode* start_index;
+            AstNode* end_index;
         } an_Slice;
         struct {
             AstNode* expr;
@@ -193,8 +202,8 @@ struct AstNode {
         } an_NewArray;
         struct {
             AstNode* type;
-            AstNode* struct_lit;
-        } an_NewStruct;
+            AstNode* field_inits;
+        } an_StructLit;
         struct {
             std::string_view name;
             Symbol* symbol; // bound late
@@ -208,6 +217,9 @@ struct AstNode {
         struct {
             bool value;
         } an_Bool;
+        struct {
+            int32_t value;
+        } an_Rune;
         struct {
             std::string_view value;
         } an_String;
@@ -227,11 +239,11 @@ struct AstNode {
             AstNode* elem_type;
         } an_TypeSlice;
         struct {
-            std::span<AstField> params;
+            std::span<AstFuncParam> params;
             AstNode* return_type;
         } an_TypeFunc;
         struct {
-            std::span<AstField> fields;
+            std::span<AstStructField> fields;
         } an_TypeStruct;
         struct {
             std::span<AstNode*> variants;
@@ -241,7 +253,7 @@ struct AstNode {
             std::span<AstNode*> exprs;
         } an_ExprList;
         struct {
-            AstNode* name;
+            std::string_view name;
             AstNode* init;
         } an_NamedInit;
     };

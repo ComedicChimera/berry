@@ -95,6 +95,11 @@ struct Module {
 
         // ir_decl is the declaration IR node.
         IrDecl* ir_decl;
+
+        Decl(size_t file_number_, AstDecl* adecl_)
+        : file_number(file_number_)
+        , ast_decl(adecl_)
+        {}
     };
 
     // decls stores the declarations contained in the module.
@@ -150,12 +155,12 @@ struct SourceFile {
         // dep_id is the module-local ID of the dependency.
         size_t dep_id;
 
-        // spans is the list of source locations that depend on the import.
-        std::vector<TextSpan> spans;
+        // span is the source location of the module path.
+        TextSpan span;
 
         ImportEntry(size_t dep_id_, const TextSpan& span_)
         : dep_id(dep_id_)
-        , spans({ span_ })
+        , span(span_)
         {}
     };
 

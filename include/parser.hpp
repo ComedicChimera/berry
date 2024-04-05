@@ -5,10 +5,16 @@
 #include "lexer.hpp"
 #include "arena.hpp"
 
+using AttributeMap = std::unordered_map<std::string_view, Attribute>;
+
 // Parser parses a Berry file into an AST and catches syntax errors.
 class Parser {    
-    // arena is the arena the parser should allocated types and symbols in.
-    Arena& arena;
+    // global_arena is the arena in which the parser should allocate global data
+    // which will persist beyond the AST such as types and symbols.
+    Arena& global_arena;
+
+    // ast_arena is the arena the parser should allocate AST nodes in.
+    Arena& ast_arena;
 
     // lexer is the parser's lexer for the file.
     Lexer lexer;
@@ -39,8 +45,9 @@ class Parser {
 
 public:
     // Creates a new parser reading from file for src_file.
-    Parser(Arena& arena, std::ifstream& file, SourceFile& src_file)
-    : arena(arena)
+    Parser(Arena& global_arena, Arena& ast_arena, std::ifstream& file, SourceFile& src_file)
+    : global_arena(global_arena)
+    , ast_arena(ast_arena)
     , src_file(src_file)
     , lexer(file, src_file)
     {}
@@ -74,62 +81,60 @@ private:
     void parseAttrList(AttributeMap& attr_map);
     void parseAttribute(AttributeMap& attr_map);
 
-    void parseDef(AttributeMap&& attr_map, bool exported);
-    void parseFuncDef(AttributeMap&& attr_map, bool exported);
-    void parseFuncParams(std::vector<Symbol*>& params);
+    void parseDecl(AttributeMap&& attr_map, bool exported);
+    AstNode* parseFuncDecl(bool exported);
+    void parseFuncParams(std::vector<AstFuncParam>& params);
 
-    void parseGlobalVarDef(AttributeMap&& attr_map, bool exported);
+    AstNode* parseGlobalVarDecl(bool exported);
     
-    void parseStructDef(AttributeMap&& attr_map, bool exported);
-    void parseAliasDef(AttributeMap&& attr_map, bool exported);
-    void parseEnumDef(AttributeMap &&attr_map, bool exported);
+    AstNode* parseStructDecl(bool exported);
+    AstNode* parseAliasDecl(bool exported);
+    AstNode* parseEnumDecl(bool exported);
 
     /* ---------------------------------------------------------------------- */
 
-    AstStmt* parseBlock();
-    AstStmt* parseStmt();
+    AstNode* parseBlock();
+    AstNode* parseStmt();
 
-    AstStmt* parseIfStmt();
-    AstStmt* parseWhileLoop();
-    AstStmt* parseDoWhileLoop();
-    AstStmt* parseForLoop();
-    AstStmt* maybeParseElse();
-    AstStmt* parseMatchStmt();
+    AstNode* parseIfStmt();
+    AstNode* parseWhileLoop();
+    AstNode* parseDoWhileLoop();
+    AstNode* parseForLoop();
+    AstNode* maybeParseElse();
+    AstNode* parseMatchStmt();
 
-    AstStmt* parseLocalVarDef();
-    AstStmt* parseExprAssignStmt();
-
-    /* ---------------------------------------------------------------------- */
-
-    AstExpr* parseCasePattern();
-    AstExpr* parsePattern();
+    AstNode* parseLocalVarDef();
+    AstNode* parseExprAssignStmt();
 
     /* ---------------------------------------------------------------------- */
 
-    AstExpr* parseExpr();
-    AstExpr* parseBinaryOp(int pred_level);
-    AstExpr* parseUnaryOp();
-    AstExpr* parseAtomExpr();
-    AstExpr* parseFuncCall(AstExpr* root);
-    AstExpr* parseIndexOrSlice(AstExpr* root);
-    AstExpr* parseStructLit(AstExpr *root);
-    AstExpr* parseAtom();
-    AstExpr* parseNewExpr();
-    AstExpr* parseStructPtrLit(AstExpr* root);
-    AstExpr* parseArrayLit();
-    AstExpr* parseMacroCall();
+    AstNode* parseCasePattern();
+    AstNode* parsePattern();
 
     /* ---------------------------------------------------------------------- */
 
-    Type* parseTypeExt();
-    Type* parseTypeLabel();
-    Type* parseStructTypeLabel();
-    Type* parseNamedTypeLabel();
+    AstNode* parseExpr();
+    AstNode* parseBinaryOp(int pred_level);
+    AstNode* parseUnaryOp();
+    AstNode* parseAtomExpr();
+    AstNode* parseFuncCall(AstNode* func);
+    AstNode* parseIndexOrSlice(AstNode* root);
+    AstNode* parseStructLit(AstNode* type);
+    AstNode* parseAtom();
+    AstNode* parseNewExpr();
+    AstNode* parseArrayLit();
+    AstNode* parseMacroCall();
 
     /* ---------------------------------------------------------------------- */
 
-    std::span<AstExpr*> parseExprList(TokenKind delim = TOK_COMMA);
-    AstExpr* parseInitializer();
+    AstNode* parseTypeExt();
+    AstNode* parseTypeLabel();
+    AstNode* parseStructTypeLabel();
+    
+    /* ---------------------------------------------------------------------- */
+
+    AstNode* parseExprList(TokenKind delim = TOK_COMMA);
+    AstNode* parseInitializer();
     std::vector<Token> parseIdentList(TokenKind delim = TOK_COMMA);
 
     /* ---------------------------------------------------------------------- */
@@ -155,11 +160,8 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
+    AstNode* allocNode(AstKind kind, const TextSpan& span);
     std::span<Attribute> moveAttrsToArena(AttributeMap&& meta_map);
-    AstDef *allocDef(AstKind kind, const TextSpan& span, AttributeMap&& metadata);
-    AstStmt* allocStmt(AstKind kind, const TextSpan& span);
-    AstExpr* allocExpr(AstKind kind, const TextSpan& span);
-    Type *allocType(TypeKind kind);
 
     /* ---------------------------------------------------------------------- */
 

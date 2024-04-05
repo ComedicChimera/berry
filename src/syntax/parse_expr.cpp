@@ -1,6 +1,6 @@
 #include "parser.hpp"
 
-AstExpr* Parser::parseExpr() {
+AstNode* Parser::parseExpr() {
     auto* expr = parseBinaryOp(0);
 
     if (has(TOK_AS)) {
@@ -8,9 +8,9 @@ AstExpr* Parser::parseExpr() {
 
         auto dest_type = parseTypeLabel();
 
-        auto* acast = allocExpr(AST_CAST, SpanOver(expr->span, prev.span));
-        acast->type = dest_type;
-        acast->an_Cast.src = expr;
+        auto* acast = allocNode(AST_CAST, SpanOver(expr->span, prev.span));
+        acast->an_Cast.expr = expr;
+        acast->an_Cast.dest_type = dest_type;
         expr = acast;
     }
 
@@ -19,7 +19,7 @@ AstExpr* Parser::parseExpr() {
 
         auto* pattern = parseCasePattern();
 
-        auto* amatch = allocExpr(AST_TEST_MATCH, SpanOver(expr->span, prev.span));
+        auto* amatch = allocNode(AST_TEST_MATCH, SpanOver(expr->span, prev.span));
         amatch->an_TestMatch.expr = expr;
         amatch->an_TestMatch.pattern = pattern;
         expr = amatch;
@@ -29,27 +29,6 @@ AstExpr* Parser::parseExpr() {
 }
 
 /* -------------------------------------------------------------------------- */
-
-std::unordered_map<TokenKind, AstOpKind> tok_to_aop {
-    { TOK_PLUS, AOP_ADD },
-    { TOK_MINUS, AOP_SUB },
-    { TOK_STAR, AOP_MUL },
-    { TOK_FSLASH, AOP_DIV },
-    { TOK_MOD, AOP_MOD },
-    { TOK_SHL, AOP_SHL },
-    { TOK_SHR, AOP_SHR },
-    { TOK_AMP, AOP_BWAND },
-    { TOK_PIPE, AOP_BWOR },
-    { TOK_CARRET, AOP_BWXOR },
-    { TOK_EQ, AOP_EQ },
-    { TOK_NE, AOP_NE },
-    { TOK_LT, AOP_LT },
-    { TOK_GT, AOP_GT },
-    { TOK_LE, AOP_LE },
-    { TOK_GE, AOP_GE },
-    { TOK_AND, AOP_LGAND },
-    { TOK_OR, AOP_LGOR },
-};
 
 #define PRED_TABLE_SIZE 8
 std::vector<TokenKind> pred_table[PRED_TABLE_SIZE] = {
@@ -63,7 +42,7 @@ std::vector<TokenKind> pred_table[PRED_TABLE_SIZE] = {
     { TOK_STAR, TOK_FSLASH, TOK_MOD }
 };
 
-AstExpr* Parser::parseBinaryOp(int pred_level) {
+AstNode* Parser::parseBinaryOp(int pred_level) {
     if (pred_level >= PRED_TABLE_SIZE) {
         return parseUnaryOp();
     }
@@ -76,14 +55,16 @@ AstExpr* Parser::parseBinaryOp(int pred_level) {
             break;
         }
 
+        auto op_tok = tok;
         next();
+
         auto rhs = parseBinaryOp(pred_level + 1);
 
         auto lhs_span = lhs->span;
         auto rhs_spah = rhs->span;
 
-        auto* new_lhs = allocExpr(AST_BINOP, SpanOver(lhs->span, rhs->span));
-        new_lhs->an_Binop.op = tok_to_aop[*it];
+        auto* new_lhs = allocNode(AST_BINOP, SpanOver(lhs->span, rhs->span));
+        new_lhs->an_Binop.op = {op_tok.span, op_tok.kind};
         new_lhs->an_Binop.lhs = lhs;
         new_lhs->an_Binop.rhs = rhs;
         lhs = new_lhs;
@@ -92,7 +73,7 @@ AstExpr* Parser::parseBinaryOp(int pred_level) {
     return lhs;
 }
 
-AstExpr* Parser::parseUnaryOp() {
+AstNode* Parser::parseUnaryOp() {
     auto start_span = tok.span;
     
     switch (tok.kind) {
@@ -100,43 +81,28 @@ AstExpr* Parser::parseUnaryOp() {
         next();
 
         auto atom_expr = parseAtomExpr();
-        auto* node = allocExpr(AST_ADDR, SpanOver(start_span, atom_expr->span));
-        node->an_Addr.elem = atom_expr;
+        auto* node = allocNode(AST_ADDR, SpanOver(start_span, atom_expr->span));
+        node->an_Addr.expr = atom_expr;
         return node;
     } break; 
     case TOK_STAR: {
         next();
 
         auto atom_expr = parseAtomExpr();
-        auto* node = allocExpr(AST_DEREF, SpanOver(start_span, atom_expr->span));
-        node->an_Deref.ptr = atom_expr;
+        auto* node = allocNode(AST_DEREF, SpanOver(start_span, atom_expr->span));
+        node->an_Deref.expr = atom_expr;
         return node;
     } break;
-    case TOK_MINUS: {
-        next();
-
-        auto atom_expr = parseAtomExpr();
-        auto* node = allocExpr(AST_UNOP, SpanOver(start_span, atom_expr->span));
-        node->an_Unop.operand = atom_expr;
-        node->an_Unop.op = AOP_NEG;
-        return node;
-    } break;
-    case TOK_NOT: {
-        next();
-        
-        auto atom_expr = parseAtomExpr();
-        auto* node = allocExpr(AST_UNOP, SpanOver(start_span, atom_expr->span));
-        node->an_Unop.operand = atom_expr;
-        node->an_Unop.op = AOP_NOT;
-        return node;
-    } break;
+    case TOK_MINUS: 
+    case TOK_NOT:
     case TOK_TILDE: {
+        auto op_tok = tok;
         next();
 
         auto atom_expr = parseAtomExpr();
-        auto* node = allocExpr(AST_UNOP, SpanOver(start_span, atom_expr->span));
-        node->an_Unop.operand = atom_expr;
-        node->an_Unop.op = AOP_BWNEG;
+        auto* node = allocNode(AST_UNOP, SpanOver(start_span, atom_expr->span));
+        node->an_Unop.expr = atom_expr;
+        node->an_Unop.op = { op_tok.span, op_tok.kind };
         return node;
     } break;
     default:
@@ -146,7 +112,7 @@ AstExpr* Parser::parseUnaryOp() {
 
 /* -------------------------------------------------------------------------- */
 
-AstExpr* Parser::parseAtomExpr() {
+AstNode* Parser::parseAtomExpr() {
     auto root = parseAtom();
 
     while (true) {
@@ -162,9 +128,9 @@ AstExpr* Parser::parseAtomExpr() {
 
             auto field_name_tok = wantAndGet(TOK_IDENT);
 
-            auto* node = allocExpr(AST_FIELD, SpanOver(root->span, field_name_tok.span));
-            node->an_Field.root = root;
-            node->an_Field.field_name = arena.MoveStr(std::move(field_name_tok.value));
+            auto* node = allocNode(AST_SELECTOR, SpanOver(root->span, field_name_tok.span));
+            node->an_Sel.expr = root;
+            node->an_Sel.field_name = ast_arena.MoveStr(std::move(field_name_tok.value));
             
             root = node;
         } break;
@@ -180,22 +146,14 @@ AstExpr* Parser::parseAtomExpr() {
     }
 }
 
-AstExpr* Parser::parseFuncCall(AstExpr* root) {
+AstNode* Parser::parseFuncCall(AstNode* func) {
     next();
 
     pushAllowStructLit(true);
 
-    std::vector<AstExpr*> args;
+    AstNode* args { nullptr };
     if (!has(TOK_RPAREN)) {
-        while (true) {
-            args.emplace_back(parseExpr());
-
-            if (has(TOK_COMMA)) {
-                next();
-            } else {
-                break;
-            }
-        }
+        args = parseExprList();
     }
     
     auto end_span = tok.span;
@@ -203,13 +161,13 @@ AstExpr* Parser::parseFuncCall(AstExpr* root) {
 
     popAllowStructLit();
 
-    auto* node = allocExpr(AST_CALL, SpanOver(root->span, end_span));
-    node->an_Call.func = root;
-    node->an_Call.args = arena.MoveVec(std::move(args));
+    auto* node = allocNode(AST_CALL, SpanOver(func->span, end_span));
+    node->an_Call.func = func;
+    node->an_Call.args = args;
     return node;
 }
 
-AstExpr* Parser::parseIndexOrSlice(AstExpr* root) {
+AstNode* Parser::parseIndexOrSlice(AstNode* root) {
     next();
     auto start_span = prev.span;
 
@@ -222,8 +180,8 @@ AstExpr* Parser::parseIndexOrSlice(AstExpr* root) {
 
         want(TOK_RBRACKET);
 
-        auto* node = allocExpr(AST_SLICE, SpanOver(start_span, prev.span));
-        node->an_Slice.array = root;
+        auto* node = allocNode(AST_SLICE, SpanOver(start_span, prev.span));
+        node->an_Slice.expr = root;
         node->an_Slice.start_index = nullptr;
         node->an_Slice.end_index = end_index;
         return node;
@@ -233,15 +191,15 @@ AstExpr* Parser::parseIndexOrSlice(AstExpr* root) {
     if (has(TOK_COLON)) {
         next();
 
-        AstExpr* end_index { nullptr };
+        AstNode* end_index { nullptr };
         if (!has(TOK_RBRACKET)) {
             end_index = parseExpr();
         } 
 
         want(TOK_RBRACKET);
 
-        auto* node = allocExpr(AST_SLICE, SpanOver(start_span, prev.span));
-        node->an_Slice.array = root;
+        auto* node = allocNode(AST_SLICE, SpanOver(start_span, prev.span));
+        node->an_Slice.expr = root;
         node->an_Slice.start_index = start_index;
         node->an_Slice.end_index = end_index;
         return node;
@@ -251,53 +209,57 @@ AstExpr* Parser::parseIndexOrSlice(AstExpr* root) {
 
     popAllowStructLit();
 
-    auto* node = allocExpr(AST_INDEX, SpanOver(start_span, prev.span));
-    node->an_Index.array = root;
+    auto* node = allocNode(AST_INDEX, SpanOver(start_span, prev.span));
+    node->an_Index.expr = root;
     node->an_Index.index = start_index;
     return node;
 }
 
-AstExpr* Parser::parseStructLit(AstExpr* root) {
+AstNode* Parser::parseStructLit(AstNode* type) {
     want(TOK_LBRACE);
 
     pushAllowStructLit(true);
 
-    AstExpr* struct_lit { nullptr };
+    AstNode* struct_lit { nullptr };
     if (has(TOK_RBRACE)) {
         next();
-        struct_lit = allocExpr(AST_STRUCT_LIT_POS, SpanOver(root->span, prev.span));
-        struct_lit->an_StructLitPos.root = root;
-        struct_lit->an_StructLitPos.field_inits = {};
+        struct_lit = allocNode(AST_STRUCT_LIT, SpanOver(type->span, prev.span));
+        struct_lit->an_StructLit.type = type;
+        struct_lit->an_StructLit.field_inits = nullptr;
     } else if (has(TOK_IDENT)) {
         auto* first_expr = parseExpr();
 
+        std::vector<AstNode*> field_inits;
         if (first_expr->kind == AST_IDENT && has(TOK_ASSIGN)) {
             next();
             auto* init_expr = parseExpr();
 
-            std::vector<AstNamedFieldInit> field_inits({ { first_expr, init_expr } });
+            auto* field_init = allocNode(AST_NAMED_INIT, SpanOver(first_expr->span, init_expr->span));
+            field_init->an_NamedInit.name = first_expr->an_Ident.name;
+            field_init->an_NamedInit.init = init_expr;
+            field_inits.push_back(field_init);
 
             if (has(TOK_COMMA)) {
                 next();
 
                 std::unordered_set<std::string_view> used_field_names;
-                used_field_names.insert(first_expr->an_Ident.temp_name);
+                used_field_names.insert(first_expr->an_Ident.name);
                 while (true) {
                     auto ident_tok = wantAndGet(TOK_IDENT);
-                    auto ident_name = arena.MoveStr(std::move(ident_tok.value));
+                    auto field_name = ast_arena.MoveStr(std::move(ident_tok.value));
 
-                    auto aident = allocExpr(AST_IDENT, ident_tok.span);
-                    aident->an_Ident.temp_name = ident_name;
-
-                    if (used_field_names.contains(ident_name)) {
-                        error(ident_tok.span, "field named {} initialized multiple times", ident_name);
+                    if (used_field_names.contains(field_name)) {
+                        error(ident_tok.span, "field named {} initialized multiple times", field_name);
                     } else {
-                        used_field_names.insert(ident_name);
+                        used_field_names.insert(field_name);
                     }
 
                     init_expr = parseInitializer();
 
-                    field_inits.emplace_back(aident, init_expr);
+                    field_init = allocNode(AST_NAMED_INIT, SpanOver(ident_tok.span, init_expr->span));
+                    field_init->an_NamedInit.name = field_name;
+                    field_init->an_NamedInit.init = init_expr;
+                    field_inits.emplace_back(field_init);
 
                     if (has(TOK_COMMA)) {
                         next();
@@ -308,12 +270,8 @@ AstExpr* Parser::parseStructLit(AstExpr* root) {
             }
 
             want(TOK_RBRACE);
-
-            struct_lit = allocExpr(AST_STRUCT_LIT_NAMED, SpanOver(root->span, prev.span));
-            struct_lit->an_StructLitNamed.root = root;
-            struct_lit->an_StructLitNamed.field_inits = arena.MoveVec(std::move(field_inits));
         } else {
-            std::vector<AstExpr*> field_inits({ first_expr });
+            std::vector<AstNode*> field_inits({ first_expr });
 
             if (has(TOK_COMMA)) {
                 next();
@@ -330,18 +288,21 @@ AstExpr* Parser::parseStructLit(AstExpr* root) {
             }
 
             want(TOK_RBRACE);
+        }
 
-            struct_lit = allocExpr(AST_STRUCT_LIT_POS, SpanOver(root->span, prev.span));
-            struct_lit->an_StructLitPos.root = root;
-            struct_lit->an_StructLitPos.field_inits = arena.MoveVec(std::move(field_inits));
-        }   
+        auto* expr_list = allocNode(AST_EXPR_LIST, SpanOver(field_inits[0]->span, field_inits.back()->span));
+        expr_list->an_ExprList.exprs = ast_arena.MoveVec(std::move(field_inits));
+
+        struct_lit = allocNode(AST_STRUCT_LIT, SpanOver(type->span, prev.span));
+        struct_lit->an_StructLit.type = type;
+        struct_lit->an_StructLit.field_inits = expr_list; 
     } else {
         auto field_inits = parseExprList();
         want(TOK_RBRACE);
 
-        struct_lit = allocExpr(AST_STRUCT_LIT_POS, SpanOver(root->span, prev.span));
-        struct_lit->an_StructLitPos.root = root;
-        struct_lit->an_StructLitPos.field_inits = field_inits;
+        struct_lit = allocNode(AST_STRUCT_LIT, SpanOver(type->span, prev.span));
+        struct_lit->an_StructLit.type = type;
+        struct_lit->an_StructLit.field_inits = field_inits;
     }
 
     popAllowStructLit();
@@ -440,7 +401,7 @@ rune ConvertRuneLit(const std::string& rune_str) {
     }
 }
 
-AstExpr* Parser::parseAtom() {
+AstNode* Parser::parseAtom() {
     switch (tok.kind) {
     case TOK_INTLIT: {
         next();
@@ -450,9 +411,9 @@ AstExpr* Parser::parseAtom() {
             error(prev.span, "integer literal is too big to be represented by any integer type");
         }
 
-        auto* aint = allocExpr(AST_INT, prev.span);
-        aint->an_Int.value = value;
-        return aint;
+        auto* anum = allocNode(AST_NUM_LIT, prev.span);
+        anum->an_Num.value = value;
+        return anum;
     } break;
     case TOK_FLOATLIT: {
         next();
@@ -464,45 +425,42 @@ AstExpr* Parser::parseAtom() {
             error(prev.span, "float literal cannot be accurately represented by any float type");
         }
 
-        auto* afloat = allocExpr(AST_FLOAT, prev.span);
+        auto* afloat = allocNode(AST_FLOAT_LIT, prev.span);
         afloat->an_Float.value = value;
         return afloat;
     } break;
     case TOK_RUNELIT: {
         next();
 
-        auto* aint = allocExpr(AST_INT, prev.span);
-        aint->type = &prim_i32_type;
-        aint->an_Int.value = ConvertRuneLit(prev.value);
-        return aint;
+        auto* arune = allocNode(AST_RUNE_LIT, prev.span);
+        arune->an_Rune.value = ConvertRuneLit(prev.value);
+        return arune;
     } break;
     case TOK_BOOLLIT: {
         next();
 
-        auto* abool = allocExpr(AST_BOOL, prev.span);
-        abool->type = &prim_bool_type;
+        auto* abool = allocNode(AST_BOOL_LIT, prev.span);
         abool->an_Bool.value = prev.value == "true";
         return abool;
     } break;
     case TOK_STRLIT: {
         next();
 
-        auto* astr = allocExpr(AST_STRING, prev.span);
-        astr->type = &prim_string_type;
-        astr->an_String.value = arena.MoveStr(std::move(prev.value));
+        auto* astr = allocNode(AST_STRING_LIT, prev.span);
+        astr->an_String.value = global_arena.MoveStr(std::move(prev.value));
         return astr;
     } break;
     case TOK_IDENT: {
         next();
 
-        auto* ident = allocExpr(AST_IDENT, prev.span);
-        ident->an_Ident.temp_name = arena.MoveStr(std::move(prev.value));
+        auto* ident = allocNode(AST_IDENT, prev.span);
+        ident->an_Ident.name = ast_arena.MoveStr(std::move(prev.value));
         ident->an_Ident.symbol = nullptr;
         return ident;
     } break;
     case TOK_NULL:
         next();
-        return allocExpr(AST_NULL, prev.span);
+        return allocNode(AST_NULL, prev.span);
     case TOK_LPAREN: {
         next();
 
@@ -521,27 +479,23 @@ AstExpr* Parser::parseAtom() {
     case TOK_STRUCT: {
         auto start_span = tok.span;
         auto* type = parseStructTypeLabel();
-        auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, SpanOver(start_span, prev.span));
-        astruct->type = type;
 
-        return parseStructLit(astruct);
+        return parseStructLit(type);
     } break;
     case TOK_DOT: {
         next();
+        auto* adot = allocNode(AST_DOT, prev.span);
 
         if (has(TOK_IDENT)) {
-            auto* aenum_lit_type = allocExpr(AST_ENUM_LIT_TYPE, prev.span);
-            
-            auto* aenum_lit = allocExpr(AST_ENUM_LIT, SpanOver(prev.span, tok.span));
-            aenum_lit->an_Field.root = aenum_lit_type;
-            aenum_lit->an_Field.field_name = arena.MoveStr(std::move(tok.value));
             next();
 
-            return aenum_lit;
+            auto* asel = allocNode(AST_SELECTOR, SpanOver(adot->span, prev.span));
+            asel->an_Sel.field_name = ast_arena.MoveStr(std::move(prev.value));
+
+            return asel;
         }
         
-        auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, prev.span);
-        return parseStructLit(astruct);
+        return parseStructLit(adot);
     } break;
     case TOK_ATSIGN:
         return parseMacroCall();
@@ -551,71 +505,61 @@ AstExpr* Parser::parseAtom() {
     }
 }
 
-AstExpr* Parser::parseNewExpr() {
+AstNode* Parser::parseNewExpr() {
     next();
     auto start_span = prev.span;
 
     if (has(TOK_LBRACE)) {
-        auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, prev.span);
-        return parseStructPtrLit(astruct);
+        auto* adot = allocNode(AST_DOT, start_span);
+
+        auto* struct_lit = parseStructLit(adot);
+        struct_lit->kind = AST_NEW_STRUCT;
+        return struct_lit;
     }
 
     auto* type = parseTypeLabel();
 
-    if (has(TOK_LBRACE) && shouldParseStructLit()) {
-        auto* astruct = allocExpr(AST_STRUCT_LIT_TYPE, SpanOver(start_span, prev.span));
-        astruct->type = type;
-        
-        return parseStructPtrLit(astruct);
+    if (has(TOK_LBRACE) && shouldParseStructLit()) {        
+        auto* struct_lit =  parseStructLit(type);
+        struct_lit->kind = AST_NEW_STRUCT;
+        return struct_lit;
     }
 
-    AstExpr* size_expr { nullptr };
     if (has(TOK_LBRACKET)) {
         next();
 
-        size_expr = parseExpr();
+        auto* len_expr = parseExpr();
 
         want(TOK_RBRACKET);
-    }
 
-    auto* anew = allocExpr(AST_NEW, SpanOver(start_span, prev.span));
-    anew->an_New.elem_type = type;
-    anew->an_New.size_expr = size_expr;
+        auto* anew_array = allocNode(AST_NEW_ARRAY, SpanOver(start_span, prev.span));
+        anew_array->an_NewArray.type = type;
+        anew_array->an_NewArray.len = len_expr;
+        return anew_array;
+    } 
+
+    auto* anew = allocNode(AST_NEW, SpanOver(start_span, prev.span));
+    anew->an_New.type = type;
     return anew;
 }
 
-AstExpr* Parser::parseStructPtrLit(AstExpr* root) {
-    auto struct_lit = parseStructLit(root);
-    if (struct_lit->kind == AST_STRUCT_LIT_POS) {
-        struct_lit->kind = AST_STRUCT_PTR_LIT_POS;
-    } else {
-        struct_lit->kind = AST_STRUCT_PTR_LIT_NAMED;
-    }
-
-    return struct_lit;
-}
-
-AstExpr* Parser::parseArrayLit() {
+AstNode* Parser::parseArrayLit() {
     next();
     auto start_span = prev.span;
 
     pushAllowStructLit(true);
 
-    std::span<AstExpr*> elems;
-    if (!has(TOK_RBRACKET)) {
-        elems = parseExprList();
-    }
+    AstNode* items = parseExprList();
+    items->kind = AST_ARRAY_LIT;
 
     want(TOK_RBRACKET);
 
     popAllowStructLit();
 
-    auto* arr = allocExpr(AST_ARRAY, SpanOver(start_span, prev.span));
-    arr->an_Array.elems = elems;
-    return arr;
+    return items;
 }
 
-AstExpr* Parser::parseMacroCall() {
+AstNode* Parser::parseMacroCall() {
     auto start_span = tok.span;
     next();
 
@@ -623,35 +567,31 @@ AstExpr* Parser::parseMacroCall() {
 
     want(TOK_LPAREN);
 
-    AstExpr* expr;
+    AstNode* expr;
     if (macro_ident.value == "defined") {
         auto var_ident = wantAndGet(TOK_IDENT);
         want(TOK_RPAREN);
 
-        expr = allocExpr(AST_STRING, SpanOver(start_span, prev.span));
-        expr->type = &prim_string_type;
+        expr = allocNode(AST_STRING_LIT, SpanOver(start_span, prev.span));
         expr->an_String.value = lookupMetaVar(var_ident.value);
     } else if (macro_ident.value == "sizeof") {
         auto* type = parseTypeLabel();
         want(TOK_RPAREN);
 
-        expr = allocExpr(AST_MACRO_SIZEOF, SpanOver(start_span, prev.span));
-        expr->type = platform_uint_type;
-        expr->an_TypeMacro.type_arg = type;
+        expr = allocNode(AST_MACRO_SIZEOF, SpanOver(start_span, prev.span));
+        expr->an_Macro.arg = type;
     } else if (macro_ident.value == "alignof") {
         auto* type = parseTypeLabel();
         want(TOK_RPAREN);
 
-        expr = allocExpr(AST_MACRO_ALIGNOF, SpanOver(start_span, prev.span));
-        expr->type = platform_uint_type;
-        expr->an_TypeMacro.type_arg = type;
+        expr = allocNode(AST_MACRO_ALIGNOF, SpanOver(start_span, prev.span));
+        expr->an_Macro.arg = type;
     } else if (macro_ident.value == "_funcaddr") {
         auto* arg_expr = parseExpr();
         want(TOK_RPAREN);
 
-        expr = allocExpr(AST_MACRO_FUNCADDR, SpanOver(start_span, prev.span));
-        expr->type = &prim_ptr_u8_type;
-        expr->an_ValueMacro.expr = arg_expr;
+        expr = allocNode(AST_MACRO_FUNCADDR, SpanOver(start_span, prev.span));
+        expr->an_Macro.arg = arg_expr;
     } else {
         fatal(macro_ident.span, "unknown macro: {}", macro_ident.value);
     }
