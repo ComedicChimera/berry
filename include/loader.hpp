@@ -24,7 +24,7 @@ class Loader {
         fs::path local_path;
         fs::path mod_path;
 
-        Module::Dependency& dep;
+        Module::DepEntry& dep;
     };
     std::queue<LoadEntry> load_queue;
 

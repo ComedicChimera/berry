@@ -247,11 +247,9 @@ struct AstNode {
     };
 };
 
-/* -------------------------------------------------------------------------- */
-
 struct AstDecl {
     std::span<Attribute> attrs;
-    AstNode* decl;
+    AstNode* node;
 };
 
 #endif

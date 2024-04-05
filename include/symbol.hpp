@@ -68,39 +68,8 @@ struct Attribute {
 /* -------------------------------------------------------------------------- */
 
 struct SourceFile;
-struct AstDef;
-
-// SourceLoc represents a source text location with respect to a known module.
-struct SourceLoc {
-    // file_number is the number of the file.
-    size_t file_number;
-
-    // span is the span in source text.
-    TextSpan span;        
-};
-
-// NamedTypeTable stores all the named types used by a given module.  It is an
-// extra bit of bookkeeping used to facilitate out-of-order resolution.
-struct NamedTypeTable {
-    // Ref represents a reference to a named type in source code.  These are
-    // resolved by the loader after the parser has been run.
-    struct Ref {
-        // named_type refers to the named type that is still unresolved.
-        Type* named_type;
-
-        // locs is the source locations of the named type reference.
-        std::vector<SourceLoc> locs;
-    };
-
-    // internal_refs are all the refs which refer to types within the current
-    // module (or implicitly imported from the core module).
-    std::unordered_map<std::string, Ref> internal_refs;
-
-    // external_refs are all the refs to types in different/imported modules
-    // (indexed by dependency ID).
-    std::vector<std::unordered_map<std::string, Ref>> external_refs;
-};
-
+struct AstDecl;
+struct IrDecl;
 
 // Module represents a Berry module.
 struct Module {
@@ -113,14 +82,26 @@ struct Module {
     // files is the list of files contained in the module.
     std::vector<SourceFile> files;
 
-    // defs stores the definition ASTs comprising the module.
-    std::vector<AstDef*> defs;
-
     // symbol_table is the module's global symbol table.
     std::unordered_map<std::string_view, Symbol*> symbol_table;
 
-    // Dependency represents a module dependency.
-    struct Dependency {
+    // Decl is a declaration in the module.
+    struct Decl {
+        // file_number is the module-local number of the declaring file.
+        size_t file_number;
+
+        // ast_decl is the declaration AST node.
+        AstDecl* ast_decl;
+
+        // ir_decl is the declaration IR node.
+        IrDecl* ir_decl;
+    };
+
+    // decls stores the declarations contained in the module.
+    std::vector<Decl> decls;
+
+    // DepEntry is a module dependency entry.
+    struct DepEntry {
         // mod is depended upon module.  This will be nullptr until the
         // dependency is resolved by the loader.
         Module* mod { nullptr };
@@ -133,35 +114,19 @@ struct Module {
         // through this dependency.
         std::unordered_set<size_t> usages;
 
-        // import_locs lists the locations where the dependency is imported.
-        std::vector<SourceLoc> import_locs;
-
-        Dependency(std::vector<std::string>&& mod_path_, SourceLoc&& loc)
+        DepEntry(std::vector<std::string>&& mod_path_)
         : mod(nullptr)
         , mod_path(std::move(mod_path_))
-        , import_locs({std::move(loc)})
         {}
 
-        Dependency(Module* mod_)
+        DepEntry(Module* mod_)
         : mod(mod_)
         , mod_path({ mod_->name })
         {}
     };
 
     // deps stores the module's dependencies.
-    std::vector<Dependency> deps;
-
-    // named_table stores the module's named type dependencies.  This is an
-    // extra bit of bookkeeping used to resolve out-of-order named types
-    // efficiently. It is a bit clunky, and I don't love it, but it seems like
-    // the best way to handle the situation without a lot of extra complication.
-    // The whole out-of-order declaration thing is very irritating to deal with.
-    NamedTypeTable named_table;
-
-    // init_order is the order in which the module's global variables should be
-    // initialized.  This is computed when the module is checked and used by the
-    // backend to generate initialization code.
-    std::vector<size_t> init_order;
+    std::vector<DepEntry> deps;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -180,8 +145,22 @@ struct SourceFile {
     // display_path is the path displayed to the user to identify the file.
     std::string display_path;
 
+    // ImportEntry is an entry in the file's import table.
+    struct ImportEntry {
+        // dep_id is the module-local ID of the dependency.
+        size_t dep_id;
+
+        // spans is the list of source locations that depend on the import.
+        std::vector<TextSpan> spans;
+
+        ImportEntry(size_t dep_id_, const TextSpan& span_)
+        : dep_id(dep_id_)
+        , spans({ span_ })
+        {}
+    };
+
     // import_table stores the package's imports.
-    std::unordered_map<std::string_view, size_t> import_table;
+    std::unordered_map<std::string_view, ImportEntry> import_table;
 
     // llvm_di_file is the debug info scope associated with this file.
     llvm::DIFile* llvm_di_file { nullptr };

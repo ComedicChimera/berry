@@ -61,7 +61,7 @@ struct Type {
         } ty_Func;
         struct {
             Type* elem_type;
-            size_t len;
+            uint64_t len;
         } ty_Array;
         struct {
             Type* elem_type;
@@ -79,11 +79,11 @@ struct Type {
             llvm::Type* llvm_type;
         } ty_Struct;
         struct {
-            MapView<size_t> tag_map;
+            MapView<uint64_t> tag_map;
         } ty_Enum;
 
         struct {
-            uint64_t key;
+            size_t key;
             Type* concrete_type;
             TypeContext* parent;
         } ty_Untyp;
@@ -122,7 +122,7 @@ class TypeContext {
     // untypedTableEntry is an entry in the untyped table.
     struct untypedTableEntry {
         // key is the union-find key of the associated untyped.
-        uint64_t key;
+        size_t key;
 
         // kind the associated untyped kind.
         UntypedKind kind;
@@ -202,17 +202,17 @@ private:
 
     // tryConcrete returns whether inner-unwrapped type other can be valid
     // concrete type for the untyped with key key.
-    bool tryConcrete(uint64_t key, Type *other);
+    bool tryConcrete(size_t key, Type *other);
 
     // find returns the untyped table entry corresponding to key.
-    untypedTableEntry& find(uint64_t key);
+    untypedTableEntry& find(size_t key);
 
     // find returns the untyped table entry corresponding to key and stores its
     // union-find rank (length of the path) into rank.
-    untypedTableEntry& find(uint64_t key, int* rank);
+    untypedTableEntry& find(size_t key, int* rank);
 
     // tryUnion attempts to merge untypeds with keys a and b.
-    bool tryUnion(uint64_t a, uint64_t b);
+    bool tryUnion(size_t a, size_t b);
 };
 
 // innerIsNumberType is helper to check if an inner-unwrapped type is numeric.

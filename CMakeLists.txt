@@ -11,7 +11,6 @@ set(SRCS
     "main.cpp" 
     "report.cpp" 
     "arena.cpp" 
-    "ast.cpp"
     "driver.cpp"
     "loader.cpp"
     "linker.cpp"
@@ -54,7 +53,6 @@ set(SRCS
     "codegen/gen_pattern.cpp"
 
     "test/arena_test.cpp"
-    "test/ast_print.cpp"
 )
 list(TRANSFORM SRCS PREPEND ${SRC_DIR})
 
