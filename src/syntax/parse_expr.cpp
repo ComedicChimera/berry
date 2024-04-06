@@ -225,7 +225,7 @@ AstNode* Parser::parseStructLit(AstNode* type) {
         next();
         struct_lit = allocNode(AST_STRUCT_LIT, SpanOver(type->span, prev.span));
         struct_lit->an_StructLit.type = type;
-        struct_lit->an_StructLit.field_inits = nullptr;
+        struct_lit->an_StructLit.field_inits = {};
     } else if (has(TOK_IDENT)) {
         auto* first_expr = parseExpr();
 
@@ -290,19 +290,16 @@ AstNode* Parser::parseStructLit(AstNode* type) {
             want(TOK_RBRACE);
         }
 
-        auto* expr_list = allocNode(AST_EXPR_LIST, SpanOver(field_inits[0]->span, field_inits.back()->span));
-        expr_list->an_ExprList.exprs = ast_arena.MoveVec(std::move(field_inits));
-
         struct_lit = allocNode(AST_STRUCT_LIT, SpanOver(type->span, prev.span));
         struct_lit->an_StructLit.type = type;
-        struct_lit->an_StructLit.field_inits = expr_list; 
+        struct_lit->an_StructLit.field_inits =  ast_arena.MoveVec(std::move(field_inits)); 
     } else {
         auto field_inits = parseExprList();
         want(TOK_RBRACE);
 
         struct_lit = allocNode(AST_STRUCT_LIT, SpanOver(type->span, prev.span));
         struct_lit->an_StructLit.type = type;
-        struct_lit->an_StructLit.field_inits = field_inits;
+        struct_lit->an_StructLit.field_inits = field_inits->an_ExprList.exprs;
     }
 
     popAllowStructLit();

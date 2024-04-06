@@ -202,7 +202,7 @@ struct AstNode {
         } an_NewArray;
         struct {
             AstNode* type;
-            AstNode* field_inits;
+            std::span<AstNode*> field_inits;
         } an_StructLit;
         struct {
             std::string_view name;
