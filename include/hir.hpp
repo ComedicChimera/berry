@@ -337,7 +337,6 @@ struct HirStmt : public HirNode {
 /* -------------------------------------------------------------------------- */
 
 struct HirDecl : public HirNode {
-    std::span<Attribute> attrs;
 
     struct {
         Symbol* symbol;

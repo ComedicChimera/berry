@@ -169,7 +169,7 @@ public:
     }
 
     // Cast returns whether src can be cast to dest.
-    inline TypeConvResult Cast(Type* src, Type* dest) {
+    inline bool Cast(Type* src, Type* dest) {
         return innerCast(src->Inner(), dest->Inner());
     }
 
@@ -214,7 +214,7 @@ private:
 
     // innerCast returns whether inner-unwrapped src can be cast to
     // inner-unwrapped dest.
-    TypeConvResult innerCast(Type *src, Type *dest);
+    bool innerCast(Type *src, Type *dest);
 
     /* ---------------------------------------------------------------------- */
 

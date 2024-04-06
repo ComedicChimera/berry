@@ -30,15 +30,15 @@ struct Symbol {
     // name is the name of the symbol.
     std::string_view name;
 
-    // span is the source location of the symbol definition.
+    // span is the source location of the symbol declaration.
     TextSpan span;
 
     // flags are the flags associated with the symbol.
     SymbolFlags flags;
 
-    // def_number is the number of the global definition of the symbol. For
+    // decl_number is the number of the global declaration of the symbol. For
     // local symbols, this field is not used.
-    size_t def_number;
+    size_t decl_number;
 
     // type is the data type of the symbol.
     Type* type { nullptr };
@@ -50,7 +50,7 @@ struct Symbol {
     llvm::Value* llvm_value { nullptr };
 };
 
-// Attribute represents a Berry definition attribute.
+// Attribute represents a Berry declaration attribute.
 struct Attribute {
     // The name of the tag.
     std::string_view name;
@@ -68,7 +68,7 @@ struct Attribute {
 /* -------------------------------------------------------------------------- */
 
 struct SourceFile;
-struct AstDecl;
+struct AstNode;
 struct HirDecl;
 
 // Module represents a Berry module.
@@ -90,14 +90,18 @@ struct Module {
         // file_number is the module-local number of the declaring file.
         size_t file_number;
 
+        // attrs contains the declaration's attributes.
+        std::span<Attribute> attrs;
+
         // ast_decl is the declaration AST node.
-        AstDecl* ast_decl;
+        AstNode* ast_decl;
 
         // hir_decl is the declaration HIR node.
         HirDecl* hir_decl { nullptr };
 
-        Decl(size_t file_number_, AstDecl* adecl_)
+        Decl(size_t file_number_, std::span<Attribute> attrs_, AstNode* adecl_)
         : file_number(file_number_)
+        , attrs(attrs_)
         , ast_decl(adecl_)
         {}
     };

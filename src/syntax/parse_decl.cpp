@@ -71,12 +71,12 @@ void Parser::parseDecl(AttributeMap&& attr_map, bool exported) {
         reject("expected global definition");
         break;
     }
-
-    auto* adecl = (AstDecl*)ast_arena.Alloc(sizeof(AstDecl));
-    adecl->attrs = moveAttrsToArena(std::move(attr_map));
-    adecl->node = node;
     
-    src_file.parent->decls.emplace_back(src_file.file_number, adecl);
+    src_file.parent->decls.emplace_back(
+        src_file.file_number, 
+        moveAttrsToArena(std::move(attr_map)), 
+        node
+    );
 }
 
 /* -------------------------------------------------------------------------- */

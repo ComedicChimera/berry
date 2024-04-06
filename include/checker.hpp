@@ -3,6 +3,7 @@
 
 #include "arena.hpp"
 #include "ast.hpp"
+#include "hir.hpp"
 
 // Scope represents a local lexical scope.
 typedef std::unordered_map<std::string_view, Symbol*> Scope;
@@ -46,7 +47,7 @@ class Checker {
 
     // core_dep is a pointer to the core module dependency.  This will non-null
     // in every module except the core module itself.
-    Module::Dependency* core_dep;
+    Module::DepEntry* core_dep;
 
     // type_explore_table keeps track of which named types have been expanded to
     // check for infinite recursive types.  The entries in this table correspond
@@ -78,87 +79,71 @@ public:
     void CheckModule();
 
 private:
-    void checkDef(AstDef* def);
-    void checkFuncDef(AstDef* node);
-    void checkFuncAttrs(AstDef* def);
+    void checkDecl(size_t decl_number, Module::Decl& decl);
 
-    struct InitCycle {
-        std::vector<size_t> nodes;
-        bool done { false };
-    };
+    HirDecl* checkFuncDecl(size_t decl_number, AstNode* node);
+    HirDecl* checkGlobalVarDecl(size_t decl_number, AstNode* node);
 
-    void checkGlobalVarDef(AstDef* node);
-    void checkGlobalVarAttrs(AstDef* node);
-    bool checkInitOrder(size_t def_number, InitCycle& cycle);
+    Type* checkDeclTypeLabel(size_t decl_number, AstNode* type_label);
 
-    struct TypeCycle {
-        std::vector<Type*> nodes;
-        bool done { false };
-    };
-
-    void checkStructDef(AstDef* node);
-    void checkAliasDef(AstDef *node);
-    bool checkForInfType(Type* type, TypeCycle& cycle);
-    void fatalOnTypeCycle(const TextSpan& span, TypeCycle &cycle);
-
-    void checkEnumDef(AstDef* def);
+    bool resolveTypeLabel(size_t decl_number, AstNode* type_label);
 
     /* ---------------------------------------------------------------------- */
 
-    bool checkStmt(AstStmt* stmt);
-    bool checkBlock(AstStmt* node);
-    bool checkIf(AstStmt* node);
-    void checkWhile(AstStmt* node);
-    void checkFor(AstStmt* node);
-    bool checkMatchStmt(AstStmt* node);
-    void checkLocalVar(AstStmt* node);
-    void checkAssign(AstStmt *node);
-    void checkIncDec(AstStmt *node);
-    void checkReturn(AstStmt *node);
+    std::pair<HirStmt*, bool> checkStmt(AstNode* stmt);
+    std::pair<HirStmt*, bool> checkBlock(AstNode* node);
+    std::pair<HirStmt*, bool> checkIf(AstNode* node);
+    HirStmt* checkWhile(AstNode* node);
+    HirStmt* checkFor(AstNode* node);
+    std::pair<HirStmt*, bool> checkMatchStmt(AstNode* node);
+    HirStmt* checkLocalVar(AstNode* node);
+    HirStmt* checkAssign(AstNode *node);
+    HirStmt* checkIncDec(AstNode *node);
+    HirStmt* checkReturn(AstNode *node);
 
     /* ---------------------------------------------------------------------- */
 
-    bool checkCasePattern(AstExpr* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
-    bool checkPattern(AstExpr* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
+    bool checkCasePattern(AstNode* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
+    bool checkPattern(AstNode* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
 
-    void declarePatternCaptures(AstExpr *pattern);
+    void declarePatternCaptures(AstNode *pattern);
 
     bool isEnumExhaustive(Type* expr_type, const std::unordered_set<size_t>& enum_usages);
 
     /* ---------------------------------------------------------------------- */
 
-    void checkExpr(AstExpr* expr, Type* infer_type = nullptr);
-    void checkDeref(AstExpr* node);
-    void checkCall(AstExpr* node);
-    void checkIndex(AstExpr* node);
-    void checkSlice(AstExpr* node);
-    void checkField(AstExpr* node, bool expect_type);
-    Module::Dependency* checkIdentOrGetImport(AstExpr* node);
+    void checkExpr(AstNode* expr, Type* infer_type = nullptr);
+    void checkDeref(AstNode* node);
+    void checkCall(AstNode* node);
+    void checkIndex(AstNode* node);
+    void checkSlice(AstNode* node);
+    void checkSelector(AstNode* node, bool expect_type);
 
-    void checkArray(AstExpr* node, Type* infer_type);
-    void checkNewExpr(AstExpr* node);
-    void checkStructLit(AstExpr* node, Type* infer_type);
-    void checkEnumLit(AstExpr* node);
+    void checkArrayLit(AstNode* node, Type* infer_type);
+    void checkNewType(AstNode* node);
+    void checkNewArray(AstNode* node);
+    void checkNewStruct(AstNode* node);
+    void checkStructLit(AstNode* node, Type* infer_type);
 
     /* ---------------------------------------------------------------------- */
 
     // mustEqual asserts that a and b are equal.
     void mustEqual(const TextSpan& span, Type* a, Type* b);
 
-    // mustSubType asserts that sub is a subtype of super.
-    void mustSubType(const TextSpan& span, Type* sub, Type* super);
+    // mustSubType asserts that sub is a subtype of super.  It returns whether 
+    bool mustSubType(const TextSpan& span, Type* sub, Type* super);
 
     // mustCast asserts that src can be cast to dest.
     void mustCast(const TextSpan& span, Type* src, Type* dest);
 
     void mustIntType(const TextSpan &span, Type *type);
 
-    Type* mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_type, Type* rhs_type);
+    Type* mustApplyBinaryOp(const TextSpan& span, HirOpKind op, Type* lhs_type, Type* rhs_type);
     Type* maybeApplyPtrArithOp(Type* lhs_type, Type* rhs_type);
 
-    Type* mustApplyUnaryOp(const TextSpan &span, AstOpKind aop, Type* operand_type);
+    Type* mustApplyUnaryOp(const TextSpan &span, HirOpKind op, Type* operand_type);
 
-    void mustBeAssignable(AstExpr* expr);
+    void mustBeAssignable(HirExpr* expr);
 
     // newUntyped creates a new untyped of kind kind.
     Type* newUntyped(UntypedKind kind);
@@ -170,7 +155,11 @@ private:
     void declareLocal(Symbol* sym);
     void pushScope();
     void popScope();
-    
+
+    /* ---------------------------------------------------------------------- */
+
+    HirDecl* allocDecl(HirKind kind, TextSpan span);
+
     /* ---------------------------------------------------------------------- */
 
     template<typename ...Args>

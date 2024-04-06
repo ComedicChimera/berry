@@ -15,97 +15,14 @@ Checker::Checker(Arena& arena, Module& mod)
 }
 
 void Checker::CheckModule() {
-    for (auto* def : mod.defs) {
-        src_file = &mod.files[def->parent_file_number];
-        init_graph.emplace_back();
-
-        checkDef(def);
+    size_t decl_number = 0;
+    for (auto& decl : mod.decls) {
+        resolveDecl(decl_number++, decl);
     }
 
-    size_t def_number = 0;
-    for (auto* def : mod.defs) {
-        if (def->kind == AST_GLVAR || def->kind == AST_ENUM) {
-            InitCycle cycle;
-            if (checkInitOrder(def_number, cycle)) {
-                auto* cycle_start = mod.defs[cycle.nodes[0]];
-
-                std::string fmt_cycle;
-                while (cycle.nodes.size() > 0) {
-                    if (fmt_cycle.size() > 0) {
-                        fmt_cycle += " -> ";
-                    }
-
-                    auto node = cycle.nodes.back();
-                    cycle.nodes.pop_back();
-
-                    auto* def = mod.defs[node];
-                    switch (def->kind) {
-                    case AST_FUNC:
-                        fmt_cycle += def->an_Func.symbol->name;
-                        break;
-                    case AST_GLVAR:
-                        fmt_cycle += def->an_GlVar.symbol->name;
-                        break;
-                    case AST_STRUCT:
-                        fmt_cycle += def->an_Struct.symbol->name;
-                        break;
-                    }
-                }
-
-                src_file = &mod.files[cycle_start->parent_file_number];
-                error(cycle_start->span, "initialization cycle detected: {}", fmt_cycle);
-            }
-        }
-
-        def_number++;
+    for (auto& decl : mod.decls) {
+        checkDecl(decl);
     }
-}
-
-/* -------------------------------------------------------------------------- */
-
-bool Checker::checkInitOrder(size_t def_number, InitCycle& cycle) {
-    auto& node = init_graph[def_number];
-    auto* def = mod.defs[def_number];
-
-    switch (node.color) {
-    case COLOR_BLACK:
-        return false;
-    case COLOR_GREY:
-        node.color = COLOR_BLACK;
-
-        if (def->kind == AST_GLVAR || def->kind == AST_ENUM) {
-            cycle.nodes.push_back(def_number);
-            return true;    
-        }
-
-        break;
-    case COLOR_WHITE:
-        node.color = COLOR_GREY;
-
-        for (auto edge : node.edges) {
-            if (checkInitOrder(edge, cycle)) {
-                if (!cycle.done) {
-                    if (cycle.nodes[0] == def_number) {
-                        cycle.done = true;
-                    }
-
-                    cycle.nodes.push_back(def_number);
-                }
-                
-                node.color = COLOR_BLACK;
-                return true;
-            }
-        }
-
-        if (def->kind == AST_GLVAR || def->kind == AST_ENUM) {
-            mod.init_order.push_back(def_number);
-        }
-
-        node.color = COLOR_BLACK;
-        break;
-    }
-    
-    return false;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -120,14 +37,17 @@ void Checker::mustEqual(const TextSpan &span, Type* a, Type* b) {
     tctx.flags ^= TC_INFER;
 }
 
-void Checker::mustSubType(const TextSpan &span, Type* sub, Type* super) {
+bool Checker::mustSubType(const TextSpan &span, Type* sub, Type* super) {
     tctx.flags |= TC_INFER;
 
-    if (!tctx.SubType(sub, super)) {
+    auto conv_result = tctx.SubType(sub, super);
+    if (conv_result == TY_CONV_FAIL) {
         fatal(span, "{} is not a subtype of {}", sub->ToString(), super->ToString());
     }
 
     tctx.flags ^= TC_INFER;
+
+    return conv_result == TY_CONV_CAST;
 }
 
 void Checker::mustCast(const TextSpan &span, Type* src, Type* dest) {
