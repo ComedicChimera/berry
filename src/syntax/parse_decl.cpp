@@ -72,11 +72,13 @@ void Parser::parseDecl(AttributeMap&& attr_map, bool exported) {
         break;
     }
     
-    src_file.parent->decls.emplace_back(
+    auto* decl = global_arena.New<Decl>(
         src_file.file_number, 
         moveAttrsToArena(std::move(attr_map)), 
         node
     );
+
+    src_file.parent->unsorted_decls.push_back(decl);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -126,7 +128,7 @@ AstNode* Parser::parseFuncDecl(bool exported) {
         global_arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
         exported ? SYM_FUNC | SYM_EXPORTED : SYM_FUNC,
-        src_file.parent->decls.size(),
+        src_file.parent->unsorted_decls.size(),
         nullptr,
         true
     );
@@ -202,7 +204,7 @@ AstNode* Parser::parseGlobalVarDecl(bool exported) {
         global_arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
         flags,
-        src_file.parent->decls.size(),
+        src_file.parent->unsorted_decls.size(),
         nullptr,
         comptime  
     );
@@ -278,7 +280,7 @@ AstNode* Parser::parseStructDecl(bool exported) {
         named_type->ty_Named.name,
         name_tok.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
-        src_file.parent->decls.size(),
+        src_file.parent->unsorted_decls.size(),
         named_type,
         false
     );
@@ -318,7 +320,7 @@ AstNode* Parser::parseAliasDecl(bool exported) {
         alias_type->ty_Named.name,
         ident.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
-        src_file.parent->decls.size(),
+        src_file.parent->unsorted_decls.size(),
         alias_type,
         false
     );
@@ -383,7 +385,7 @@ AstNode* Parser::parseEnumDecl(bool exported) {
         named_type->ty_Named.name,
         ident.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
-        src_file.parent->decls.size(),
+        src_file.parent->unsorted_decls.size(),
         named_type,
         false
     );

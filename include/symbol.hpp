@@ -49,6 +49,11 @@ struct Symbol {
     // llvm_value contains the LLVM value bound to the symbol.
     llvm::Value* llvm_value { nullptr };
 };
+/* -------------------------------------------------------------------------- */
+
+struct SourceFile;
+struct AstNode;
+struct HirDecl;
 
 // Attribute represents a Berry declaration attribute.
 struct Attribute {
@@ -65,11 +70,29 @@ struct Attribute {
     TextSpan value_span;
 };
 
-/* -------------------------------------------------------------------------- */
 
-struct SourceFile;
-struct AstNode;
-struct HirDecl;
+// Decl is a declaration in the module.
+struct Decl {
+    // file_number is the module-local number of the declaring file.
+    size_t file_number;
+
+    // attrs contains the declaration's attributes.
+    std::span<Attribute> attrs;
+
+    // ast_decl is the declaration AST node.
+    AstNode* ast_decl;
+
+    // hir_decl is the declaration HIR node.
+    HirDecl* hir_decl { nullptr };
+
+    Decl(size_t file_number_, std::span<Attribute> attrs_, AstNode* adecl_)
+    : file_number(file_number_)
+    , attrs(attrs_)
+    , ast_decl(adecl_)
+    {}
+};
+
+/* -------------------------------------------------------------------------- */
 
 // Module represents a Berry module.
 struct Module {
@@ -85,29 +108,20 @@ struct Module {
     // symbol_table is the module's global symbol table.
     std::unordered_map<std::string_view, Symbol*> symbol_table;
 
-    // Decl is a declaration in the module.
-    struct Decl {
-        // file_number is the module-local number of the declaring file.
-        size_t file_number;
+    // NOTE: Sorting the declarations requires quite a bit of overhead.  Based
+    // on my own analysis, it seems like using two vectors is the best way to go
+    // about this (a compromise between simplicity and efficiency).  That said,
+    // one could certainly argue for a more optimal approach.
 
-        // attrs contains the declaration's attributes.
-        std::span<Attribute> attrs;
+    // sorted_decls stores the module's declarations in proper order.  This
+    // vector starts empty and is incrementally filled as declarations are moved
+    // from the unsorted vector to this one.
+    std::vector<Decl*> sorted_decls;
 
-        // ast_decl is the declaration AST node.
-        AstNode* ast_decl;
-
-        // hir_decl is the declaration HIR node.
-        HirDecl* hir_decl { nullptr };
-
-        Decl(size_t file_number_, std::span<Attribute> attrs_, AstNode* adecl_)
-        : file_number(file_number_)
-        , attrs(attrs_)
-        , ast_decl(adecl_)
-        {}
-    };
-
-    // decls stores the declarations contained in the module.
-    std::vector<Decl> decls;
+    // unsorted_decls stores the module's declarations in the order they are
+    // defined by the user.  Declarations are moved from this vector to the
+    // sorted vector as the compiler determines their correct order.
+    std::vector<Decl*> unsorted_decls;
 
     // DepEntry is a module dependency entry.
     struct DepEntry {
@@ -141,8 +155,6 @@ struct Module {
     // deps stores the module's dependencies.
     std::vector<DepEntry> deps;
 };
-
-/* -------------------------------------------------------------------------- */
 
 // SourceFile represents a single source file in a Berry module.
 struct SourceFile {
