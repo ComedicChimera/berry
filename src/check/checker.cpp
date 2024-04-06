@@ -15,14 +15,36 @@ Checker::Checker(Arena& arena, Module& mod)
 }
 
 void Checker::CheckModule() {
-    size_t decl_number = 0;
-    for (auto& decl : mod.decls) {
-        resolveDecl(decl_number++, decl);
+    curr_decl_number = 0;
+    for (auto* decl : mod.unsorted_decls) {
+        checkDecl(decl);
+        curr_decl_number++;
     }
 
-    for (auto& decl : mod.decls) {
-        checkDecl(decl);
+    // Update the declaration numbers of the newly sorted declarations.
+    curr_decl_number = 0;
+    for (auto* decl : mod.sorted_decls) {
+        switch (decl->hir_decl->kind) {
+        case HIR_GLOBAL_VAR:
+            decl->hir_decl->ir_GlobalVar.symbol->decl_number = curr_decl_number;
+            break;
+        case HIR_GLOBAL_CONST:
+            decl->hir_decl->ir_GlobalConst.symbol->decl_number = curr_decl_number;
+            break;
+        case HIR_FUNC:
+            decl->hir_decl->ir_Func.symbol->decl_number = curr_decl_number;
+            break;
+        case HIR_STRUCT:
+        case HIR_ENUM:
+        case HIR_ALIAS:
+            decl->hir_decl->ir_TypeDef.symbol->decl_number = curr_decl_number;
+            break;
+        }
     }
+
+    // Clear out the unsorted declarations list (we don't need it anymore).
+    mod.unsorted_decls.clear();
+    mod.unsorted_decls.shrink_to_fit();
 }
 
 /* -------------------------------------------------------------------------- */

@@ -37,6 +37,12 @@ struct StructField {
     std::string_view name;
     Type* type;
     bool exported;
+
+    StructField(std::string_view name_, Type* type_, bool exported_)
+    : name(name_)
+    , type(type_)
+    , exported(exported_)
+    {}
 };
 
 // Type represents a Berry data type.

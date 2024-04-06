@@ -18,7 +18,7 @@ enum {
     SYM_EXPORTED = 16,  // Symbol is publically visible
 
     // Useful Flag Combinations (for condition checking)
-    SYM_COMPTIME = SYM_FUNC | SYM_TYPE | SYM_CONST // Symbol is compile-time constant
+    SYM_COMPTIME = SYM_TYPE | SYM_CONST // Symbol is compile-time constant
 };
 typedef int SymbolFlags;
 
@@ -75,6 +75,9 @@ struct Attribute {
 struct Decl {
     // file_number is the module-local number of the declaring file.
     size_t file_number;
+
+    // color the declarations current graph color (used for cycle detection).
+    GColor color;
 
     // attrs contains the declaration's attributes.
     std::span<Attribute> attrs;

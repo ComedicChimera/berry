@@ -15,7 +15,7 @@ static size_t hir_variant_sizes[HIRS_COUNT] = {
 
 #define LARGEST_DECL_VARIANT_SIZE ((sizeof(size_ref_decl.ir_Func)))
 
-HirDecl* Checker::allocDecl(HirKind kind, TextSpan span) {
+HirDecl* Checker::allocDecl(HirKind kind, const TextSpan& span) {
     Assert(kind < HIR_BLOCK, "invalid kind for HIR decl");
 
     size_t variant_size = hir_variant_sizes[(size_t)kind];

@@ -19,12 +19,29 @@ class Checker {
     // src_file is the source file currently being checked.
     SourceFile* src_file { nullptr };
 
+    // core_dep is a pointer to the core module dependency.  This will non-null
+    // in every module except the core module itself.
+    Module::DepEntry* core_dep;
+
+    // tctx is the checker's type context.
+    TypeContext tctx;
+
+    // comptime_depth keeps track of the level of nested comptime expansion.
+    int comptime_depth { 0 };
+
+    // decl_number_stack keeps track of the current declaration being compiled.
+    // It is used for tracing cycles during recursive declaration checking.
+    std::vector<size_t> decl_number_stack;
+
+    // curr_decl_number stores the number of the current decl being compiled.
+    size_t curr_decl_number { 0 };
+
+    /* ---------------------------------------------------------------------- */
+
     // scope_stack keeps a stack of the enclosing local scopes with the one on
     // the top (end) being the current local scope.
     std::vector<Scope> scope_stack;
 
-    // tctx is the checker's type context.
-    TypeContext tctx;
 
     // null_spans maps untyped nulls to their corresponding spans.
     std::vector<std::pair<Type*, TextSpan>> null_spans;
@@ -45,32 +62,6 @@ class Checker {
     // unsafe_depth keeps track of how many enclosing unsafe blocks there are.
     int unsafe_depth { 0 };
 
-    // core_dep is a pointer to the core module dependency.  This will non-null
-    // in every module except the core module itself.
-    Module::DepEntry* core_dep;
-
-    // type_explore_table keeps track of which named types have been expanded to
-    // check for infinite recursive types.  The entries in this table correspond
-    // directly to graph colors in three-color DFS:
-    // No entry = White
-    // True entry = Grey
-    // False entry = Black
-    std::unordered_map<std::string_view, bool> type_explore_table;
-
-    // InitNode is a node in the init_graph.
-    struct InitNode {
-        std::unordered_set<size_t> edges;
-        GColor color { COLOR_WHITE };
-    };
-
-    // init_graph is used to determine global variable initialization ordering
-    // and to check for initialization cycles.
-    std::vector<InitNode> init_graph;
-
-    // is_comptime_expr is a flag set by `checkExpr` to indicate whether the
-    // given expression is comptime.  
-    bool is_comptime_expr { false };
-
 public:
     // Creates a new checker for src_file allocating in arena.
     Checker(Arena& arena, Module& mod);
@@ -79,14 +70,19 @@ public:
     void CheckModule();
 
 private:
-    void checkDecl(size_t decl_number, Module::Decl& decl);
+    void checkDecl(Decl* decl);
 
-    HirDecl* checkFuncDecl(size_t decl_number, AstNode* node);
-    HirDecl* checkGlobalVarDecl(size_t decl_number, AstNode* node);
+    HirDecl* checkFuncDecl(AstNode* node);
+    HirDecl* checkGlobalVar(AstNode* node);
+    HirDecl* checkGlobalConst(AstNode* node);
+    HirDecl* checkTypeDef(AstNode* node);
 
-    Type* checkDeclTypeLabel(size_t decl_number, AstNode* type_label);
+    Type* checkTypeLabel(AstNode* node, bool should_expand);
 
-    bool resolveTypeLabel(size_t decl_number, AstNode* type_label);
+    /* ---------------------------------------------------------------------- */
+
+    uint64_t checkComptimeSize(AstNode* expr);
+    ConstValue* checkComptime(AstNode* expr);
 
     /* ---------------------------------------------------------------------- */
 
@@ -152,13 +148,18 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
+    std::pair<Symbol*, Module::DepEntry*> mustLookup(std::string_view name, const TextSpan& span);
+    Symbol* mustFindSymbolInDep(Module::DepEntry* dep, std::string_view name, const TextSpan& span);
+    
     void declareLocal(Symbol* sym);
     void pushScope();
     void popScope();
 
     /* ---------------------------------------------------------------------- */
 
-    HirDecl* allocDecl(HirKind kind, TextSpan span);
+    HirDecl* allocDecl(HirKind kind, const TextSpan& span);
+
+    inline Type* allocType(TypeKind kind) { return AllocType(arena, kind); }
 
     /* ---------------------------------------------------------------------- */
 
