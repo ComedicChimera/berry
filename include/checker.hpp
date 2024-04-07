@@ -149,7 +149,7 @@ private:
     /* ---------------------------------------------------------------------- */
 
     std::pair<Symbol*, Module::DepEntry*> mustLookup(std::string_view name, const TextSpan& span);
-    Symbol* mustFindSymbolInDep(Module::DepEntry* dep, std::string_view name, const TextSpan& span);
+    Symbol* findSymbolInDep(Module::DepEntry& dep, std::string_view name);
     
     void declareLocal(Symbol* sym);
     void pushScope();
@@ -158,6 +158,8 @@ private:
     /* ---------------------------------------------------------------------- */
 
     HirDecl* allocDecl(HirKind kind, const TextSpan& span);
+    HirStmt* allocStmt(HirKind kind, const TextSpan& span);
+    HirExpr* allocExpr(HirKind kind, const TextSpan& span);
 
     inline Type* allocType(TypeKind kind) { return AllocType(arena, kind); }
 

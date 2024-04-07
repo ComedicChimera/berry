@@ -280,7 +280,10 @@ Type* Checker::checkTypeLabel(AstNode* node, bool should_expand) {
             fatal(node->span, "{} must refer to an imported module", ident->an_Ident.name);
         }
 
-        auto* symbol = mustFindSymbolInDep(dep, node->an_Sel.field_name, node->span);
+        auto* symbol = findSymbolInDep(*dep, node->an_Sel.field_name);
+        if (symbol == nullptr) {
+            fatal(node->span, "module {} has no exported symbol named {}", dep->mod->name, node->an_Sel.field_name);
+        }
 
         if (symbol->flags & SYM_TYPE) {
             return symbol->type;

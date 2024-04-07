@@ -1,6 +1,6 @@
 #include "checker.hpp"
 
-void Checker::checkExpr(AstExpr* node, Type* infer_type) {
+void Checker::checkExpr(AstNode* node, Type* infer_type) {
     switch (node->kind) {
     case AST_TEST_MATCH:
         checkExpr(node->an_TestMatch.expr);

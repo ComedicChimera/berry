@@ -124,6 +124,54 @@ void Checker::finishExpr() {
 
 /* -------------------------------------------------------------------------- */
 
+std::pair<Symbol*, Module::DepEntry*> Checker::mustLookup(std::string_view name, const TextSpan& span) {
+    for (size_t i = scope_stack.size() - 1; i >= 0; i--) {
+        auto& scope = scope_stack[i];
+
+        auto it = scope.find(name);
+        if (it != scope.end()) {
+            return { it->second, nullptr };
+        }
+    }
+
+    auto dep_it = src_file->import_table.find(name);
+    if (dep_it != src_file->import_table.end()) {
+        return { nullptr, &mod.deps[dep_it->second] };
+    }
+
+    auto it = mod.symbol_table.find(name);
+    if (it != mod.symbol_table.end()) {
+        return { it->second, nullptr };
+    }
+
+    if (core_dep != nullptr) {
+        auto* symbol = findSymbolInDep(*core_dep, name);
+        if (symbol != nullptr) {
+            return { symbol, nullptr };
+        }
+    }
+
+    fatal(span, "undefined symbol: {}", name);
+    return {};
+}
+
+Symbol* Checker::findSymbolInDep(Module::DepEntry& dep, std::string_view name) {
+    auto it = dep.mod->symbol_table.find(name);
+    if (it == dep.mod->symbol_table.end()) {
+        return nullptr;
+    }
+
+    auto* imported_symbol = it->second;
+    if (imported_symbol->flags & SYM_EXPORTED) {
+        dep.usages.insert(imported_symbol->decl_number);
+        return imported_symbol;
+    }
+
+    return nullptr;
+}
+
+/* -------------------------------------------------------------------------- */
+
 void Checker::declareLocal(Symbol* sym) {
     Assert(scope_stack.size() > 0, "declare local on empty scope stack");
 
