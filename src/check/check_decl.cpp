@@ -56,9 +56,11 @@ void Checker::checkDecl(Decl* decl) {
 
     switch (decl->ast_decl->kind) {
     case AST_FUNC:
+        checkFuncAttrs(decl);
         decl->hir_decl = checkFuncDecl(decl->ast_decl);
         break;
     case AST_VAR:
+        checkGlobalVarAttrs(decl);
         decl->hir_decl = checkGlobalVar(decl->ast_decl);
         break;
     case AST_CONST:
@@ -129,7 +131,7 @@ HirDecl* Checker::checkGlobalConst(AstNode* node) {
     auto* symbol = node->an_Var.symbol;
     symbol->type = type;
 
-    auto* value = checkComptime(node->an_Var.init);
+    auto* value = checkComptime(node->an_Var.init, type);
 
     auto* hconst = allocDecl(HIR_GLOBAL_CONST, node->span);
     hconst->ir_GlobalConst.symbol = symbol;

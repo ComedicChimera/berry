@@ -4,13 +4,13 @@ std::unordered_set<std::string_view> valid_callconvs {
     "c", "win64", "stdcall"
 };
 
-void Checker::checkFuncAttrs(AstDef* node) {
-    auto span = node->an_Func.symbol->span;
-    bool has_body = node->an_Func.body != nullptr;
+void Checker::checkFuncAttrs(Decl* decl) {
+    auto span = decl->ast_decl->an_Func.symbol->span;
+    bool has_body = decl->ast_decl->an_Func.body != nullptr;
 
     bool is_extern = false, has_callconv = false;
     bool is_abientry = false, is_inline = false;
-    for (auto& attr : node->attrs) {
+    for (auto& attr : decl->attrs) {
         if (attr.name == "extern") {
             if (has_body) {
                 error(span, "@extern function cannot have a body");
@@ -55,23 +55,24 @@ void Checker::checkFuncAttrs(AstDef* node) {
     }
 }
 
-void Checker::checkGlobalVarAttrs(AstDef* node) {
-    auto span = node->an_GlVar.symbol->span;
+void Checker::checkGlobalVarAttrs(Decl* decl) {
+    auto& avar = decl->ast_decl->an_Var;
+    auto span = avar.symbol->span;
     bool is_abientry = false, is_extern = false;
 
-    for (auto& attr : node->attrs) {
+    for (auto& attr : decl->attrs) {
         if (attr.value == "extern") {
-            if (node->an_GlVar.init_expr != nullptr) {
+            if (avar.init != nullptr) {
                 error(span, "@extern global variable cannot have an initializer");
             } 
 
-            if (node->an_GlVar.symbol->flags & SYM_COMPTIME) {
+            if (avar.symbol->flags & SYM_COMPTIME) {
                 error(span, "@extern cannot be applied to global constants");
             }
 
             is_extern = true;
         } else if (attr.value == "abientry") {
-            if (node->an_GlVar.symbol->flags & SYM_COMPTIME) {
+            if (avar.symbol->flags & SYM_COMPTIME) {
                 error(span, "@abientry cannot be applied to global constants");
             }
 

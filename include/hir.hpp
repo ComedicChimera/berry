@@ -346,6 +346,7 @@ struct HirDecl : public HirNode {
     struct {
         Symbol* symbol;
         HirExpr* init;
+        ConstValue* const_init;
     } ir_GlobalVar;
     struct {
         Symbol* symbol;

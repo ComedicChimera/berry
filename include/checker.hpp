@@ -36,6 +36,11 @@ class Checker {
     // curr_decl_number stores the number of the current decl being compiled.
     size_t curr_decl_number { 0 };
 
+    // expr_is_comptime indicates if an expression which is not declared
+    // comptime can be comptime.  This is used to promote global variable
+    // initializers to constant values.
+    bool expr_is_comptime { false };
+
     /* ---------------------------------------------------------------------- */
 
     // scope_stack keeps a stack of the enclosing local scopes with the one on
@@ -76,13 +81,16 @@ private:
     HirDecl* checkGlobalVar(AstNode* node);
     HirDecl* checkGlobalConst(AstNode* node);
     HirDecl* checkTypeDef(AstNode* node);
+    
+    void checkFuncAttrs(Decl* decl);
+    void checkGlobalVarAttrs(Decl* decl);
 
     Type* checkTypeLabel(AstNode* node, bool should_expand);
 
     /* ---------------------------------------------------------------------- */
 
     uint64_t checkComptimeSize(AstNode* expr);
-    ConstValue* checkComptime(AstNode* expr);
+    ConstValue* checkComptime(AstNode* expr, Type* infer_type);
 
     /* ---------------------------------------------------------------------- */
 
