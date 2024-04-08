@@ -1,27 +1,170 @@
 #include "checker.hpp"
 
+static std::unordered_map<TokenKind, HirOpKind> binop_table {
+    { TOK_PLUS, HIROP_ADD },
+    { TOK_MINUS, HIROP_SUB },
+    { TOK_STAR, HIROP_MUL },
+    { TOK_FSLASH, HIROP_DIV },
+    { TOK_MOD, HIROP_MOD },
+    { TOK_SHL, HIROP_SHL },
+    { TOK_SHR, HIROP_SHR },
+    { TOK_AMP, HIROP_BWAND },
+    { TOK_PIPE, HIROP_BWOR },
+    { TOK_CARRET, HIROP_BWXOR },
+    { TOK_EQ, HIROP_EQ },
+    { TOK_NE, HIROP_NE },
+    { TOK_LT, HIROP_LT },
+    { TOK_LE, HIROP_LE },
+    { TOK_GT, HIROP_GT },
+    { TOK_GE, HIROP_GE },
+    { TOK_AND, HIROP_LGAND },
+    { TOK_OR, HIROP_LGOR },
+};
+
+static std::unordered_map<TokenKind, HirOpKind> unop_table {
+    { TOK_MINUS, HIROP_NEG },
+    { TOK_TILDE, HIROP_BWNEG },
+    { TOK_NOT, HIROP_NOT }
+};
+
 HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
     HirExpr* hexpr;
 
     switch (node->kind) {
-    case AST_TEST_MATCH:
-    case AST_CAST:
-    case AST_BINOP:
-    case AST_UNOP:
-    case AST_ADDR:
-    case AST_DEREF:
+    case AST_TEST_MATCH: {
+        auto* hcond = checkExpr(node->an_TestMatch.expr);
+
+        auto hpatterns = checkCasePattern(node->an_TestMatch.pattern, hcond->type, nullptr);
+        declarePatternCaptures(hpatterns[0]);
+
+        hexpr = allocExpr(HIR_TEST_MATCH, node->span);
+        hexpr->type = &prim_bool_type;
+        hexpr->ir_TestMatch.expr = hcond;
+        hexpr->ir_TestMatch.patterns = hpatterns;
+    } break;
+    case AST_CAST: {
+        auto* dest_type = checkTypeLabel(node->an_Cast.dest_type, true);
+        auto* hsrc = checkExpr(node->an_Cast.expr, dest_type);
+        mustCast(node->span, hsrc->type, dest_type);
+
+        auto* hcast = allocExpr(HIR_CAST, node->span);
+        hcast->type = dest_type;
+        hcast->ir_Cast.expr = hsrc;
+    } break;
+    case AST_BINOP: {
+        auto* hlhs = checkExpr(node->an_Binop.lhs);
+        auto* hrhs = checkExpr(node->an_Binop.rhs);
+        auto hop = binop_table[node->an_Binop.op.tok_kind];
+
+        auto* result_type = mustApplyBinaryOp(
+            node->span,
+            hop,
+            hlhs->type,
+            hrhs->type
+        );
+
+        hexpr = allocExpr(HIR_BINOP, node->span);
+        hexpr->type = result_type;
+        hexpr->ir_Binop.lhs = hlhs;
+        hexpr->ir_Binop.rhs = hrhs;
+        hexpr->ir_Binop.op = hop;
+    } break;
+    case AST_UNOP: {
+        auto* hoperand = checkExpr(node->an_Unop.expr);
+        auto hop = unop_table[node->an_Unop.op.tok_kind];
+
+        auto* result_type = mustApplyUnaryOp(node->span, hop, hoperand->type);
+
+        hexpr = allocExpr(HIR_UNOP, node->span);
+        hexpr->type = result_type;
+        hexpr->ir_Unop.expr = hoperand;
+        hexpr->ir_Unop.op = hop;
+    } break;
+    case AST_ADDR: {
+        markNonComptime(node->span);
+
+        auto* helem = checkExpr(node->an_Addr.expr);
+
+        if (!helem->assignable) {
+            error(helem->span, "value is not addressable");
+        } 
+
+        hexpr = allocExpr(HIR_ADDR, node->span);
+        hexpr->type = allocType(TYPE_PTR);
+        hexpr->type->ty_Ptr.elem_type = helem->type;
+        hexpr->ir_Addr.expr = helem;
+    } break;
+    case AST_DEREF: {
+        markNonComptime(node->span);
+
+        auto* hptr = checkExpr(node->an_Deref.expr);
+
+        auto* ptr_type = hptr->type->Inner();
+        if (ptr_type->kind == TYPE_PTR) {
+            hexpr = allocExpr(HIR_DEREF, node->span);
+            hexpr->type = ptr_type->ty_Ptr.elem_type;
+            hexpr->assignable = true;
+            hexpr->ir_Deref.expr = hptr;
+        } else {
+            fatal(hptr->span, "{} is not a pointer", hptr->type->ToString());
+        }
+
+    } break;
     case AST_CALL:
-    case AST_INDEX:
-    case AST_SLICE:
+        hexpr = checkCall(node);
+        break;
+    case AST_INDEX: {
+        auto* harray = checkExpr(node->an_Index.expr);
+        HirExpr* hindex;
+
+        auto* type = harray->type->Inner();
+        switch (type->kind) {
+        case TYPE_ARRAY: case TYPE_SLICE: case TYPE_STRING:
+            hindex = checkExpr(node->an_Index.index, platform_int_type);
+            mustIntType(hindex->span, hindex->type);
+
+            hexpr = allocExpr(HIR_INDEX, node->span);
+            hexpr->type = type->ty_Slice.elem_type;
+            hexpr->assignable = harray->assignable && type->kind != TYPE_STRING;
+            hexpr->ir_Index.expr = harray;
+            hexpr->ir_Index.index = hindex;
+            break;
+        default:
+            fatal(harray->span, "{} is not indexable", harray->type->ToString());
+        }
+    } break;
+    case AST_SLICE: {
+        auto* harray = checkExpr(node->an_Slice.expr);
+        HirExpr* hlo = nullptr;
+        HirExpr* hhi = nullptr;
+
+        auto* type = harray->type->Inner();
+        switch (type->kind) {
+        case TYPE_ARRAY: case TYPE_SLICE: case TYPE_STRING:
+            if (node->an_Slice.start_index) {
+                hlo = checkExpr(node->an_Slice.start_index, platform_int_type);
+                mustIntType(hlo->span, hlo->type);
+            }
+
+            if (node->an_Slice.end_index) {
+                hhi = checkExpr(node->an_Slice.end_index, platform_int_type);
+                mustIntType(hhi->span, hhi->type);
+            }
+
+            hexpr = allocExpr(HIR_SLICE, node->span);
+            hexpr->type = type;
+            hexpr->ir_Slice.expr = harray;
+            hexpr->ir_Slice.start_index = hlo;
+            hexpr->ir_Slice.end_index = hhi;
+        default:
+            fatal(harray->span, "{} is not sliceable", harray->type->ToString());
+        }
+    } break;
     case AST_SELECTOR:
         hexpr = checkSelector(node, infer_type);
         break;
     case AST_NEW: {
-        if (comptime_depth > 0) {
-            fatal(node->span, "expression cannot be evaluated at compile-time");
-        } else {
-            expr_is_comptime = false;
-        }
+        markNonComptime(node->span);
 
         auto* elem_type = checkTypeLabel(node->an_New.type, true);
 
@@ -44,9 +187,18 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
     case AST_STRUCT_LIT:
         hexpr = checkStructLit(node, infer_type);
         break;
-    case AST_IDENT: 
-        hexpr = checkIdent(node);
-        break;
+    case AST_IDENT: {
+        auto [symbol, dep] = mustLookup(node->an_Ident.name, node->span);
+        if (dep != nullptr) {
+            fatal(node->span, "cannot use a module as a value");
+        }
+
+        if (symbol->flags & SYM_TYPE) {
+            fatal(node->span, "cannot use a type as a value");
+        }
+
+        hexpr = checkValueSymbol(symbol, node->span);
+    } break;
     case AST_NUM_LIT:
         hexpr = allocExpr(HIR_NUM_LIT, node->span);
         hexpr->type = infer_type ? infer_type : newUntyped(UK_NUM);
@@ -89,6 +241,39 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
     return hexpr;
 }
 
+HirExpr* Checker::checkCall(AstNode* node) {
+    markNonComptime(node->span);
+
+    auto* hfunc = checkExpr(node->an_Call.func);
+    auto* func_type = hfunc->type->Inner();
+    if (func_type->kind != TYPE_FUNC) {
+        fatal(hfunc->span, "{} is not callable", hfunc->type->ToString());
+    }
+
+    auto aargs = node->an_Call.args;
+    auto fparams = func_type->ty_Func.param_types;
+    if (aargs.size() != fparams.size()) {
+        fatal(node->span, "function expects {} arguments by got {}", fparams.size(), aargs.size());
+    }
+
+    std::vector<HirExpr*> hargs;
+    for (size_t i = 0; i < aargs.size(); i++) {
+        auto* harg = checkExpr(aargs[i], fparams[i]);
+
+        if (mustSubType(harg->span, harg->type, fparams[i])) {
+            harg = createImplicitCast(harg, fparams[i]);
+        }
+
+        hargs.push_back(harg);
+    }
+
+    auto* hcall = allocExpr(HIR_CALL, node->span);
+    hcall->type = func_type->ty_Func.return_type;
+    hcall->ir_Call.func = hfunc;
+    hcall->ir_Call.args = arena.MoveVec(std::move(hargs));
+    return hcall;
+}
+
 HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {
     HirExpr* root_expr;
 
@@ -102,13 +287,7 @@ HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {
         }
 
         if (symbol->flags & SYM_TYPE) { // Type.name2
-            if (comptime_depth > 0) {
-                if (symbol->type == nullptr) {
-                    // Recursively expand comptime values.
-                    Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
-                    checkDecl(mod.unsorted_decls[symbol->decl_number]);
-                }
-            }
+            maybeExpandComptime(symbol);
 
             return checkEnumLit(node, symbol->type);
         }
@@ -130,13 +309,7 @@ HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {
 
                 root_expr = checkStaticGet(imported_symbol, dep->mod->name, aroot->span);
             } else if (symbol->flags & SYM_TYPE) { // Type.name1.name2
-                if (comptime_depth > 0) {
-                    if (symbol->type == nullptr) {
-                        // Recursively expand comptime values.
-                        Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
-                        checkDecl(mod.unsorted_decls[symbol->decl_number]);
-                    }
-                }
+                maybeExpandComptime(symbol);
 
                 root_expr = checkEnumLit(aroot, symbol->type);
             } else { // value.name1.name2
@@ -244,7 +417,7 @@ HirExpr* Checker::checkStaticGet(Symbol* imported_symbol, std::string_view mod_n
         if (comptime_depth > 0) {
             fatal(span, "value of {}.{} cannot be determined at compile time", mod_name, imported_symbol->name);
         } else {
-            expr_is_comptime = false;
+            is_comptime_expr = false;
         }
     } 
 
@@ -398,34 +571,13 @@ std::vector<HirFieldInit> Checker::checkFieldInits(std::span<AstNode*> afield_in
     return field_inits;
 }
 
-HirExpr* Checker::checkIdent(AstNode* node) {
-    auto [symbol, dep] = mustLookup(node->an_Ident.name, node->span);
-    if (dep != nullptr) {
-        fatal(node->span, "cannot use a module as a value");
-    }
-
-    if (symbol->flags & SYM_TYPE) {
-        fatal(node->span, "cannot use a type as a value");
-    }
-
-    return checkValueSymbol(symbol, node->span);
-}
-
-/* -------------------------------------------------------------------------- */
-
 HirExpr* Checker::checkValueSymbol(Symbol* symbol, const TextSpan& span) {
     if (symbol->flags & SYM_COMPTIME) {
-        if (comptime_depth > 0) {
-            if (symbol->type == nullptr) {
-                // Recursively expand comptime values.
-                Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
-                checkDecl(mod.unsorted_decls[symbol->decl_number]);
-            }
-        }
+        maybeExpandComptime(symbol);
     } else if (comptime_depth > 0) {
         fatal(span, "value of {} cannot be determined at compile time", symbol->name);
     } else {
-        expr_is_comptime = false;
+        is_comptime_expr = false;
     }
 
     auto* hexpr = allocExpr(HIR_IDENT, span);
@@ -433,4 +585,24 @@ HirExpr* Checker::checkValueSymbol(Symbol* symbol, const TextSpan& span) {
     hexpr->assignable = !symbol->immut;
     hexpr->ir_Ident.symbol = symbol;
     return hexpr;
+}
+
+/* -------------------------------------------------------------------------- */
+
+void Checker::markNonComptime(const TextSpan& span) {
+    if (comptime_depth > 0) {
+        fatal(span, "expression cannot be evaluated at compile time");
+    } else {
+        is_comptime_expr = false;
+    }
+}
+
+void Checker::maybeExpandComptime(Symbol* symbol) {
+    if (comptime_depth > 0) {
+        if (symbol->type == nullptr) {
+            // Recursively expand comptime values.
+            Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
+            checkDecl(mod.unsorted_decls[symbol->decl_number]);
+        }
+    }
 }

@@ -147,8 +147,8 @@ struct HirExpr : public HirNode {
         } ir_Index;
         struct {
             HirExpr* expr;
-            HirExpr* low;
-            HirExpr* hi;
+            HirExpr* start_index;
+            HirExpr* end_index;
         } ir_Slice;
         struct {
             HirExpr* expr;

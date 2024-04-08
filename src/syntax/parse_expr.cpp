@@ -151,7 +151,7 @@ AstNode* Parser::parseFuncCall(AstNode* func) {
 
     pushAllowStructLit(true);
 
-    AstNode* args { nullptr };
+    std::span<AstNode*> args;
     if (!has(TOK_RPAREN)) {
         args = parseExprList();
     }
@@ -299,7 +299,7 @@ AstNode* Parser::parseStructLit(AstNode* type) {
 
         struct_lit = allocNode(AST_STRUCT_LIT, SpanOver(type->span, prev.span));
         struct_lit->an_StructLit.type = type;
-        struct_lit->an_StructLit.field_inits = field_inits->an_ExprList.exprs;
+        struct_lit->an_StructLit.field_inits = field_inits;
     }
 
     popAllowStructLit();
@@ -546,14 +546,15 @@ AstNode* Parser::parseArrayLit() {
 
     pushAllowStructLit(true);
 
-    AstNode* items = parseExprList();
-    items->kind = AST_ARRAY_LIT;
-
-    want(TOK_RBRACKET);
+    auto items = parseExprList();
 
     popAllowStructLit();
+    want(TOK_RBRACKET);
 
-    return items;
+    auto* aarray = allocNode(AST_ARRAY_LIT, SpanOver(start_span, prev.span));
+    aarray->an_ExprList.exprs = items;
+
+    return aarray;
 }
 
 AstNode* Parser::parseMacroCall() {

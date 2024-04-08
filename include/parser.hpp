@@ -133,7 +133,7 @@ private:
     
     /* ---------------------------------------------------------------------- */
 
-    AstNode* parseExprList(TokenKind delim = TOK_COMMA);
+    std::span<AstNode*> parseExprList(TokenKind delim = TOK_COMMA);
     AstNode* parseInitializer();
     std::vector<Token> parseIdentList(TokenKind delim = TOK_COMMA);
 

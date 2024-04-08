@@ -36,10 +36,10 @@ class Checker {
     // curr_decl_number stores the number of the current decl being compiled.
     size_t curr_decl_number { 0 };
 
-    // expr_is_comptime indicates if an expression which is not declared
+    // is_comptime_expr indicates if an expression which is not declared
     // comptime can be comptime.  This is used to promote global variable
     // initializers to constant values.
-    bool expr_is_comptime { false };
+    bool is_comptime_expr { false };
 
     /* ---------------------------------------------------------------------- */
 
@@ -107,10 +107,10 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    bool checkCasePattern(AstNode* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
-    bool checkPattern(AstNode* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
+    std::span<HirExpr*> checkCasePattern(AstNode* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
+    HirExpr* checkPattern(AstNode* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
 
-    void declarePatternCaptures(AstNode *pattern);
+    void declarePatternCaptures(HirExpr* pattern);
 
     bool isEnumExhaustive(Type* expr_type, const std::unordered_set<size_t>& enum_usages);
 
@@ -120,6 +120,7 @@ private:
 
 
 
+    HirExpr* checkCall(AstNode* node);
     HirExpr* checkSelector(AstNode* node, Type* infer_type);
     HirExpr* checkField(HirExpr* root, std::string_view field_name, const TextSpan& span);
     HirExpr* checkEnumLit(AstNode* node, Type* type);
@@ -128,8 +129,10 @@ private:
     HirExpr* checkArrayLit(AstNode* node, Type* infer_type);
     HirExpr* checkStructLit(AstNode* node, Type* infer_type);
     std::vector<HirFieldInit> checkFieldInits(std::span<AstNode*> afield_inits, Type* struct_type, Type* display_type);
-    HirExpr* checkIdent(AstNode* node);
     HirExpr* checkValueSymbol(Symbol* symbol, const TextSpan& span);
+
+    void markNonComptime(const TextSpan& span);
+    void maybeExpandComptime(Symbol* symbol);
 
     /* ---------------------------------------------------------------------- */
 

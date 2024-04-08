@@ -174,7 +174,7 @@ struct AstNode {
         } an_Deref;
         struct {
             AstNode* func;
-            AstNode* args;
+            std::span<AstNode*> args;
         } an_Call;
         struct {
             AstNode* expr;
