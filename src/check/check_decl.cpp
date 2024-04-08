@@ -294,7 +294,7 @@ Type* Checker::checkTypeLabel(AstNode* node, bool should_expand) {
         }
     } break;
     default:
-        Panic("unimplemented type ast checking for {}", (int)node->kind);
+        fatal(node->span, "expected a type label");
     }
 
     return nullptr;

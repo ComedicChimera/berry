@@ -122,6 +122,13 @@ void Checker::finishExpr() {
         throw CompileError{};
 }
 
+HirExpr* Checker::createImplicitCast(HirExpr* src, Type* dest_type) {
+    auto* hcast = allocExpr(HIR_CAST, src->span);
+    hcast->type = dest_type;
+    hcast->ir_Cast.expr = src;
+    return hcast;
+}
+
 /* -------------------------------------------------------------------------- */
 
 std::pair<Symbol*, Module::DepEntry*> Checker::mustLookup(std::string_view name, const TextSpan& span) {

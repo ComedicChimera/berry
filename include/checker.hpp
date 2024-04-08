@@ -116,18 +116,16 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    void checkExpr(AstNode* expr, Type* infer_type = nullptr);
-    void checkDeref(AstNode* node);
-    void checkCall(AstNode* node);
-    void checkIndex(AstNode* node);
-    void checkSlice(AstNode* node);
-    void checkSelector(AstNode* node, bool expect_type);
+    HirExpr* checkExpr(AstNode* node, Type* infer_type = nullptr);
 
-    void checkArrayLit(AstNode* node, Type* infer_type);
-    void checkNewType(AstNode* node);
-    void checkNewArray(AstNode* node);
-    void checkNewStruct(AstNode* node);
-    void checkStructLit(AstNode* node, Type* infer_type);
+
+
+    HirExpr* checkNewStruct(AstNode* node, Type* infer_type);
+    HirExpr* checkArrayLit(AstNode* node, Type* infer_type);
+    HirExpr* checkStructLit(AstNode* node, Type* infer_type);
+    std::vector<HirFieldInit> checkFieldInits(std::span<AstNode*> afield_inits, Type* struct_type, Type* display_type);
+    HirExpr* checkIdent(AstNode* node);
+    
 
     /* ---------------------------------------------------------------------- */
 
@@ -153,6 +151,8 @@ private:
     Type* newUntyped(UntypedKind kind);
 
     void finishExpr();
+
+    HirExpr* createImplicitCast(HirExpr* src, Type* dest_type);
 
     /* ---------------------------------------------------------------------- */
 

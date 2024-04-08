@@ -35,12 +35,11 @@ enum AstKind {
     AST_INDEX,
     AST_SLICE,
     AST_SELECTOR,
-    AST_STATIC_GET,     // created by resolver only
-    AST_ARRAY_LIT,      // uses an_ExprList
-    AST_STRUCT_LIT,     
     AST_NEW,
     AST_NEW_ARRAY,
     AST_NEW_STRUCT,     // uses an_StructLit
+    AST_ARRAY_LIT,      // uses an_ExprList
+    AST_STRUCT_LIT,     
     AST_IDENT,
     AST_NUM_LIT,
     AST_FLOAT_LIT,
@@ -190,9 +189,6 @@ struct AstNode {
             AstNode* expr;
             std::string_view field_name;
         } an_Sel;
-        struct {
-            Symbol* imported_symbol;
-        } an_StaticGet;
         struct {
             AstNode* type;
         } an_New;

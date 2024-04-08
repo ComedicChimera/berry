@@ -46,6 +46,7 @@ enum HirKind {
     HIR_ARRAY_LIT,
     HIR_STRUCT_LIT,
     HIR_ENUM_LIT,
+    HIR_STATIC_GET,     // uses ir_Ident
     HIR_IDENT,
     HIR_NUM_LIT,
     HIR_FLOAT_LIT,
@@ -97,9 +98,16 @@ enum HirAllocMode {
     HIRMEM_GLOBAL
 };
 
+struct HirExpr;
+
 struct HirFieldInit {
     HirExpr* expr;
     size_t field_index;
+
+    HirFieldInit(HirExpr* expr_, size_t field_index_)
+    : expr(expr_)
+    , field_index(field_index_)
+    {}
 };
 
 struct HirExpr : public HirNode {
