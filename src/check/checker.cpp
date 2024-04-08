@@ -177,6 +177,15 @@ Symbol* Checker::findSymbolInDep(Module::DepEntry& dep, std::string_view name) {
     return nullptr;
 }
 
+Symbol* Checker::mustFindSymbolInDep(Module::DepEntry& dep, std::string_view name, const TextSpan& span) {
+    auto* imported_symbol = findSymbolInDep(dep, name);
+    if (imported_symbol == nullptr) {
+        fatal(span, "module {} has no exported symbol named {}", dep.mod->name, name);
+    }
+
+    return imported_symbol;
+}
+
 /* -------------------------------------------------------------------------- */
 
 void Checker::declareLocal(Symbol* sym) {

@@ -14,6 +14,8 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
     case AST_INDEX:
     case AST_SLICE:
     case AST_SELECTOR:
+        hexpr = checkSelector(node, infer_type);
+        break;
     case AST_NEW: {
         if (comptime_depth > 0) {
             fatal(node->span, "expression cannot be evaluated at compile-time");
@@ -84,6 +86,172 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
         return nullptr;
     }
 
+    return hexpr;
+}
+
+HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {
+    HirExpr* root_expr;
+
+    auto* aroot = node->an_Sel.expr;
+    switch (aroot->kind) {
+    case AST_IDENT: { // name1.name2
+        auto [symbol, dep] = mustLookup(aroot->an_Ident.name, aroot->span);
+        if (dep != nullptr) { // module.name
+            auto* imported_symbol = mustFindSymbolInDep(*dep, node->an_Sel.field_name, node->span);
+            return checkStaticGet(imported_symbol, dep->mod->name, node->span);
+        }
+
+        if (symbol->flags & SYM_TYPE) { // Type.name2
+            if (comptime_depth > 0) {
+                if (symbol->type == nullptr) {
+                    // Recursively expand comptime values.
+                    Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
+                    checkDecl(mod.unsorted_decls[symbol->decl_number]);
+                }
+            }
+
+            return checkEnumLit(node, symbol->type);
+        }
+
+        // Default to field access.
+        root_expr = checkValueSymbol(symbol, aroot->span);
+    } break;
+    case AST_SELECTOR: { // [expr].name1.name2
+        auto* asubroot = aroot->an_Sel.expr;
+
+        if (asubroot->kind == AST_IDENT) { // name1.name2.name3
+            auto [symbol, dep] = mustLookup(asubroot->an_Ident.name, asubroot->span);
+            if (dep != nullptr) { // module.name1.name2
+                auto* imported_symbol = mustFindSymbolInDep(*dep, aroot->an_Sel.field_name, aroot->span);
+
+                if (imported_symbol->flags & SYM_TYPE) { // module.Type.name
+                    return checkEnumLit(node, imported_symbol->type);
+                }
+
+                root_expr = checkStaticGet(imported_symbol, dep->mod->name, aroot->span);
+            } else if (symbol->flags & SYM_TYPE) { // Type.name1.name2
+                if (comptime_depth > 0) {
+                    if (symbol->type == nullptr) {
+                        // Recursively expand comptime values.
+                        Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
+                        checkDecl(mod.unsorted_decls[symbol->decl_number]);
+                    }
+                }
+
+                root_expr = checkEnumLit(aroot, symbol->type);
+            } else { // value.name1.name2
+                root_expr = checkValueSymbol(symbol, asubroot->span);
+                root_expr = checkField(root_expr, aroot->an_Sel.field_name, aroot->span);
+            }
+        } else { 
+            // Default to field access.
+            root_expr = checkExpr(aroot);
+        }
+    } break;
+    case AST_DOT: // .name
+        if (infer_type) {
+            return checkEnumLit(node, infer_type);
+        } else {
+            fatal(node->span, "cannot infer type of enum literal");
+        }
+        break;
+    default:
+        root_expr = checkExpr(node->an_Sel.expr);
+        break;
+    }
+
+    return checkField(root_expr, node->an_Sel.field_name, node->span);
+}
+
+HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const TextSpan& span) {
+    Type* display_type = root->type;
+    auto* root_type = display_type->Inner();
+
+    bool is_auto_deref = false;
+    if (root_type->kind == TYPE_PTR) {
+        is_auto_deref = true;
+        display_type = root_type->ty_Ptr.elem_type;
+        root_type = display_type->FullUnwrap();
+    } else {
+        root_type = root_type->FullUnwrap();
+    }
+
+    Type* result_type = nullptr;
+    size_t field_index = 0;
+    switch (root_type->kind) {
+    case TYPE_ARRAY:
+    case TYPE_SLICE:
+        if (field_name == "_ptr") {
+            result_type = allocType(TYPE_PTR);
+
+            // Should be ok for both ty_Array and ty_Slice.
+            result_type->ty_Ptr.elem_type = root_type->ty_Slice.elem_type;
+            field_index = 0;
+        } else if (field_name == "_len") {
+            result_type = platform_int_type;
+            field_index = 1;
+        }
+        break;
+    case TYPE_STRUCT: {
+        auto maybe_field_index = root_type->ty_Struct.name_map.try_get(field_name);
+        if (maybe_field_index) {
+            field_index = maybe_field_index.value();
+
+            auto& field = root_type->ty_Struct.fields[field_index];
+            if (field.exported || display_type->ty_Named.mod_id == mod.id) {
+                result_type = field.type;
+            } else {
+                fatal(span, "field {} of {} is not exported", field_name, display_type->ToString());
+            }
+        }
+    } break;
+    }
+
+    if (result_type == nullptr) {
+        fatal(span, "type {} has no field named {}", display_type->ToString());
+    }
+
+    auto* hexpr = allocExpr(is_auto_deref ? HIR_DEREF_FIELD : HIR_FIELD, span);
+    hexpr->type = result_type;
+    hexpr->ir_Field.expr = root;
+    hexpr->ir_Field.field_index = field_index;
+    return hexpr;
+}
+
+HirExpr* Checker::checkEnumLit(AstNode* node, Type* type) {
+    auto* enum_type = type->FullUnwrap();
+    if (enum_type->kind != TYPE_ENUM) {
+        fatal(node->span, "{} is not an enum type", type->ToString());
+    }
+
+    auto maybe_tag_value = enum_type->ty_Enum.tag_map.try_get(node->an_Sel.field_name);
+    if (!maybe_tag_value) {
+        fatal(node->span, "enum {} has no variant named {}", type->ToString(), node->an_Sel.field_name);
+    }
+
+    auto* hexpr = allocExpr(HIR_ENUM_LIT, node->span);
+    hexpr->type = type;
+    hexpr->ir_EnumLit.tag_value = maybe_tag_value.value();
+    return hexpr;
+}
+
+HirExpr* Checker::checkStaticGet(Symbol* imported_symbol, std::string_view mod_name, const TextSpan& span) {
+    if (imported_symbol->flags & SYM_TYPE) {
+        fatal(span, "cannot use a type as a value");
+    }
+
+    if ((imported_symbol->flags & SYM_COMPTIME) == 0) {
+        if (comptime_depth > 0) {
+            fatal(span, "value of {}.{} cannot be determined at compile time", mod_name, imported_symbol->name);
+        } else {
+            expr_is_comptime = false;
+        }
+    } 
+
+    auto* hexpr = allocExpr(HIR_STATIC_GET, span);
+    hexpr->type = imported_symbol->type;
+    hexpr->assignable = !imported_symbol->immut;
+    hexpr->ir_Ident.symbol = imported_symbol;
     return hexpr;
 }
 
@@ -240,21 +408,27 @@ HirExpr* Checker::checkIdent(AstNode* node) {
         fatal(node->span, "cannot use a type as a value");
     }
 
-    if (comptime_depth > 0) {
-        if (symbol->flags & SYM_COMPTIME) {
+    return checkValueSymbol(symbol, node->span);
+}
+
+/* -------------------------------------------------------------------------- */
+
+HirExpr* Checker::checkValueSymbol(Symbol* symbol, const TextSpan& span) {
+    if (symbol->flags & SYM_COMPTIME) {
+        if (comptime_depth > 0) {
             if (symbol->type == nullptr) {
                 // Recursively expand comptime values.
                 Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
                 checkDecl(mod.unsorted_decls[symbol->decl_number]);
             }
-        } else {
-            fatal(node->span, "value of {} cannot be determined at compile time", symbol->name);
         }
-    } else if (expr_is_comptime) {
-        expr_is_comptime = (bool)(symbol->flags & SYM_COMPTIME);
+    } else if (comptime_depth > 0) {
+        fatal(span, "value of {} cannot be determined at compile time", symbol->name);
+    } else {
+        expr_is_comptime = false;
     }
 
-    auto* hexpr = allocExpr(HIR_IDENT, node->span);
+    auto* hexpr = allocExpr(HIR_IDENT, span);
     hexpr->type = symbol->type;
     hexpr->assignable = !symbol->immut;
     hexpr->ir_Ident.symbol = symbol;

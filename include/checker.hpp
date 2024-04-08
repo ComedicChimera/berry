@@ -120,12 +120,16 @@ private:
 
 
 
+    HirExpr* checkSelector(AstNode* node, Type* infer_type);
+    HirExpr* checkField(HirExpr* root, std::string_view field_name, const TextSpan& span);
+    HirExpr* checkEnumLit(AstNode* node, Type* type);
+    HirExpr* checkStaticGet(Symbol* imported_symbol, std::string_view mod_name, const TextSpan& span);
     HirExpr* checkNewStruct(AstNode* node, Type* infer_type);
     HirExpr* checkArrayLit(AstNode* node, Type* infer_type);
     HirExpr* checkStructLit(AstNode* node, Type* infer_type);
     std::vector<HirFieldInit> checkFieldInits(std::span<AstNode*> afield_inits, Type* struct_type, Type* display_type);
     HirExpr* checkIdent(AstNode* node);
-    
+    HirExpr* checkValueSymbol(Symbol* symbol, const TextSpan& span);
 
     /* ---------------------------------------------------------------------- */
 
@@ -158,7 +162,8 @@ private:
 
     std::pair<Symbol*, Module::DepEntry*> mustLookup(std::string_view name, const TextSpan& span);
     Symbol* findSymbolInDep(Module::DepEntry& dep, std::string_view name);
-    
+    Symbol* mustFindSymbolInDep(Module::DepEntry& dep, std::string_view name, const TextSpan& span);
+
     void declareLocal(Symbol* sym);
     void pushScope();
     void popScope();
