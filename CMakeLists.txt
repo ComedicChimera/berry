@@ -34,13 +34,12 @@ set(SRCS
     "types/type_alloc.cpp"
 
     "check/checker.cpp"
-    "check/check_def.cpp"
+    "check/check_decl.cpp"
     "check/check_stmt.cpp"
     "check/check_expr.cpp"
     "check/check_op.cpp"
     "check/check_pattern.cpp"
     "check/check_attr.cpp"
-    "check/check_decl.cpp"
     "check/hir_alloc.cpp"
 
     "codegen/codegen.cpp"

@@ -278,11 +278,21 @@ struct HirStmt;
 struct HirIfBranch {
     HirExpr* cond;
     HirStmt* body;
+
+    HirIfBranch(HirExpr* cond_, HirStmt* body_)
+    : cond(cond_)
+    , body(body_)
+    {}
 };
 
 struct HirCaseBlock {
     std::span<HirExpr*> patterns;
     HirStmt* body;
+
+    HirCaseBlock(std::span<HirExpr*> patterns_)
+    : patterns(patterns_)
+    , body(nullptr)
+    {}
 };
 
 struct HirStmt : public HirNode {
@@ -327,10 +337,12 @@ struct HirStmt : public HirNode {
             HirExpr* lhs;
             HirExpr* rhs;
             HirOpKind op;
+            bool needs_subtype_cast;
         } ir_CpdAssign;
         struct {
             HirExpr* expr;
             HirOpKind op;
+            bool needs_subtype_cast;
         } ir_IncDec;
         struct {
             HirExpr* expr;

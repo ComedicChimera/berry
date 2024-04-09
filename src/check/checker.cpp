@@ -15,11 +15,36 @@ Checker::Checker(Arena& arena, Module& mod)
 }
 
 void Checker::CheckModule() {
+    // First checking pass.
     curr_decl_number = 0;
     for (auto* decl : mod.unsorted_decls) {
         checkDecl(decl);
         curr_decl_number++;
     }
+
+    // Second checking pass.
+    first_pass = false;
+    curr_decl_number = 0;
+    for (auto* decl : mod.unsorted_decls) {
+        src_file = &mod.files[decl->file_number];
+
+        switch (decl->hir_decl->kind) {
+        case HIR_FUNC:
+            checkFuncBody(decl);
+            break;
+        case HIR_GLOBAL_VAR:
+            checkGlobalVarInit(decl);
+            break;
+        case HIR_GLOBAL_CONST:
+            checkGlobalVarAttrs(decl);
+            break;
+        }
+
+        curr_decl_number++;
+    }
+
+    // Sort remaining declarations into correct initialization order.
+    // TODO
 
     // Update the declaration numbers of the newly sorted declarations.
     curr_decl_number = 0;
@@ -127,6 +152,14 @@ HirExpr* Checker::createImplicitCast(HirExpr* src, Type* dest_type) {
     hcast->type = dest_type;
     hcast->ir_Cast.expr = src;
     return hcast;
+}
+
+HirExpr* Checker::subtypeCast(HirExpr* src, Type* dest_type) {
+    if (mustSubType(src->span, src->type, dest_type)) {
+        return createImplicitCast(src, dest_type);
+    }
+
+    return src;
 }
 
 /* -------------------------------------------------------------------------- */

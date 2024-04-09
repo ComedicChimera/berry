@@ -34,8 +34,10 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
     case AST_TEST_MATCH: {
         auto* hcond = checkExpr(node->an_TestMatch.expr);
 
-        auto hpatterns = checkCasePattern(node->an_TestMatch.pattern, hcond->type, nullptr);
+        pushPatternCtx();
+        auto hpatterns = checkCasePattern(node->an_TestMatch.pattern, hcond->type).first;
         declarePatternCaptures(hpatterns[0]);
+        popPatternCtx();
 
         hexpr = allocExpr(HIR_TEST_MATCH, node->span);
         hexpr->type = &prim_bool_type;
@@ -259,10 +261,7 @@ HirExpr* Checker::checkCall(AstNode* node) {
     std::vector<HirExpr*> hargs;
     for (size_t i = 0; i < aargs.size(); i++) {
         auto* harg = checkExpr(aargs[i], fparams[i]);
-
-        if (mustSubType(harg->span, harg->type, fparams[i])) {
-            harg = createImplicitCast(harg, fparams[i]);
-        }
+        harg = subtypeCast(harg, fparams[i]);
 
         hargs.push_back(harg);
     }
@@ -559,10 +558,7 @@ std::vector<HirFieldInit> Checker::checkFieldInits(std::span<AstNode*> afield_in
         
         auto* field_type = struct_type->ty_Struct.fields[field_index].type;
         auto* hinit = checkExpr(ainit, field_type);
-
-        if (mustSubType(ainit->span, hinit->type, field_type)) {
-            hinit = createImplicitCast(hinit, field_type);
-        }
+        hinit = subtypeCast(hinit, field_type);
 
         field_inits.emplace_back(hinit, field_index);
         field_index++;
@@ -598,7 +594,7 @@ void Checker::markNonComptime(const TextSpan& span) {
 }
 
 void Checker::maybeExpandComptime(Symbol* symbol) {
-    if (comptime_depth > 0) {
+    if (first_pass && comptime_depth > 0) {
         if (symbol->type == nullptr) {
             // Recursively expand comptime values.
             Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");

@@ -26,6 +26,12 @@ class Checker {
     // tctx is the checker's type context.
     TypeContext tctx;
 
+    /* ---------------------------------------------------------------------- */
+
+    // first_pass indicates which checking pass is running (first = definition
+    // and global comptimes, second = everything else).
+    bool first_pass { true };
+
     // comptime_depth keeps track of the level of nested comptime expansion.
     int comptime_depth { 0 };
 
@@ -60,12 +66,31 @@ class Checker {
     // used for break and continue checking.
     int loop_depth { 0 };
 
-    // fallthrough_stack keeps track of both the current match depth and whether
+    // fallthru_stack keeps track of both the current match depth and whether
     // fallthough is enabled for a specific case.
-    std::vector<bool> fallthrough_stack;
+    std::vector<bool> fallthru_stack;
 
     // unsafe_depth keeps track of how many enclosing unsafe blocks there are.
     int unsafe_depth { 0 };
+
+    /* ---------------------------------------------------------------------- */
+
+    // PatternContext stores all state that is used for exhaustivity checking in
+    // match statements and expression.  Anything that wants to call
+    // checkCasePattern or checkPattern should push a pattern context before
+    // doing so.
+    struct PatternContext {
+        // fallthru_used indicates whether a particular match case contains a
+        // fallthrough statement.
+        bool fallthru_used;
+
+        // enum_usages keeps track of which enum variants have been matched between
+        // different pattern cases.
+        std::unordered_set<size_t> enum_usages;
+    };
+
+    // pattern_ctx_stack is the stack of pattern contexts.
+    std::vector<PatternContext> pattern_ctx_stack;
 
 public:
     // Creates a new checker for src_file allocating in arena.
@@ -81,7 +106,10 @@ private:
     HirDecl* checkGlobalVar(AstNode* node);
     HirDecl* checkGlobalConst(AstNode* node);
     HirDecl* checkTypeDef(AstNode* node);
-    
+
+    void checkFuncBody(Decl* decl);
+    void checkGlobalVarInit(Decl* decl);
+
     void checkFuncAttrs(Decl* decl);
     void checkGlobalVarAttrs(Decl* decl);
 
@@ -90,7 +118,8 @@ private:
     /* ---------------------------------------------------------------------- */
 
     uint64_t checkComptimeSize(AstNode* expr);
-    ConstValue* checkComptime(AstNode* expr, Type* infer_type);
+    ConstValue* evalComptime(HirExpr* expr);
+    ConstValue* getComptimeNull(Type* type);
 
     /* ---------------------------------------------------------------------- */
 
@@ -98,27 +127,30 @@ private:
     std::pair<HirStmt*, bool> checkBlock(AstNode* node);
     std::pair<HirStmt*, bool> checkIf(AstNode* node);
     HirStmt* checkWhile(AstNode* node);
+    HirStmt* checkDoWhile(AstNode* node);
     HirStmt* checkFor(AstNode* node);
     std::pair<HirStmt*, bool> checkMatchStmt(AstNode* node);
     HirStmt* checkLocalVar(AstNode* node);
-    HirStmt* checkAssign(AstNode *node);
-    HirStmt* checkIncDec(AstNode *node);
-    HirStmt* checkReturn(AstNode *node);
+    HirStmt* checkLocalConst(AstNode* node);
+    HirStmt* checkAssign(AstNode* node);
+    HirStmt* checkIncDec(AstNode* node);
+    HirStmt* checkReturn(AstNode* node);
 
     /* ---------------------------------------------------------------------- */
 
-    std::span<HirExpr*> checkCasePattern(AstNode* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
-    HirExpr* checkPattern(AstNode* node, Type* expect_type, std::unordered_set<size_t>* enum_usages);
+    std::pair<std::span<HirExpr*>, bool> checkCasePattern(AstNode* node, Type* expect_type);
+    std::pair<HirExpr*, bool> checkPattern(AstNode* node, Type* expect_type);
 
     void declarePatternCaptures(HirExpr* pattern);
+    bool isEnumExhaustive(Type* expr_type);
 
-    bool isEnumExhaustive(Type* expr_type, const std::unordered_set<size_t>& enum_usages);
+    PatternContext& getPatternCtx();
+    void pushPatternCtx();
+    void popPatternCtx();
 
     /* ---------------------------------------------------------------------- */
 
     HirExpr* checkExpr(AstNode* node, Type* infer_type = nullptr);
-
-
 
     HirExpr* checkCall(AstNode* node);
     HirExpr* checkSelector(AstNode* node, Type* infer_type);
@@ -140,6 +172,7 @@ private:
     void mustEqual(const TextSpan& span, Type* a, Type* b);
 
     // mustSubType asserts that sub is a subtype of super.  It returns whether 
+    // an implicit subtype cast is required for conversion.
     bool mustSubType(const TextSpan& span, Type* sub, Type* super);
 
     // mustCast asserts that src can be cast to dest.
@@ -160,6 +193,9 @@ private:
     void finishExpr();
 
     HirExpr* createImplicitCast(HirExpr* src, Type* dest_type);
+
+    // subtypeCast essentially combines mustSubType and createImplicitCast.
+    HirExpr* subtypeCast(HirExpr* src, Type* dest_type);
 
     /* ---------------------------------------------------------------------- */
 

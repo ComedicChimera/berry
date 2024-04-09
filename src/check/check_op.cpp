@@ -1,37 +1,37 @@
 #include "checker.hpp"
 
-std::unordered_map<AstOpKind, std::string> ast_op_kind_to_name {
-    { AOP_ADD, "+" },
-    { AOP_SUB, "-" },
-    { AOP_MUL, "*" },
-    { AOP_DIV, "/" },
-    { AOP_MOD, "%" },
-    { AOP_SHL, "<<" },
-    { AOP_SHR, ">>" },
-    { AOP_EQ, "==" },
-    { AOP_NE, "!=" },
-    { AOP_LT, "<" },
-    { AOP_GT, ">" },
-    { AOP_LE, "<=" },
-    { AOP_GE, ">=" },
-    { AOP_BWAND, "&" },
-    { AOP_BWOR, "|" },
-    { AOP_BWXOR, "^" },
-    { AOP_LGAND, "&&" },
-    { AOP_LGOR, "||" },
-    { AOP_NEG, "-" },
-    { AOP_NOT, "!" },
-    { AOP_BWNEG, "~" }
+std::unordered_map<HirOpKind, std::string> hir_op_kind_to_name {
+    { HIROP_ADD, "+" },
+    { HIROP_SUB, "-" },
+    { HIROP_MUL, "*" },
+    { HIROP_DIV, "/" },
+    { HIROP_MOD, "%" },
+    { HIROP_SHL, "<<" },
+    { HIROP_SHR, ">>" },
+    { HIROP_EQ, "==" },
+    { HIROP_NE, "!=" },
+    { HIROP_LT, "<" },
+    { HIROP_GT, ">" },
+    { HIROP_LE, "<=" },
+    { HIROP_GE, ">=" },
+    { HIROP_BWAND, "&" },
+    { HIROP_BWOR, "|" },
+    { HIROP_BWXOR, "^" },
+    { HIROP_LGAND, "&&" },
+    { HIROP_LGOR, "||" },
+    { HIROP_NEG, "-" },
+    { HIROP_NOT, "!" },
+    { HIROP_BWNEG, "~" }
 };
 
 
-Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_type, Type* rhs_type) {
+Type* Checker::mustApplyBinaryOp(const TextSpan& span, HirOpKind op, Type* lhs_type, Type* rhs_type) {
     tctx.flags |= TC_INFER;
 
     Type* return_type { nullptr };
-    switch (aop) {
-    case AOP_ADD:
-    case AOP_SUB:
+    switch (op) {
+    case HIROP_ADD:
+    case HIROP_SUB:
         if (unsafe_depth > 0) {
             return_type = maybeApplyPtrArithOp(lhs_type, rhs_type);
         }
@@ -40,24 +40,24 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
             return_type = lhs_type;
         }
         break;
-    case AOP_MUL:
-    case AOP_DIV:
-    case AOP_MOD:
+    case HIROP_MUL:
+    case HIROP_DIV:
+    case HIROP_MOD:
         if (tctx.Equal(lhs_type, rhs_type) && tctx.IsNumberType(lhs_type)) {
             return_type = lhs_type;
         }
         break;
-    case AOP_SHL:
-    case AOP_SHR:
-    case AOP_BWAND:
-    case AOP_BWOR:
-    case AOP_BWXOR:
+    case HIROP_SHL:
+    case HIROP_SHR:
+    case HIROP_BWAND:
+    case HIROP_BWOR:
+    case HIROP_BWXOR:
         if (tctx.Equal(lhs_type, rhs_type) && tctx.IsIntType(lhs_type)) {
             return_type = lhs_type;
         }
         break;
-    case AOP_EQ:
-    case AOP_NE:
+    case HIROP_EQ:
+    case HIROP_NE:
         lhs_type = lhs_type->Inner();
 
         switch (lhs_type->kind) {
@@ -75,31 +75,31 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, AstOpKind aop, Type* lhs_
             }
         }      
         break;
-    case AOP_LT:
-    case AOP_GT:
-    case AOP_LE:
-    case AOP_GE:
+    case HIROP_LT:
+    case HIROP_GT:
+    case HIROP_LE:
+    case HIROP_GE:
         if (maybeApplyPtrArithOp(lhs_type, rhs_type)) {
             return_type = &prim_bool_type;
         } else if (tctx.Equal(lhs_type, rhs_type) && tctx.IsNumberType(lhs_type)) {
             return_type = &prim_bool_type;
         }
         break;
-    case AOP_LGAND:
-    case AOP_LGOR:
+    case HIROP_LGAND:
+    case HIROP_LGOR:
         if (tctx.Equal(lhs_type, &prim_bool_type) && tctx.Equal(rhs_type, &prim_bool_type)) {
             return_type = &prim_bool_type;
         }
         break;
     default:
-        Panic("unsupported binary ast operator in checker: {}", (int)aop);
+        Panic("unsupported binary ast operator in checker: {}", (int)op);
         break;
     }
 
     if (return_type == nullptr) {
-        Assert(ast_op_kind_to_name.contains(aop), "missing aop string for operator");
+        Assert(hir_op_kind_to_name.contains(op), "missing op string for operator");
 
-        fatal(span, "cannot apply {} operator to {} and {}", ast_op_kind_to_name[aop], lhs_type->ToString(), rhs_type->ToString());
+        fatal(span, "cannot apply {} operator to {} and {}", hir_op_kind_to_name[op], lhs_type->ToString(), rhs_type->ToString());
     }
 
     tctx.flags ^= TC_INFER;
@@ -135,35 +135,35 @@ Type* Checker::maybeApplyPtrArithOp(Type* lhs_type, Type* rhs_type) {
 
 /* -------------------------------------------------------------------------- */
 
-Type* Checker::mustApplyUnaryOp(const TextSpan& span, AstOpKind aop, Type* operand_type) {
+Type* Checker::mustApplyUnaryOp(const TextSpan& span, HirOpKind op, Type* operand_type) {
     tctx.flags |= TC_INFER;
 
     Type* return_type { nullptr };
-    switch (aop) {
-    case AOP_NOT:
+    switch (op) {
+    case HIROP_NOT:
         if (tctx.Equal(operand_type, &prim_bool_type)) {
             return_type = &prim_bool_type;
         }
         break;
-    case AOP_NEG:
+    case HIROP_NEG:
         if (tctx.IsNumberType(operand_type)) {
             return_type = operand_type;
         }
         break;
-    case AOP_BWNEG:
+    case HIROP_BWNEG:
         if (tctx.IsIntType(operand_type)) {
             return_type = operand_type;
         }
         break;
     default:
-        Panic("unsupported unary ast operator in checker: {}", (int)aop);
+        Panic("unsupported unary ast operator in checker: {}", (int)op);
         break;
     }
 
     if (return_type == nullptr) {
-        Assert(ast_op_kind_to_name.find(aop) != ast_op_kind_to_name.end(), "missing aop string for operator");
+        Assert(hir_op_kind_to_name.find(op) != hir_op_kind_to_name.end(), "missing op string for operator");
 
-        fatal(span, "cannot apply {} operator to {}", ast_op_kind_to_name[aop], operand_type->ToString());
+        fatal(span, "cannot apply {} operator to {}", hir_op_kind_to_name[op], operand_type->ToString());
     }
 
     tctx.flags ^= TC_INFER;

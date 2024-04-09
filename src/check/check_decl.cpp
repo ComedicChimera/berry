@@ -56,11 +56,9 @@ void Checker::checkDecl(Decl* decl) {
 
     switch (decl->ast_decl->kind) {
     case AST_FUNC:
-        checkFuncAttrs(decl);
         decl->hir_decl = checkFuncDecl(decl->ast_decl);
         break;
     case AST_VAR:
-        checkGlobalVarAttrs(decl);
         decl->hir_decl = checkGlobalVar(decl->ast_decl);
         break;
     case AST_CONST:
@@ -99,7 +97,12 @@ HirDecl* Checker::checkFuncDecl(AstNode* node) {
         params.push_back(param);
     }
 
-    auto* return_type = checkTypeLabel(afunc_type.return_type, false);
+    Type* return_type;
+    if (afunc_type.return_type) {
+        return_type = checkTypeLabel(afunc_type.return_type, false);
+    } else {
+        return_type = &prim_unit_type;
+    }
 
     auto* func_type = allocType(TYPE_FUNC);
     func_type->ty_Func.param_types = arena.MoveVec(std::move(param_types));
@@ -131,7 +134,19 @@ HirDecl* Checker::checkGlobalConst(AstNode* node) {
     auto* symbol = node->an_Var.symbol;
     symbol->type = type;
 
-    auto* value = checkComptime(node->an_Var.init, type);
+    ConstValue* value;
+    if (node->an_Var.init) {
+        auto* hinit = checkExpr(node->an_Var.init, type);
+        hinit = subtypeCast(hinit, type);
+        finishExpr();
+
+        comptime_depth++;
+        value = evalComptime(hinit);
+        comptime_depth--;
+    } else {
+        value = getComptimeNull(type);
+    }
+    
 
     auto* hconst = allocDecl(HIR_GLOBAL_CONST, node->span);
     hconst->ir_GlobalConst.symbol = symbol;
@@ -161,6 +176,49 @@ HirDecl* Checker::checkTypeDef(AstNode* node) {
 
     hdecl->ir_TypeDef.symbol = symbol;
     return hdecl;
+}
+
+/* -------------------------------------------------------------------------- */
+
+void Checker::checkFuncBody(Decl* decl) {
+    checkFuncAttrs(decl);
+
+    if (decl->ast_decl->an_Func.body) {
+        auto& hfunc = decl->hir_decl->ir_Func;
+
+        pushScope();
+        for (auto* param : hfunc.params) {
+            declareLocal(param);
+        }
+
+        enclosing_return_type = hfunc.return_type;
+        auto [hbody, always_returns] = checkStmt(decl->ast_decl->an_Func.body);
+        enclosing_return_type = nullptr;
+
+        popScope();
+
+        if (hfunc.return_type->kind != TYPE_UNIT && !always_returns) {
+            error(hbody->span, "function must return a value");
+        }
+
+        hfunc.body = hbody;
+    }
+}
+
+void Checker::checkGlobalVarInit(Decl* decl) {
+    checkGlobalVarAttrs(decl);
+
+    if (decl->ast_decl->an_Var.init) {
+        auto& hgvar = decl->hir_decl->ir_GlobalVar;
+
+        is_comptime_expr = true;
+        auto* hexpr = checkExpr(decl->ast_decl->an_Var.init, hgvar.symbol->type);
+        hexpr = subtypeCast(hexpr, hgvar.symbol->type);
+        finishExpr();
+
+        hgvar.init = hexpr;
+        hgvar.const_init = is_comptime_expr ? evalComptime(hexpr) : nullptr;
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -258,16 +316,20 @@ Type* Checker::checkTypeLabel(AstNode* node, bool should_expand) {
         if (symbol->flags & SYM_TYPE) {
             auto* named_type = symbol->type;
 
-            if (should_expand && named_type->ty_Named.type == nullptr) {
-                decl_number_stack.push_back(curr_decl_number);
-                curr_decl_number = symbol->decl_number;
+            if (named_type->ty_Named.type == nullptr) {
+                if (first_pass && (comptime_depth > 0 || should_expand)) {
+                    decl_number_stack.push_back(curr_decl_number);
+                    curr_decl_number = symbol->decl_number;
 
-                checkDecl(mod.unsorted_decls[curr_decl_number]);
+                    checkDecl(mod.unsorted_decls[curr_decl_number]);
 
-                curr_decl_number = decl_number_stack.back();
-                decl_number_stack.pop_back();
+                    curr_decl_number = decl_number_stack.back();
+                    decl_number_stack.pop_back();
 
-                src_file = &mod.files[mod.unsorted_decls[curr_decl_number]->file_number];
+                    src_file = &mod.files[mod.unsorted_decls[curr_decl_number]->file_number];
+                } else {
+                    Panic("unresolved named type");
+                }
             }
 
             return named_type;
