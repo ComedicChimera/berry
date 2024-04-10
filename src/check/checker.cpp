@@ -3,6 +3,7 @@
 Checker::Checker(Arena& arena, Module& mod)
 : arena(arena)
 , mod(mod)
+, init_graph(mod.unsorted_decls.size())
 {
     if (mod.deps.size() > 0) {
         // Core module is always the last dependency added to any module. All
@@ -26,6 +27,9 @@ void Checker::CheckModule() {
     first_pass = false;
     curr_decl_number = 0;
     for (auto* decl : mod.unsorted_decls) {
+        // Reset colors for init ordering.
+        decl->color = COLOR_WHITE;
+
         src_file = &mod.files[decl->file_number];
 
         switch (decl->hir_decl->kind) {
@@ -44,7 +48,18 @@ void Checker::CheckModule() {
     }
 
     // Sort remaining declarations into correct initialization order.
-    // TODO
+    for (auto* decl : mod.unsorted_decls) {
+        switch (decl->hir_decl->kind) {
+        case HIR_FUNC:
+            if (decl->color == COLOR_WHITE) {
+                mod.sorted_decls.push_back(decl);
+            }
+            break;
+        case HIR_GLOBAL_VAR:
+            addToInitOrder(decl);
+            break;
+        }
+    }
 
     // Update the declaration numbers of the newly sorted declarations.
     curr_decl_number = 0;
@@ -181,6 +196,10 @@ std::pair<Symbol*, Module::DepEntry*> Checker::mustLookup(std::string_view name,
 
     auto it = mod.symbol_table.find(name);
     if (it != mod.symbol_table.end()) {
+        if (!first_pass) {
+            init_graph[curr_decl_number].push_back(it->second->decl_number);
+        }
+
         return { it->second, nullptr };
     }
 

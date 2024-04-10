@@ -73,6 +73,10 @@ class Checker {
     // unsafe_depth keeps track of how many enclosing unsafe blocks there are.
     int unsafe_depth { 0 };
 
+    // init_graph is used to keep track of which predicates depend on which
+    // global symbols in order to determine the correct initialization ordering.
+    std::vector<std::vector<size_t>> init_graph;
+
     /* ---------------------------------------------------------------------- */
 
     // PatternContext stores all state that is used for exhaustivity checking in
@@ -101,6 +105,8 @@ public:
 
 private:
     void checkDecl(Decl* decl);
+    bool addToInitOrder(Decl* decl);
+    void reportCycle(Decl* decl);
 
     HirDecl* checkFuncDecl(AstNode* node);
     HirDecl* checkGlobalVar(AstNode* node);
@@ -114,6 +120,7 @@ private:
     void checkGlobalVarAttrs(Decl* decl);
 
     Type* checkTypeLabel(AstNode* node, bool should_expand);
+
 
     /* ---------------------------------------------------------------------- */
 

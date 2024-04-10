@@ -18,37 +18,9 @@ void Checker::checkDecl(Decl* decl) {
     switch (decl->color) {
     case COLOR_BLACK:
         return;
-    case COLOR_GREY: {
-        auto* start_symbol = getDeclSymbol(decl->ast_decl);
-        std::string fmt_cycle(start_symbol->name);
-        bool cycle_involves_const = false;
-        
-        for (size_t i = decl_number_stack.size() - 1; i >= 0; i--) {
-            auto n = decl_number_stack[i];
-
-            fmt_cycle += " -> ";
-
-            auto* symbol = getDeclSymbol(mod.unsorted_decls[n]->ast_decl);
-            fmt_cycle += symbol->name;
-            if (symbol->flags & SYM_CONST) {
-                cycle_involves_const = true;
-            }
-
-            if (n == curr_decl_number) {
-                break;
-            }
-        }
-        
-        if (start_symbol->flags & SYM_TYPE) {
-            if (cycle_involves_const) {
-                fatal(start_symbol->span, "type depends cyclically on constant: {}", fmt_cycle);
-            } else {
-                fatal(start_symbol->span, "infinite type detected: {}", fmt_cycle);
-            }
-        } else {
-            fatal(start_symbol->span, "initialization cycle detected: {}", fmt_cycle);
-        }
-    } break;
+    case COLOR_GREY:
+        reportCycle(decl);
+        throw CompileError{};
     case COLOR_WHITE:
         decl->color = COLOR_GREY;
         break;
@@ -72,6 +44,75 @@ void Checker::checkDecl(Decl* decl) {
     }
 
     decl->color = COLOR_BLACK;
+}
+
+bool Checker::addToInitOrder(Decl* decl) {
+    switch (decl->color) {
+    case COLOR_BLACK:
+        break;
+    case COLOR_WHITE: {
+        decl->color = COLOR_GREY;
+
+        auto& edges = init_graph[curr_decl_number];
+        decl_number_stack.push_back(curr_decl_number);
+
+        for (size_t edge_number : edges) {
+            curr_decl_number = edge_number;
+            if (addToInitOrder(mod.unsorted_decls[curr_decl_number])) {
+                decl->color = COLOR_BLACK;
+                return true;
+            }
+        }
+
+        curr_decl_number = decl_number_stack.back();
+        decl_number_stack.pop_back();
+
+        mod.sorted_decls.push_back(decl);
+        decl->color = COLOR_BLACK;
+        return false;
+    } break;
+    case COLOR_GREY:
+        if (decl->hir_decl->kind == HIR_GLOBAL_VAR) {
+            reportCycle(decl);
+            decl->color = COLOR_BLACK;
+            return true;
+        }
+        break;
+    }
+
+    return false;
+}
+
+void Checker::reportCycle(Decl* decl) {
+    auto* start_symbol = getDeclSymbol(decl->ast_decl);
+    std::string fmt_cycle(start_symbol->name);
+    bool cycle_involves_const = false;
+    
+    for (size_t i = decl_number_stack.size() - 1; i >= 0; i--) {
+        auto n = decl_number_stack[i];
+
+        fmt_cycle += " -> ";
+
+        auto* symbol = getDeclSymbol(mod.unsorted_decls[n]->ast_decl);
+        fmt_cycle += symbol->name;
+        if (symbol->flags & SYM_CONST) {
+            cycle_involves_const = true;
+        }
+
+        if (n == curr_decl_number) {
+            break;
+        }
+    }
+    
+    if (start_symbol->flags & SYM_TYPE) {
+        if (cycle_involves_const) {
+            error(start_symbol->span, "type depends cyclically on constant: {}", fmt_cycle);
+        } else {
+            error(start_symbol->span, "infinite type detected: {}", fmt_cycle);
+        }
+    } else {
+        error(start_symbol->span, "initialization cycle detected: {}", fmt_cycle);
+    }
 }
 
 /* -------------------------------------------------------------------------- */
