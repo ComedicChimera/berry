@@ -95,6 +95,6 @@ size_t Parser::findOrAddModuleDep(const std::vector<Token>& tok_mod_path) {
         i++;
     }
 
-    src_file.parent->deps.emplace_back(std::move(mod_path));
+    src_file.parent->deps.emplace_back(src_file.parent->deps.size(), std::move(mod_path));
     return src_file.parent->deps.size() - 1;
 }

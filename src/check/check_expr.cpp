@@ -236,6 +236,33 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
             null_spans.emplace_back(hexpr->type, hexpr->span);
         }
         break;
+    case AST_MACRO_SIZEOF: {
+        auto* type = checkTypeLabel(node->an_Macro.arg, true);
+        
+        hexpr = allocExpr(HIR_MACRO_SIZEOF, node->span);
+        hexpr->type = platform_int_type;
+        hexpr->ir_TypeMacro.arg = type;
+    } break;
+    case AST_MACRO_ALIGNOF: {
+        auto* type = checkTypeLabel(node->an_Macro.arg, true);
+        
+        hexpr = allocExpr(HIR_MACRO_ALIGNOF, node->span);
+        hexpr->type = platform_int_type;
+        hexpr->ir_TypeMacro.arg = type;
+    } break;
+    case AST_MACRO_FUNCADDR: {
+        markNonComptime(node->span);
+
+        auto* harg = checkExpr(node->an_Macro.arg);
+
+        if (harg->type->Inner()->kind != TYPE_FUNC) {
+            error(node->span, "@_funcaddr expects a function as an argument");
+        }
+
+        hexpr = allocExpr(HIR_MACRO_FUNCADDR, node->span);
+        hexpr->type = &prim_ptr_u8_type;
+        hexpr->ir_ValueMacro.arg = harg;
+    } break;
     default:
         Panic("expr checking is not implemented for {}", (int)node->kind);
         return nullptr;
@@ -283,7 +310,7 @@ HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {
         auto [symbol, dep] = mustLookup(aroot->an_Ident.name, aroot->span);
         if (dep != nullptr) { // module.name
             auto* imported_symbol = mustFindSymbolInDep(*dep, node->an_Sel.field_name, node->span);
-            return checkStaticGet(imported_symbol, dep->mod->name, node->span);
+            return checkStaticGet(dep->id, imported_symbol, dep->mod->name, node->span);
         }
 
         if (symbol->flags & SYM_TYPE) { // Type.name2
@@ -307,7 +334,7 @@ HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {
                     return checkEnumLit(node, imported_symbol->type);
                 }
 
-                root_expr = checkStaticGet(imported_symbol, dep->mod->name, aroot->span);
+                root_expr = checkStaticGet(dep->id, imported_symbol, dep->mod->name, aroot->span);
             } else if (symbol->flags & SYM_TYPE) { // Type.name1.name2
                 maybeExpandComptime(symbol);
 
@@ -343,6 +370,8 @@ HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const T
     bool is_auto_deref = false;
     if (root_type->kind == TYPE_PTR) {
         is_auto_deref = true;
+        markNonComptime(span);
+
         display_type = root_type->ty_Ptr.elem_type;
         root_type = display_type->FullUnwrap();
     } else {
@@ -408,7 +437,7 @@ HirExpr* Checker::checkEnumLit(AstNode* node, Type* type) {
     return hexpr;
 }
 
-HirExpr* Checker::checkStaticGet(Symbol* imported_symbol, std::string_view mod_name, const TextSpan& span) {
+HirExpr* Checker::checkStaticGet(size_t dep_id, Symbol* imported_symbol, std::string_view mod_name, const TextSpan& span) {
     if (imported_symbol->flags & SYM_TYPE) {
         fatal(span, "cannot use a type as a value");
     }
@@ -424,7 +453,8 @@ HirExpr* Checker::checkStaticGet(Symbol* imported_symbol, std::string_view mod_n
     auto* hexpr = allocExpr(HIR_STATIC_GET, span);
     hexpr->type = imported_symbol->type;
     hexpr->assignable = !imported_symbol->immut;
-    hexpr->ir_Ident.symbol = imported_symbol;
+    hexpr->ir_StaticGet.imported_symbol = imported_symbol;
+    hexpr->ir_StaticGet.dep_id = dep_id;
     return hexpr;
 }
 

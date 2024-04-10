@@ -117,7 +117,7 @@ void Loader::LoadAll(const std::string& root_mod) {
 
     for (auto& mod : *this) {
         if (mod.id != core_mod.id) {
-            mod.deps.emplace_back(&core_mod);
+            mod.deps.emplace_back(mod.deps.size(), &core_mod);
         }
     }
 

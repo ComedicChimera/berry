@@ -125,8 +125,25 @@ private:
     /* ---------------------------------------------------------------------- */
 
     uint64_t checkComptimeSize(AstNode* expr);
+
     ConstValue* evalComptime(HirExpr* expr);
-    ConstValue* getComptimeNull(Type* type);
+    ConstValue* evalComptimeCast(HirExpr* node);
+
+    ConstValue *evalComptimeBinaryOp(HirExpr *node);
+
+    ConstValue *evalComptimeUnaryOp(HirExpr *node);
+
+    ConstValue *evalComptimeStructLit(HirExpr *node);
+
+    ConstValue *evalComptimeIndex(HirExpr *node);
+
+    ConstValue *evalComptimeSlice(HirExpr *node);
+    uint64_t evalComptimeIndexValue(HirExpr *node, uint64_t len);
+    bool evalComptimeSizeValue(HirExpr *node, uint64_t *out_size);
+
+    ConstValue *getComptimeNull(Type *type);
+    ConstValue* allocComptime(ConstKind kind);
+    void comptimeEvalError(const TextSpan& span, const std::string& message);
 
     /* ---------------------------------------------------------------------- */
 
@@ -163,7 +180,7 @@ private:
     HirExpr* checkSelector(AstNode* node, Type* infer_type);
     HirExpr* checkField(HirExpr* root, std::string_view field_name, const TextSpan& span);
     HirExpr* checkEnumLit(AstNode* node, Type* type);
-    HirExpr* checkStaticGet(Symbol* imported_symbol, std::string_view mod_name, const TextSpan& span);
+    HirExpr* checkStaticGet(size_t dep_id, Symbol* imported_symbol, std::string_view mod_name, const TextSpan& span);
     HirExpr* checkNewStruct(AstNode* node, Type* infer_type);
     HirExpr* checkArrayLit(AstNode* node, Type* infer_type);
     HirExpr* checkStructLit(AstNode* node, Type* infer_type);

@@ -46,7 +46,7 @@ enum HirKind {
     HIR_ARRAY_LIT,
     HIR_STRUCT_LIT,
     HIR_ENUM_LIT,
-    HIR_STATIC_GET,     // uses ir_Ident
+    HIR_STATIC_GET,
     HIR_IDENT,
     HIR_NUM_LIT,
     HIR_FLOAT_LIT,
@@ -176,6 +176,10 @@ struct HirExpr : public HirNode {
             size_t tag_value;
         } ir_EnumLit;
         struct {
+            Symbol* imported_symbol;
+            size_t dep_id;
+        } ir_StaticGet;
+        struct {
             Symbol* symbol;
         } ir_Ident;
         struct {
@@ -239,7 +243,7 @@ struct ConstValue {
         float v_f32;
         double v_f64;
         bool v_bool;
-        size_t v_ptr;
+        uint64_t v_ptr;
         Symbol* v_func;
         struct {
             std::span<ConstValue*> elems;
@@ -248,7 +252,7 @@ struct ConstValue {
             llvm::Constant* alloc_loc;
         } v_array;
         struct {
-            size_t num_elems;
+            uint64_t num_elems;
             Type* elem_type;
             size_t mod_id;
             llvm::Constant* alloc_loc;
@@ -264,10 +268,7 @@ struct ConstValue {
             size_t mod_id;
             llvm::Constant* alloc_loc;
         } v_struct;
-        struct {
-            Type* enum_type;
-            size_t variant_id;
-        } v_enum;
+        uint64_t v_enum;
     };
 };
 

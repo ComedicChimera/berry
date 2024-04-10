@@ -128,6 +128,9 @@ struct Module {
 
     // DepEntry is a module dependency entry.
     struct DepEntry {
+        // id is the dependency's ID (index into the dep table).
+        size_t id;
+
         // mod is depended upon module.  This will be nullptr until the
         // dependency is resolved by the loader.
         Module* mod { nullptr };
@@ -144,13 +147,15 @@ struct Module {
         // dependency.  This is to simplify error handling.
         std::vector<std::pair<size_t, TextSpan>> import_locs;
 
-        DepEntry(std::vector<std::string>&& mod_path_)
-        : mod(nullptr)
+        DepEntry(size_t id_, std::vector<std::string>&& mod_path_)
+        : id(id_)
+        , mod(nullptr)
         , mod_path(std::move(mod_path_))
         {}
 
-        DepEntry(Module* mod_)
-        : mod(mod_)
+        DepEntry(size_t id_, Module* mod_)
+        : id(id_)
+        , mod(mod_)
         , mod_path({ mod_->name })
         {}
     };
