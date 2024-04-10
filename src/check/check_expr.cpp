@@ -33,6 +33,7 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
     switch (node->kind) {
     case AST_TEST_MATCH: {
         auto* hcond = checkExpr(node->an_TestMatch.expr);
+        finishExpr();
 
         pushPatternCtx();
         auto hpatterns = checkCasePattern(node->an_TestMatch.pattern, hcond->type).first;

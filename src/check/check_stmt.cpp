@@ -241,6 +241,7 @@ static bool patternAlwaysMatches(AstNode* pattern) {
 std::pair<HirStmt*, bool> Checker::checkMatchStmt(AstNode* node) {
     auto& amatch = node->an_Match;
     auto* hcond = checkExpr(amatch.expr);
+    finishExpr();
 
     pushPatternCtx();
 
