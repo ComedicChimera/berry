@@ -124,14 +124,15 @@ void Loader::LoadAll(const std::string& root_mod) {
     checkForImportCycles();
 }
 
-std::vector<Module*> Loader::SortModulesByDepGraph() {
-    std::vector<Module*> ordered;
-    std::vector<bool> visited(mod_table.size(), false);
+std::vector<Module*>& Loader::SortModulesByDepGraph() {
+    if (sorted_mods.size() == 0) {
+        std::vector<bool> visited(mod_table.size(), false);
     
-    sortModule(runtime_mod, ordered, visited);
-    sortModule(root_mod, ordered, visited);
+        sortModule(runtime_mod, visited);
+        sortModule(root_mod, visited);
+    }
 
-    return ordered;
+    return sorted_mods;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -459,15 +460,15 @@ std::string Loader::getModuleName(SourceFile& src_file) {
 
 /* -------------------------------------------------------------------------- */
 
-void Loader::sortModule(Module* mod, std::vector<Module*>& ordered, std::vector<bool>& visited) {
+void Loader::sortModule(Module* mod, std::vector<bool>& visited) {
     if (visited[mod->id])
         return;
 
     visited[mod->id] = true;
 
     for (auto& dep : mod->deps) {
-        sortModule(dep.mod, ordered, visited);
+        sortModule(dep.mod, visited);
     }
 
-    ordered.push_back(mod);
+    sorted_mods.push_back(mod);
 }

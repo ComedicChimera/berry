@@ -59,20 +59,6 @@ public:
     // if it is present.  Otherwise, an empty token is returned.
     Token ParseModuleName();
 
-    /* ---------------------------------------------------------------------- */
-
-    // PlatformMetaVars stores the meta variables specific to the target platform.
-    struct PlatformMetaVars {
-        std::string os;
-        std::string arch;
-        std::string arch_size;
-        std::string debug;
-    };
-
-    // platform_meta_vars stores the platform-specific meta variables used when
-    // parsing meta directives.
-    static inline PlatformMetaVars platform_meta_vars;
-
 private:
     void parseImportStmt();
     void parseModulePath();

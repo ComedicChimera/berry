@@ -1,5 +1,7 @@
 #include "parser.hpp"
 
+#include "target.hpp"
+
 void Parser::parseDirective() {
     if (tok.value == "if") {
         meta_if_depth++;
@@ -198,13 +200,13 @@ std::string Parser::evaluateMetaValue() {
 
 std::string_view Parser::lookupMetaVar(const std::string& name) {
     if (name == "OS") {
-        return platform_meta_vars.os;
+        return GetTargetPlatform().os_name;
     } else if (name == "ARCH") {
-        return platform_meta_vars.arch;
+        return GetTargetPlatform().arch_name;
     } else if (name == "ARCH_SIZE") {
-        return platform_meta_vars.arch_size;
+        return GetTargetPlatform().str_arch_size;
     } else if (name == "DEBUG") {
-        return platform_meta_vars.debug;
+        return GetTargetPlatform().str_debug;
     } else if (name == "COMPILER") {
         return "berryc";
     } else {

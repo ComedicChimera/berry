@@ -1,5 +1,7 @@
 #include "checker.hpp"
 
+#include "target.hpp"
+
 uint64_t Checker::checkComptimeSize(AstNode* node) {
     auto* expr = checkExpr(node, platform_int_type);
     mustIntType(expr->span, expr->type);
@@ -193,12 +195,28 @@ ConstValue* Checker::evalComptime(HirExpr* node) {
     case HIR_NULL:
         value = getComptimeNull(node->type);
         break;
-    case HIR_MACRO_SIZEOF:
-        // TODO
-        break;
-    case HIR_MACRO_ALIGNOF:
-        // TODO
-        break;
+    case HIR_MACRO_SIZEOF: {
+        auto size = GetTargetPlatform().GetComptimeSizeOf(node->ir_TypeMacro.arg);
+
+        if (platform_int_type->ty_Int.bit_size == 64) {
+            value = allocComptime(CONST_I64);
+            value->v_i64 = (int64_t)size;
+        } else {
+            value = allocComptime(CONST_I32);
+            value->v_i32 = (int32_t)size;
+        }
+    } break;
+    case HIR_MACRO_ALIGNOF: {
+        auto align = GetTargetPlatform().GetComptimeAlignOf(node->ir_TypeMacro.arg);
+
+        if (platform_int_type->ty_Int.bit_size == 64) {
+            value = allocComptime(CONST_I64);
+            value->v_i64 = (int64_t)align;
+        } else {
+            value = allocComptime(CONST_I32);
+            value->v_i32 = (int32_t)align;
+        }
+    } break;
     default:
         Panic("comptime evaluation not implemented for AST node");
         break;

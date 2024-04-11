@@ -20,6 +20,7 @@ namespace fs = std::filesystem;
 #include "checker.hpp"
 #include "codegen.hpp"
 #include "linker.hpp"
+#include "target.hpp"
 
 /* -------------------------------------------------------------------------- */
 
@@ -27,20 +28,19 @@ class Compiler {
     const BuildConfig& cfg;
 
     Arena arena;
+    Arena ast_arena;
     Loader loader;
 
     std::vector<std::string> obj_files;
     std::string out_dir;
     bool should_delete_out_dir { false };
 
-    llvm::Triple target_triple;
+    llvm::TargetMachine* tmach;
 
 public:
     Compiler(const BuildConfig& cfg)
     : cfg(cfg)
-    , loader(arena, cfg.import_paths)
-    // TODO: set based on build arguments.
-    , target_triple(llvm::sys::getDefaultTargetTriple())
+    , loader(arena, ast_arena, cfg.import_paths)
     {
         initPlatform();
     }
@@ -92,10 +92,12 @@ public:
 
 private:
     void check() {
-        for (auto& mod : loader) {
-            Checker c(arena, mod); 
+        for (auto* mod : loader.SortModulesByDepGraph()) {
+            Checker c(arena, *mod); 
             c.CheckModule();
         }
+
+        ast_arena.Release();
 
         if (ErrorCount() > 0) {
             throw CompileError{};
@@ -103,34 +105,30 @@ private:
     }
 
     void emit() {
-        // Create the platform target machine.
-        initTargets();
-        auto* tm = createTargetMachine();
-                       
+        auto& tp = GetTargetPlatform();
+                      
         // The modules in this vector have to be unique pointers because it
         // seems like for whatever reason, the LLVM api deletes both the copy
         // and the move constructor of llvm::Module, so it is impossible to
         // store them directly in a vector.  This is my hypothesis anyway; at
         // any rate, any version of this code that stores the LLVM modules as
         // values won't compile (results a slurry of C++ template errors).
-        llvm::LLVMContext ll_ctx; 
         std::vector<std::unique_ptr<llvm::Module>> ll_mods;
 
         // Create the main module.
-        auto& main_mod = *ll_mods.emplace_back(std::make_unique<llvm::Module>("_$berry_main", ll_ctx));
-        main_mod.setDataLayout(tm->createDataLayout());
-        main_mod.setTargetTriple(tm->getTargetTriple().str());
+        auto& main_mod = *ll_mods.emplace_back(std::make_unique<llvm::Module>("_$berry_main", tp.ll_context));
+        main_mod.setDataLayout(tmach->createDataLayout());
+        main_mod.setTargetTriple(tmach->getTargetTriple().str());
 
-        MainBuilder mainb(ll_ctx, main_mod);
+        MainBuilder mainb(tp.ll_context, main_mod);
 
         // Generate all the user modules.
-        auto sorted_mods = loader.SortModulesByDepGraph();
-        for (auto* mod : sorted_mods) {
-            auto& ll_mod = ll_mods.emplace_back(std::make_unique<llvm::Module>(std::format("m{}-{}", mod->id, mod->name), ll_ctx));
-            ll_mod->setDataLayout(tm->createDataLayout());
-            ll_mod->setTargetTriple(tm->getTargetTriple().str());
+        for (auto* mod : loader.SortModulesByDepGraph()) {
+            auto& ll_mod = ll_mods.emplace_back(std::make_unique<llvm::Module>(std::format("m{}-{}", mod->id, mod->name), tp.ll_context));
+            ll_mod->setDataLayout(tp.ll_layout);
+            ll_mod->setTargetTriple(tp.ll_triple.str());
 
-            CodeGenerator cg(ll_ctx, *ll_mod, *mod, cfg.should_emit_debug, mainb, arena);
+            CodeGenerator cg(tp.ll_context, *ll_mod, *mod, cfg.should_emit_debug, mainb, arena);
             cg.GenerateModule();
         }
 
@@ -177,7 +175,7 @@ private:
         for (auto& ll_mod : ll_mods) {
             auto out_path = (fs::path(out_dir) / fs::path(ll_mod->getModuleIdentifier() + file_ext)).string();
                 
-            emitModuleToFile(tm, ll_mod, out_path, is_asm);
+            emitModuleToFile(ll_mod, out_path, is_asm);
 
             if (!is_asm) {
                 obj_files.push_back(out_path);
@@ -222,25 +220,38 @@ private:
     /* ---------------------------------------------------------------------- */
 
     void initPlatform() {
-        Parser::platform_meta_vars.os = target_triple.getOSName().str();
-        Parser::platform_meta_vars.debug = cfg.should_emit_debug ? "debug" : "";
-
-        switch (target_triple.getArch()) {
+        auto& tp = GetTargetPlatform();
+        tp.debug = cfg.should_emit_debug;
+        tp.str_debug = tp.debug ? "true" : "";
+        
+        auto str_triple = llvm::sys::getDefaultTargetTriple();
+        tp.ll_triple = llvm::Triple(str_triple);
+        
+        tp.os_name = tp.ll_triple.getOSName().str();
+        switch (tp.ll_triple.getArch()) {
         case llvm::Triple::x86:
-            Parser::platform_meta_vars.arch = "i386";
-            Parser::platform_meta_vars.arch_size = "32";
+            tp.arch_name = "i386";
+            tp.arch_size = 32;
+            tp.str_arch_size = "32";
+
             platform_int_type = &prim_i32_type;
             platform_uint_type = &prim_u32_type;
             break;
         case llvm::Triple::x86_64:
-            Parser::platform_meta_vars.arch = "amd64";
-            Parser::platform_meta_vars.arch_size = "64";
+            tp.arch_name = "amd64";
+            tp.arch_size = 64;
+            tp.str_arch_size = "64";
+
             platform_int_type = &prim_i64_type;
             platform_uint_type = &prim_u64_type;
             break;
         default:
-            ReportFatal("unsupported architecture: {}", target_triple.getArchName().str());
+            ReportFatal("unsupported architecture: {}", tp.ll_triple.getArchName().str());
         }
+
+        initTargets();
+        tmach = createTargetMachine(str_triple);
+        tp.ll_layout = tmach->createDataLayout();
     }
 
     void initTargets() {
@@ -249,9 +260,9 @@ private:
         llvm::InitializeNativeTargetAsmPrinter();
     }
 
-    llvm::TargetMachine* createTargetMachine() {
+    llvm::TargetMachine* createTargetMachine(const std::string& str_triple) {
         std::string err_msg;
-        auto* target = llvm::TargetRegistry::lookupTarget(target_triple.str(), err_msg);
+        auto* target = llvm::TargetRegistry::lookupTarget(str_triple, err_msg);
         if (!target) {
             ReportFatal("finding native target: {}", err_msg);
         }
@@ -266,7 +277,7 @@ private:
 
         llvm::TargetOptions target_opt;
         return target->createTargetMachine(
-            target_triple.str(), 
+            str_triple, 
             march, 
             "", 
             target_opt, 
@@ -274,7 +285,7 @@ private:
         );
     }
 
-    void emitModuleToFile(llvm::TargetMachine* tm, std::unique_ptr<llvm::Module>& ll_mod, const std::string& out_path, bool is_asm) {
+    void emitModuleToFile(std::unique_ptr<llvm::Module>& ll_mod, const std::string& out_path, bool is_asm) {
         std::error_code ec;
         llvm::raw_fd_ostream out_file(out_path, ec, llvm::sys::fs::OF_None);
         if (ec) {
@@ -283,7 +294,7 @@ private:
 
         llvm::legacy::PassManager pass;
         auto file_type = is_asm ? llvm::CodeGenFileType::CGFT_AssemblyFile : llvm::CodeGenFileType::CGFT_ObjectFile;
-        if (tm->addPassesToEmitFile(pass, out_file, nullptr, file_type)) {
+        if (tmach->addPassesToEmitFile(pass, out_file, nullptr, file_type)) {
             ReportFatal("target machine was unable to generate output file\n");
         }
 

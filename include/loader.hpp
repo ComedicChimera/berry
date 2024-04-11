@@ -29,11 +29,13 @@ class Loader {
     };
     std::queue<LoadEntry> load_queue;
 
+    std::vector<Module*> sorted_mods;
+
 public:
     Loader(Arena& global_arena, Arena& ast_arena, const std::vector<std::string>& import_paths);
     void LoadAll(const std::string& root_mod);
 
-    std::vector<Module*> SortModulesByDepGraph();
+    std::vector<Module*>& SortModulesByDepGraph();
     inline Module& GetRootModule() { return *root_mod; }
 
     /* ---------------------------------------------------------------------- */
@@ -85,7 +87,7 @@ private:
 
     /* ---------------------------------------------------------------------- */
 
-    void sortModule(Module *mod, std::vector<Module*>& ordered, std::vector<bool>& visited);
+    void sortModule(Module *mod, std::vector<bool>& visited);
 };
 
 #endif
