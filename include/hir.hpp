@@ -337,11 +337,15 @@ struct HirStmt : public HirNode {
             HirExpr* lhs;
             HirExpr* rhs;
             HirOpKind op;
+
+            Type* binop_type;
             bool needs_subtype_cast;
         } ir_CpdAssign;
         struct {
             HirExpr* expr;
             HirOpKind op;
+
+            Type* binop_type;
             bool needs_subtype_cast;
         } ir_IncDec;
         struct {

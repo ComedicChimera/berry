@@ -223,6 +223,17 @@ void CodeGenerator::genGlobalVarInit(HirDecl* node) {
     debug.PopDisable();
 }
 
+void CodeGenerator::genGlobalConst(Decl* decl) {
+    auto& hconst = decl->hir_decl->ir_GlobalConst;
+
+    ComptimeGenFlags comptime_flags = CTG_CONST;
+    if (hconst.symbol->flags & SYM_EXPORTED) {
+        comptime_flags |= CTG_EXPORTED;
+    }
+
+    hconst.symbol->llvm_value = genComptime(hconst.init, comptime_flags, hconst.symbol->type);
+}
+
 /* -------------------------------------------------------------------------- */
 
 std::string CodeGenerator::mangleName(std::string_view name) {

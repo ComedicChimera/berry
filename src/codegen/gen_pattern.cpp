@@ -1,6 +1,6 @@
 #include "codegen.hpp"
 
-void CodeGenerator::genPatternMatch(AstExpr* expr, const std::vector<PatternBranch>& pcases, llvm::BasicBlock* nm_block) {    
+void CodeGenerator::genPatternMatch(HirExpr* expr, const std::vector<PatternBranch>& pcases, llvm::BasicBlock* nm_block) {    
     auto* expr_type = expr->type->FullUnwrap();
     auto* match_operand = genExpr(expr);
 
@@ -25,26 +25,26 @@ void CodeGenerator::genPatternMatch(AstExpr* expr, const std::vector<PatternBran
     }
 }
 
-bool CodeGenerator::pmAddCase(llvm::SwitchInst* pswitch, llvm::Value* match_operand, AstExpr* pattern, llvm::BasicBlock* case_block) {
+bool CodeGenerator::pmAddCase(llvm::SwitchInst* pswitch, llvm::Value* match_operand, HirExpr* pattern, llvm::BasicBlock* case_block) {
     switch (pattern->kind) {
-    case AST_INT:
+    case HIR_NUM_LIT:
         pswitch->addCase(
-            llvm::dyn_cast<llvm::ConstantInt>(makeLLVMIntLit(pattern->type, pattern->an_Int.value)), 
+            llvm::dyn_cast<llvm::ConstantInt>(makeLLVMIntLit(pattern->type, pattern->ir_Num.value)), 
             case_block
         );
 
         return false;
-    case AST_FLOAT: {
+    case HIR_FLOAT_LIT: {
         auto* fail_block = appendBlock();
 
-        auto* cmp_result = irb.CreateFCmpUEQ(match_operand, makeLLVMFloatLit(pattern->type, pattern->an_Float.value));
+        auto* cmp_result = irb.CreateFCmpUEQ(match_operand, makeLLVMFloatLit(pattern->type, pattern->ir_Float.value));
         irb.CreateCondBr(cmp_result, case_block, fail_block);
         setCurrentBlock(fail_block);
 
         return false;
     } break;
-    case AST_ENUM_LIT: {
-        auto* tag_value = pattern->type->FullUnwrap()->ty_Enum.tag_values[pattern->an_Field.field_index];
+    case HIR_ENUM_LIT: {
+        auto* tag_value = getPlatformIntConst(pattern->ir_EnumLit.tag_value);
 
         pswitch->addCase(
             llvm::dyn_cast<llvm::ConstantInt>(tag_value),
@@ -53,26 +53,18 @@ bool CodeGenerator::pmAddCase(llvm::SwitchInst* pswitch, llvm::Value* match_oper
 
         return false;
     } break;
-    case AST_IDENT: 
+    case HIR_IDENT: 
         if (pswitch == nullptr) {
             irb.CreateBr(case_block);
         } else {
             pswitch->setDefaultDest(case_block);
         }
 
-        if (pattern->an_Ident.symbol != nullptr) {
-            pmGenCapture(pattern->an_Ident.symbol, match_operand, case_block);
+        if (pattern->ir_Ident.symbol != nullptr) {
+            pmGenCapture(pattern->ir_Ident.symbol, match_operand, case_block);
         }
 
         return true;
-    case AST_PATTERN_LIST: 
-        for (auto* sub_pattern : pattern->an_PatternList.patterns) {
-            if (pmAddCase(pswitch, match_operand, sub_pattern, case_block)) {
-                return true;
-            }
-        }
-
-        return false;
     default:
         Panic("pattern matching not implemented for node {}", (int)pattern->kind);
         return false;
@@ -84,7 +76,7 @@ void CodeGenerator::pmGenCapture(Symbol* capture_sym, llvm::Value* match_operand
     setCurrentBlock(case_block);
 
     auto* ll_capture_type = genType(capture_sym->type, true);
-    auto* capture = genAlloc(ll_capture_type, A_ALLOC_STACK);
+    auto* capture = genAlloc(ll_capture_type, HIRMEM_STACK);
     if (shouldPtrWrap(match_operand->getType())) {
         genMemCopy(ll_capture_type, match_operand, capture);
     } else {
@@ -124,7 +116,7 @@ void CodeGenerator::pmGenStrMatch(llvm::Value* match_operand, const std::vector<
         for (auto& bucket_entry : pair.second) {
             auto* fail_block = appendBlock();
 
-            auto* eq_result = genStrEq(match_operand, genStrLit(bucket_entry.pattern, nullptr));
+            auto* eq_result = genStrEq(match_operand, genStringLit(bucket_entry.pattern, nullptr));
             irb.CreateCondBr(eq_result, bucket_entry.block, fail_block);
 
             setCurrentBlock(fail_block);
@@ -154,25 +146,16 @@ static size_t berryStrHash(std::string_view str) {
 }
 
 
-llvm::BasicBlock* CodeGenerator::pmAddStringCase(PatternBuckets& buckets, llvm::Value* match_operand, AstExpr* pattern, llvm::BasicBlock* case_block) {
+llvm::BasicBlock* CodeGenerator::pmAddStringCase(PatternBuckets& buckets, llvm::Value* match_operand, HirExpr* pattern, llvm::BasicBlock* case_block) {
     switch (pattern->kind) {
-    case AST_IDENT:
-        if (pattern->an_Ident.symbol) {
-            pmGenCapture(pattern->an_Ident.symbol, match_operand, case_block);
+    case HIR_IDENT:
+        if (pattern->ir_Ident.symbol) {
+            pmGenCapture(pattern->ir_Ident.symbol, match_operand, case_block);
         }
 
         return case_block;
-    case AST_PATTERN_LIST:
-        for (auto* sub_pattern : pattern->an_PatternList.patterns) {
-            auto* new_default_block = pmAddStringCase(buckets, match_operand, sub_pattern, case_block);
-            if (new_default_block) {
-                return new_default_block;
-            }
-        }
-
-        return nullptr;
-    case AST_STRING: {
-        auto hash_value = berryStrHash(pattern->an_String.value);
+    case HIR_STRING_LIT: {
+        auto hash_value = berryStrHash(pattern->ir_String.value);
 
         auto it = buckets.find(hash_value);
         if (it == buckets.end()) {

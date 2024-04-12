@@ -413,6 +413,7 @@ HirStmt* Checker::checkAssign(AstNode* node) {
     hassign->ir_CpdAssign.lhs = hlhs;
     hassign->ir_CpdAssign.rhs = hrhs;
     hassign->ir_CpdAssign.op = op;
+    hassign->ir_CpdAssign.binop_type = result_type;
     hassign->ir_CpdAssign.needs_subtype_cast = needs_subtype_cast;
     return hassign;
 }
@@ -432,6 +433,8 @@ HirStmt* Checker::checkIncDec(AstNode* node) {
     auto* hinc_dec = allocStmt(HIR_INCDEC, node->span);
     hinc_dec->ir_IncDec.expr = hlhs;
     hinc_dec->ir_IncDec.op = op;
+
+    hinc_dec->ir_IncDec.binop_type = result_type;
     hinc_dec->ir_IncDec.needs_subtype_cast = needs_subtype_cast;
     return hinc_dec;
 }

@@ -261,8 +261,7 @@ private:
     void genWhileLoop(HirStmt* node);
     void genForLoop(HirStmt* node);
     void genMatchStmt(HirStmt* node);
-    void genLocalVar(HirStmt* node);
-    void genAssign(HirStmt* node);
+    void genCpdAssign(HirStmt* node);
     void genIncDec(HirStmt* node);
 
     LoopContext& getLoopCtx();
@@ -274,6 +273,11 @@ private:
     struct PatternBranch {
         HirExpr* pattern;
         llvm::BasicBlock* block;
+
+        PatternBranch(HirExpr* pattern_, llvm::BasicBlock* block_)
+        : pattern(pattern_)
+        , block(block_)
+        {}
     };
 
     void genPatternMatch(HirExpr* expr, const std::vector<PatternBranch>& pcases, llvm::BasicBlock* nm_block);

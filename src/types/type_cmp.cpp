@@ -98,7 +98,7 @@ bool TypeContext::innerEqual(Type* a, Type* b) {
 /* -------------------------------------------------------------------------- */
 
 TypeConvResult TypeContext::innerSubType(Type* sub, Type* super) {
-    if (sub->kind == TYPE_ARRAY && super->kind == TYPE_SLICE) {
+    if (sub->kind == TYPE_ARRAY && (super->kind == TYPE_SLICE || super->kind == TYPE_STRING)) {
         return Equal(super->ty_Slice.elem_type, sub->ty_Array.elem_type) ? TY_CONV_CAST : TY_CONV_FAIL;
     }
 
@@ -163,17 +163,17 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
         }
         break;
     case TYPE_SLICE:
-        if ((flags & TC_UNSAFE)) {
-            if (dest->kind == TYPE_STRING) {
-                return Equal(src->ty_Slice.elem_type, &prim_u8_type);
-            } else if (dest->kind == TYPE_ARRAY) {
-                return Equal(src->ty_Slice.elem_type, dest->ty_Array.elem_type);
-            }
+        if (dest->kind == TYPE_STRING) {
+            return Equal(src->ty_Slice.elem_type, &prim_u8_type);
+        } else if ((flags & TC_UNSAFE) && dest->kind == TYPE_ARRAY) {
+            return Equal(src->ty_Slice.elem_type, dest->ty_Array.elem_type);
         }
         break;
     case TYPE_STRING:
         if (dest->kind == TYPE_SLICE) {
-            return Equal(dest->ty_Slice.elem_type, &prim_u8_type);
+            return Equal(&prim_u8_type, dest->ty_Slice.elem_type);
+        } else if ((flags & TC_UNSAFE) && dest->kind == TYPE_ARRAY) {
+            return Equal(&prim_u8_type, dest->ty_Array.elem_type);
         }
         break;
     case TYPE_ENUM:

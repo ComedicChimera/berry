@@ -1,12 +1,12 @@
 #include "codegen.hpp"
 
-void CodeGenerator::genStmt(AstStmt* node) {
+void CodeGenerator::genStmt(HirStmt* node) {
     debug.SetDebugLocation(node->span);
 
     switch (node->kind) {
-    case AST_BLOCK:
-    case AST_UNSAFE:
-        for (auto& stmt : node->an_Block.stmts) {
+    case HIR_BLOCK:
+    case HIR_UNSAFE:
+        for (auto& stmt : node->ir_Block.stmts) {
             genStmt(stmt);
 
             if (currentHasTerminator()) {
@@ -14,48 +14,70 @@ void CodeGenerator::genStmt(AstStmt* node) {
             }
         }
         break;
-    case AST_IF:
+    case HIR_IF:
         genIfTree(node);
         break;
-    case AST_WHILE:
+    case HIR_WHILE:
+    case HIR_DO_WHILE:
         genWhileLoop(node);
         break;
-    case AST_FOR:
+    case HIR_FOR:
         genForLoop(node);
         break;
-    case AST_MATCH:
+    case HIR_MATCH:
         genMatchStmt(node);
         break;
-    case AST_LOCAL_VAR:
-        genLocalVar(node);
+    case HIR_LOCAL_VAR: {
+        auto& hlocal = node->ir_LocalVar;
+        auto* symbol = hlocal.symbol;
+
+        auto* ll_var = genAlloc(symbol->type, HIRMEM_STACK);
+        symbol->llvm_value = ll_var;
+
+        debug.EmitLocalVariableInfo(node, ll_var);
+
+        if (hlocal.init != nullptr) {
+            genStoreExpr(hlocal.init, ll_var);
+        }
+    } break;
+    case HIR_LOCAL_CONST: {
+        auto& hlocal = node->ir_LocalConst;
+
+        hlocal.symbol->llvm_value = genComptime(hlocal.init, CTG_CONST, hlocal.symbol->type);
+    } break;
+    case HIR_ASSIGN: {
+        auto* lhs_addr = genExpr(node->ir_Assign.lhs, true);
+        genStoreExpr(node->ir_Assign.rhs, lhs_addr);
+
+        // TODO: debug value instrinsic
+    } break;
+    case HIR_CPD_ASSIGN:
+        genCpdAssign(node);
         break;
-    case AST_ASSIGN:
-        genAssign(node);
-        break;
-    case AST_INCDEC:
+    case HIR_INCDEC:
         genIncDec(node);
         break;
-    case AST_EXPR_STMT:
-        genExpr(node->an_ExprStmt.expr);
+    case HIR_EXPR_STMT:
+        genExpr(node->ir_ExprStmt.expr);
         break;
-    case AST_RETURN:
-        if (node->an_Return.value) {
+    case HIR_RETURN:
+        if (node->ir_Return.expr) {
             if (return_param) {
-                genStoreExpr(node->an_Return.value, return_param);
+                genStoreExpr(node->ir_Return.expr, return_param);
             } else {
-                irb.CreateRet(genExpr(node->an_Return.value));
+                irb.CreateRet(genExpr(node->ir_Return.expr));
             }
         } else {
             irb.CreateRetVoid();
         }
         break;
-    case AST_BREAK:
+    case HIR_BREAK:
         irb.CreateBr(getLoopCtx().break_block);
         break;
-    case AST_CONTINUE:
+    case HIR_CONTINUE:
         irb.CreateBr(getLoopCtx().continue_block);
         break;
-    case AST_FALLTHROUGH:
+    case HIR_FALLTHRU:
         if (fallthru_stack.empty())
             Panic("fallthrough outside of match context in codegen");
 
@@ -68,15 +90,15 @@ void CodeGenerator::genStmt(AstStmt* node) {
 
 /* -------------------------------------------------------------------------- */
 
-void CodeGenerator::genIfTree(AstStmt* node) {
+void CodeGenerator::genIfTree(HirStmt* node) {
     auto* exit_block = appendBlock();
 
     llvm::BasicBlock* else_block;
-    for (auto& branch : node->an_If.branches) {
+    for (auto& branch : node->ir_If.branches) {
         auto* then_block = appendBlock();
         else_block = appendBlock();
 
-        irb.CreateCondBr(genExpr(branch.cond_expr), then_block, else_block);
+        irb.CreateCondBr(genExpr(branch.cond), then_block, else_block);
 
         setCurrentBlock(then_block);
         genStmt(branch.body);
@@ -88,8 +110,8 @@ void CodeGenerator::genIfTree(AstStmt* node) {
         setCurrentBlock(else_block);
     }
 
-    if (node->an_If.else_block) {
-        genStmt(node->an_If.else_block);
+    if (node->ir_If.else_stmt) {
+        genStmt(node->ir_If.else_stmt);
 
         if (!currentHasTerminator()) {
             irb.CreateBr(exit_block);
@@ -106,18 +128,18 @@ void CodeGenerator::genIfTree(AstStmt* node) {
     }
 }
 
-void CodeGenerator::genWhileLoop(AstStmt* node) {
-    auto& awhile = node->an_While;
+void CodeGenerator::genWhileLoop(HirStmt* node) {
+    auto& hwhile = node->ir_While;
 
     auto* exit_block = appendBlock();
 
     auto* else_block = exit_block;
-    if (awhile.else_block) {
+    if (hwhile.else_stmt) {
         else_block = appendBlock();
 
         auto* curr_block = getCurrentBlock();
         setCurrentBlock(else_block);
-        genStmt(awhile.else_block);
+        genStmt(hwhile.else_stmt);
 
         if (!currentHasTerminator()) {
             irb.CreateBr(exit_block);
@@ -126,7 +148,7 @@ void CodeGenerator::genWhileLoop(AstStmt* node) {
         setCurrentBlock(curr_block);
     }
 
-    if (awhile.is_do_while) {
+    if (node->kind == HIR_DO_WHILE) {
         auto* body_block = appendBlock();
         auto* closer_block = appendBlock();
 
@@ -134,7 +156,7 @@ void CodeGenerator::genWhileLoop(AstStmt* node) {
 
         pushLoopContext(exit_block, closer_block);
         setCurrentBlock(body_block);
-        genStmt(awhile.body);
+        genStmt(hwhile.body);
         popLoopContext();
 
         if (!currentHasTerminator()) {
@@ -142,18 +164,18 @@ void CodeGenerator::genWhileLoop(AstStmt* node) {
         }
 
         setCurrentBlock(closer_block);
-        irb.CreateCondBr(genExpr(awhile.cond_expr), body_block, else_block);
+        irb.CreateCondBr(genExpr(hwhile.cond), body_block, else_block);
     } else {
         auto* header_block = appendBlock();
         irb.CreateBr(header_block);
         
         setCurrentBlock(header_block);
         auto* body_block = appendBlock();
-        irb.CreateCondBr(genExpr(awhile.cond_expr), body_block, else_block);
+        irb.CreateCondBr(genExpr(hwhile.cond), body_block, else_block);
 
         setCurrentBlock(body_block);
         pushLoopContext(exit_block, header_block);
-        genStmt(awhile.body);
+        genStmt(hwhile.body);
         popLoopContext();
 
         if (!currentHasTerminator()) {
@@ -169,21 +191,21 @@ void CodeGenerator::genWhileLoop(AstStmt* node) {
     }
 }
 
-void CodeGenerator::genForLoop(AstStmt* node) {
-    auto afor = node->an_For;
+void CodeGenerator::genForLoop(HirStmt* node) {
+    auto hfor = node->ir_For;
 
-    if (afor.var_def) {
-        genStmt(afor.var_def);
+    if (hfor.iter_var) {
+        genStmt(hfor.iter_var);
     }
 
     auto* exit_block = appendBlock();
     auto* else_block = exit_block;
-    if (afor.else_block) {
+    if (hfor.else_stmt) {
         else_block = appendBlock();
 
         auto* curr_block = getCurrentBlock();
         setCurrentBlock(else_block);
-        genStmt(afor.else_block);
+        genStmt(hfor.else_stmt);
 
         if (!currentHasTerminator()) {
             irb.CreateBr(exit_block);
@@ -194,24 +216,24 @@ void CodeGenerator::genForLoop(AstStmt* node) {
 
     llvm::BasicBlock* header_block;
     llvm::BasicBlock* body_block;
-    if (afor.cond_expr) {
+    if (hfor.cond) {
         header_block = appendBlock();
         irb.CreateBr(header_block);
         setCurrentBlock(header_block);
 
         body_block = appendBlock();
-        irb.CreateCondBr(genExpr(afor.cond_expr), body_block, else_block);
+        irb.CreateCondBr(genExpr(hfor.cond), body_block, else_block);
     } else {
         body_block = appendBlock();
         header_block = body_block;
     }
 
     llvm::BasicBlock* update_block;
-    if (afor.update_stmt) {
+    if (hfor.update_stmt) {
         update_block = appendBlock();
 
         setCurrentBlock(update_block);
-        genStmt(afor.update_stmt);
+        genStmt(hfor.update_stmt);
         irb.CreateBr(header_block);
     } else {
         update_block = header_block;
@@ -220,7 +242,7 @@ void CodeGenerator::genForLoop(AstStmt* node) {
     setCurrentBlock(body_block);
 
     pushLoopContext(exit_block, update_block);
-    genStmt(afor.body);
+    genStmt(hfor.body);
     popLoopContext();
 
     if (!currentHasTerminator()) {
@@ -234,16 +256,19 @@ void CodeGenerator::genForLoop(AstStmt* node) {
     }
 }
 
-void CodeGenerator::genMatchStmt(AstStmt* node) {
+void CodeGenerator::genMatchStmt(HirStmt* node) {
     std::vector<PatternBranch> branches;
-    for (auto& acase : node->an_Match.cases) {
+    for (auto& acase : node->ir_Match.cases) {
         auto* case_block = appendBlock();
-        branches.emplace_back(acase.cond_expr, case_block);
+
+        for (auto* pattern : acase.patterns) {
+            branches.emplace_back(pattern, case_block);
+        }
     }
 
     auto* exit_block = appendBlock();
 
-    genPatternMatch(node->an_Match.expr, branches, exit_block);
+    genPatternMatch(node->ir_Match.expr, branches, exit_block);
 
     for (size_t i = 0; i < branches.size(); i++) {
         auto& branch = branches[i];
@@ -254,7 +279,7 @@ void CodeGenerator::genMatchStmt(AstStmt* node) {
             fallthru_stack.push_back(branches[i+1].block);
 
         setCurrentBlock(branch.block);
-        genStmt(node->an_Match.cases[i].body);
+        genStmt(node->ir_Match.cases[i].body);
 
         if (!currentHasTerminator())
             irb.CreateBr(exit_block);
@@ -266,7 +291,7 @@ void CodeGenerator::genMatchStmt(AstStmt* node) {
     if (!hasPredecessor()) {
         // All cases jump out: no exit block needed.
         deleteCurrentBlock(branches.back().block);
-    } else if (node->an_Match.is_enum_exhaustive) {
+    } else if (node->ir_Match.is_implicit_exhaustive) {
         // Default case should never be reached!
         irb.CreateCall(rtstub_panic_unreachable);
         irb.CreateUnreachable();
@@ -275,74 +300,67 @@ void CodeGenerator::genMatchStmt(AstStmt* node) {
 
 /* -------------------------------------------------------------------------- */
 
-void CodeGenerator::genLocalVar(AstStmt* node) {
-    auto& alocal = node->an_LocalVar;
-    auto* symbol = alocal.symbol;
+void CodeGenerator::genCpdAssign(HirStmt* node) {
+    auto* lhs_addr = genExpr(node->ir_CpdAssign.lhs, true);
 
-    if (symbol->flags & SYM_CONST) {
-        ConstValue* const_value;
-        if (alocal.init_expr)
-            const_value = evalComptime(alocal.init_expr);
-        else
-            const_value = getComptimeNull(symbol->type);
+    HirExpr binop {};
+    binop.span = node->span;
+    binop.kind = HIR_BINOP;
+    binop.type = node->ir_CpdAssign.binop_type;
+    binop.ir_Binop.lhs = node->ir_CpdAssign.lhs;
+    binop.ir_Binop.rhs = node->ir_CpdAssign.rhs;
+    binop.ir_Binop.op = node->ir_CpdAssign.op;
 
-        symbol->llvm_value = genComptime(const_value, CTG_NONE);
-        return;
+    HirExpr* rhs_val = &binop;
+    if (node->ir_CpdAssign.needs_subtype_cast) {
+        HirExpr cast {};
+        cast.span = node->span;
+        cast.kind = HIR_CAST;
+        cast.type = node->ir_CpdAssign.lhs->type;
+        cast.ir_Cast.expr = rhs_val;
+        rhs_val = &cast;
     }
 
-    auto* ll_var = genAlloc(symbol->type, A_ALLOC_STACK);
-    symbol->llvm_value = ll_var;
-
-    debug.EmitLocalVariableInfo(node, ll_var);
-
-    if (alocal.init_expr != nullptr) {
-        genStoreExpr(alocal.init_expr, ll_var);
-    }
-}
-
-void CodeGenerator::genAssign(AstStmt* node) {
-    auto* lhs_addr = genExpr(node->an_Assign.lhs, true);
-
-    if (node->an_Assign.assign_op == AOP_NONE) {
-        genStoreExpr(node->an_Assign.rhs, lhs_addr);
-    } else {
-        AstExpr binop { };
-        binop.span = node->span;
-        binop.kind = AST_BINOP;
-        binop.type = node->an_Assign.lhs->type;
-        binop.an_Binop.op = node->an_Assign.assign_op;
-        binop.an_Binop.lhs = node->an_Assign.lhs;
-        binop.an_Binop.rhs = node->an_Assign.rhs;
-
-        genStoreExpr(&binop, lhs_addr);
-    }
+    genStoreExpr(rhs_val, lhs_addr);
 
     // TODO: debug value instrinsic
 }
 
-void CodeGenerator::genIncDec(AstStmt* node) {
-    auto* lhs_addr = genExpr(node->an_IncDec.lhs, true);
+void CodeGenerator::genIncDec(HirStmt* node) {
+    auto* lhs_type = node->ir_IncDec.expr->type->Inner();
+    auto* lhs_addr = genExpr(node->ir_IncDec.expr, true);
 
-    AstExpr one_val {};
-    one_val.kind = AST_INT;
+    HirExpr one_val {};
+    one_val.kind = HIR_NUM_LIT;
     one_val.span = node->span;
-    one_val.an_Int.value = 1;
+    one_val.ir_Num.value = 1;
 
-    if (node->an_IncDec.lhs->type->kind == TYPE_PTR) {
+    if (lhs_type->kind == TYPE_PTR) {
         one_val.type = platform_uint_type;
     } else {
-        one_val.type = node->an_IncDec.lhs->type;
+        one_val.type = lhs_type;
     }
 
-    AstExpr binop {};
-    binop.kind = AST_BINOP;
+    HirExpr binop {};
+    binop.kind = HIR_BINOP;
     binop.span = node->span;
-    binop.type = node->an_IncDec.lhs->type;
-    binop.an_Binop.lhs = node->an_IncDec.lhs;
-    binop.an_Binop.rhs = &one_val;
-    binop.an_Binop.op = node->an_IncDec.op;
+    binop.type = node->ir_IncDec.binop_type;
+    binop.ir_Binop.lhs = node->ir_IncDec.expr;
+    binop.ir_Binop.rhs = &one_val;
+    binop.ir_Binop.op = node->ir_IncDec.op;
+
+    HirExpr* rhs_val = &binop;
+    if (node->ir_IncDec.needs_subtype_cast) {
+        HirExpr cast {};
+        cast.kind = HIR_CAST;
+        cast.span = node->span;
+        cast.type = lhs_type;
+        cast.ir_Cast.expr = rhs_val;
+        rhs_val = &cast;
+    }
     
-    genStoreExpr(&binop, lhs_addr);
+    genStoreExpr(rhs_val, lhs_addr);
+
     // TODO: debug value intrinsic
 }
 
