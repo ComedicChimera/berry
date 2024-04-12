@@ -70,6 +70,7 @@ HirDecl* Checker::allocDecl(HirKind kind, const TextSpan& span) {
     size_t alloc_size = sizeof(size_ref_decl) - LARGEST_DECL_VARIANT_SIZE + variant_size;
 
     auto* hdecl = (HirDecl*)arena.Alloc(alloc_size);
+    hdecl->kind = kind;
     hdecl->span = span;
 
     return hdecl;
@@ -82,6 +83,7 @@ HirStmt* Checker::allocStmt(HirKind kind, const TextSpan& span) {
     size_t alloc_size = sizeof(size_ref_stmt) - LARGEST_STMT_VARIANT_SIZE + variant_size;
 
     auto* hstmt = (HirStmt*)arena.Alloc(alloc_size);
+    hstmt->kind = kind;
     hstmt->span = span;
 
     return hstmt;
@@ -94,6 +96,7 @@ HirExpr* Checker::allocExpr(HirKind kind, const TextSpan& span) {
     size_t alloc_size = sizeof(size_ref_expr) - LARGEST_EXPR_VARIANT_SIZE + variant_size;
 
     auto* hexpr = (HirExpr*)arena.Alloc(alloc_size);
+    hexpr->kind = kind;
     hexpr->span = span;
     hexpr->type = nullptr;
     hexpr->assignable = false;

@@ -31,6 +31,7 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
     case HIR_SLICE:
         return genSliceExpr(node, alloc_loc);
     case HIR_FIELD:
+    case HIR_DEREF_FIELD:
         return genFieldExpr(node, expect_addr);
     case HIR_STATIC_GET: {
         auto* imported_symbol = node->ir_StaticGet.imported_symbol;
@@ -135,14 +136,14 @@ llvm::Value* CodeGenerator::genTestMatch(HirExpr* node) {
 /* -------------------------------------------------------------------------- */
 
 llvm::Value* CodeGenerator::genCast(HirExpr* node) {
-    auto& acast = node->ir_Cast;
+    auto& hcast = node->ir_Cast;
 
-    auto* src_val = genExpr(acast.expr);
-    if (tctx.Equal(acast.expr->type, node->type)) {
+    auto* src_val = genExpr(hcast.expr);
+    if (tctx.Equal(hcast.expr->type, node->type)) {
         return src_val;
     }
 
-    auto* src_type = acast.expr->type->FullUnwrap();
+    auto* src_type = hcast.expr->type->FullUnwrap();
     auto* dest_type = node->type->FullUnwrap();
 
     auto src_kind = src_type->kind;

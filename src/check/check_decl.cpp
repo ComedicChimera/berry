@@ -10,6 +10,8 @@ static Symbol* getDeclSymbol(AstNode* node) {
     case AST_CONST:
         return node->an_Var.symbol;
     }
+
+    return nullptr;
 }
 
 void Checker::checkDecl(Decl* decl) {
@@ -171,7 +173,7 @@ HirDecl* Checker::checkGlobalVar(AstNode* node) {
 }
 
 HirDecl* Checker::checkGlobalConst(AstNode* node) {
-    auto* type = checkTypeLabel(node->an_Var.type, false);
+    auto* type = checkTypeLabel(node->an_Var.type, true);
     auto* symbol = node->an_Var.symbol;
     symbol->type = type;
 
@@ -332,7 +334,7 @@ Type* Checker::checkTypeLabel(AstNode* node, bool should_expand) {
             } else {
                 Assert(variant->kind == AST_NAMED_INIT, "bad ast in enum type");
 
-                tag_counter = checkComptimeSize(node->an_NamedInit.init);
+                tag_counter = checkComptimeSize(variant->an_NamedInit.init);
                 tag_map.emplace(variant->an_NamedInit.name, tag_counter);
             }
 
@@ -369,8 +371,6 @@ Type* Checker::checkTypeLabel(AstNode* node, bool should_expand) {
                     decl_number_stack.pop_back();
 
                     src_file = &mod.files[mod.unsorted_decls[curr_decl_number]->file_number];
-                } else {
-                    Panic("unresolved named type");
                 }
             }
 

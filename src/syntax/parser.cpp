@@ -35,7 +35,7 @@ void Parser::ParseFile() {
 
 /* -------------------------------------------------------------------------- */
 
-AstNode* Parser::parseExprList(TokenKind delim) {
+std::span<AstNode*> Parser::parseExprList(TokenKind delim) {
     std::vector<AstNode*> exprs;
 
     while (true) {
@@ -48,9 +48,7 @@ AstNode* Parser::parseExprList(TokenKind delim) {
         }
     }
 
-    auto* alist = allocNode(AST_EXPR_LIST, SpanOver(exprs[0]->span, exprs.back()->span));
-    alist->an_ExprList.exprs = ast_arena.MoveVec(std::move(exprs));
-    return alist;
+    return ast_arena.MoveVec(std::move(exprs));
 }
 
 AstNode* Parser::parseInitializer() {

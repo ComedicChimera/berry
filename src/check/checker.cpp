@@ -48,6 +48,7 @@ void Checker::CheckModule() {
     }
 
     // Sort remaining declarations into correct initialization order.
+    curr_decl_number = 0;
     for (auto* decl : mod.unsorted_decls) {
         switch (decl->hir_decl->kind) {
         case HIR_FUNC:
@@ -59,6 +60,8 @@ void Checker::CheckModule() {
             addToInitOrder(decl);
             break;
         }
+
+        curr_decl_number++;
     }
 
     // Update the declaration numbers of the newly sorted declarations.
@@ -80,6 +83,8 @@ void Checker::CheckModule() {
             decl->hir_decl->ir_TypeDef.symbol->decl_number = curr_decl_number;
             break;
         }
+
+        curr_decl_number++;
     }
 
     // Clear out the unsorted declarations list (we don't need it anymore).
@@ -180,7 +185,7 @@ HirExpr* Checker::subtypeCast(HirExpr* src, Type* dest_type) {
 /* -------------------------------------------------------------------------- */
 
 std::pair<Symbol*, Module::DepEntry*> Checker::mustLookup(std::string_view name, const TextSpan& span) {
-    for (size_t i = scope_stack.size() - 1; i >= 0; i--) {
+    for (int i = scope_stack.size() - 1; i >= 0; i--) {
         auto& scope = scope_stack[i];
 
         auto it = scope.find(name);

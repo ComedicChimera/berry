@@ -448,7 +448,7 @@ HirStmt* Checker::checkReturn(AstNode* node) {
 
     HirExpr* hexpr = nullptr;
     if (node->an_Return.expr) {
-        auto* hexpr = checkExpr(node->an_Return.expr, enclosing_return_type);
+        hexpr = checkExpr(node->an_Return.expr, enclosing_return_type);
         hexpr = subtypeCast(hexpr, enclosing_return_type);
         finishExpr();
     } else if (enclosing_return_type->kind != TYPE_UNIT) {

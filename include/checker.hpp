@@ -91,6 +91,8 @@ class Checker {
         // enum_usages keeps track of which enum variants have been matched between
         // different pattern cases.
         std::unordered_set<size_t> enum_usages;
+
+        PatternContext() {}
     };
 
     // pattern_ctx_stack is the stack of pattern contexts.

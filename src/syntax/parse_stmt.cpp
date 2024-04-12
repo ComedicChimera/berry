@@ -294,7 +294,7 @@ AstNode* Parser::parseLocalVarDef() {
         comptime
     );
 
-    auto* alocal = allocNode(AST_VAR, SpanOver(start_span, end_span));
+    auto* alocal = allocNode(comptime ? AST_CONST : AST_VAR, SpanOver(start_span, end_span));
     alocal->an_Var.symbol = symbol;
     alocal->an_Var.type = type;
     alocal->an_Var.init = init_expr;

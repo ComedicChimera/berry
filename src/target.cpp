@@ -11,11 +11,11 @@ TargetPlatform& GetTargetPlatform() {
 /* -------------------------------------------------------------------------- */
 
 uint64_t TargetPlatform::GetComptimeSizeOf(Type* type) {
-    return ll_layout.getTypeAllocSize(getLLVMType(type));
+    return ll_layout->getTypeAllocSize(getLLVMType(type));
 }
 
 uint64_t TargetPlatform::GetComptimeAlignOf(Type* type) {
-    return ll_layout.getPrefTypeAlign(getLLVMType(type)).value();
+    return ll_layout->getPrefTypeAlign(getLLVMType(type)).value();
 }
 
 /* -------------------------------------------------------------------------- */

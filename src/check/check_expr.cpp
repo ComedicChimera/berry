@@ -27,7 +27,7 @@ static std::unordered_map<TokenKind, HirOpKind> unop_table {
     { TOK_NOT, HIROP_NOT }
 };
 
-HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
+HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
     HirExpr* hexpr;
 
     switch (node->kind) {
@@ -50,9 +50,9 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
         auto* hsrc = checkExpr(node->an_Cast.expr, dest_type);
         mustCast(node->span, hsrc->type, dest_type);
 
-        auto* hcast = allocExpr(HIR_CAST, node->span);
-        hcast->type = dest_type;
-        hcast->ir_Cast.expr = hsrc;
+        hexpr = allocExpr(HIR_CAST, node->span);
+        hexpr->type = dest_type;
+        hexpr->ir_Cast.expr = hsrc;
     } break;
     case AST_BINOP: {
         auto* hlhs = checkExpr(node->an_Binop.lhs);
@@ -142,8 +142,13 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
         HirExpr* hhi = nullptr;
 
         auto* type = harray->type->Inner();
+        Type* ret_type = type;
         switch (type->kind) {
-        case TYPE_ARRAY: case TYPE_SLICE: case TYPE_STRING:
+        case TYPE_ARRAY: 
+            ret_type = allocType(TYPE_SLICE);
+            ret_type->ty_Slice.elem_type = type->ty_Array.elem_type;
+            // fallthrough
+        case TYPE_SLICE: case TYPE_STRING:
             if (node->an_Slice.start_index) {
                 hlo = checkExpr(node->an_Slice.start_index, platform_int_type);
                 mustIntType(hlo->span, hlo->type);
@@ -155,10 +160,11 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
             }
 
             hexpr = allocExpr(HIR_SLICE, node->span);
-            hexpr->type = type;
+            hexpr->type = ret_type;
             hexpr->ir_Slice.expr = harray;
             hexpr->ir_Slice.start_index = hlo;
             hexpr->ir_Slice.end_index = hhi;
+            break;
         default:
             fatal(harray->span, "{} is not sliceable", harray->type->ToString());
         }
@@ -382,7 +388,7 @@ HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const T
 
     Type* result_type = nullptr;
     size_t field_index = 0;
-    bool assignable = root->assignable;
+    bool assignable = is_auto_deref || root->assignable;
     switch (root_type->kind) {
     case TYPE_ARRAY:
     case TYPE_SLICE:
@@ -496,6 +502,7 @@ HirExpr* Checker::checkNewArray(AstNode* node) {
     hexpr->ir_NewArray.const_len = const_len;
     // TODO: revise for automatic allocation
     hexpr->ir_NewArray.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+    return hexpr;
 }
 
 HirExpr* Checker::checkNewStruct(AstNode* node, Type* infer_type) {

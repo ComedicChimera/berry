@@ -171,6 +171,11 @@ struct HirFieldInit {
     HirExpr* expr;
     size_t field_index;
 
+    HirFieldInit()
+    : expr(nullptr)
+    , field_index(0)
+    {}
+
     HirFieldInit(HirExpr* expr_, size_t field_index_)
     : expr(expr_)
     , field_index(field_index_)
@@ -227,9 +232,9 @@ struct HirExpr : public HirNode {
             HirAllocMode alloc_mode;
         } ir_New;
         struct {
-            HirAllocMode alloc_mode;
             HirExpr* len;
             uint64_t const_len;
+            HirAllocMode alloc_mode;
         } ir_NewArray;
         struct {
             std::span<HirExpr*> items;
@@ -269,6 +274,8 @@ struct HirExpr : public HirNode {
             HirExpr* arg;
         } ir_ValueMacro;
     };
+
+    HirExpr() {}
 };
 
 /* -------------------------------------------------------------------------- */
@@ -279,6 +286,11 @@ struct HirIfBranch {
     HirExpr* cond;
     HirStmt* body;
 
+    HirIfBranch()
+    : cond(nullptr)
+    , body(nullptr)
+    {}
+
     HirIfBranch(HirExpr* cond_, HirStmt* body_)
     : cond(cond_)
     , body(body_)
@@ -288,6 +300,10 @@ struct HirIfBranch {
 struct HirCaseBlock {
     std::span<HirExpr*> patterns;
     HirStmt* body;
+
+    HirCaseBlock()
+    : body(nullptr)
+    {}
 
     HirCaseBlock(std::span<HirExpr*> patterns_)
     : patterns(patterns_)
@@ -355,30 +371,35 @@ struct HirStmt : public HirNode {
             HirExpr* expr;
         } ir_Return;
     };
+
+    HirStmt() {}
 };
 
 /* -------------------------------------------------------------------------- */
 
 struct HirDecl : public HirNode {
+    union {
+        struct {
+            Symbol* symbol;
+            std::span<Symbol*> params;
+            Type* return_type;
+            HirStmt* body;
+        } ir_Func;
+        struct {
+            Symbol* symbol;
+            HirExpr* init;
+            ConstValue* const_init;
+        } ir_GlobalVar;
+        struct {
+            Symbol* symbol;
+            ConstValue* init;
+        } ir_GlobalConst;
+        struct {
+            Symbol* symbol;
+        } ir_TypeDef;
+    };
 
-    struct {
-        Symbol* symbol;
-        std::span<Symbol*> params;
-        Type* return_type;
-        HirStmt* body;
-    } ir_Func;
-    struct {
-        Symbol* symbol;
-        HirExpr* init;
-        ConstValue* const_init;
-    } ir_GlobalVar;
-    struct {
-        Symbol* symbol;
-        ConstValue* init;
-    } ir_GlobalConst;
-    struct {
-        Symbol* symbol;
-    } ir_TypeDef;
+    HirDecl() {}
 };
 
 #endif

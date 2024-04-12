@@ -4,10 +4,12 @@ std::pair<std::span<HirExpr*>, bool> Checker::checkCasePattern(AstNode* node, Ty
     if (node->kind == AST_EXPR_LIST) {
         std::vector<HirExpr*> hpatterns;
         for (auto* apattern : node->an_ExprList.exprs) {
-            auto [hpattern, captures] = checkPattern(node, expect_type);
+            auto [hpattern, captures] = checkPattern(apattern, expect_type);
             if (captures) {
-                error(node->span, "case with alternated patterns can't capture values");
+                fatal(node->span, "case with alternated patterns can't capture values");
             }
+
+            hpatterns.push_back(hpattern);
         }
 
         return { arena.MoveVec(std::move(hpatterns)), false };
@@ -94,13 +96,16 @@ std::pair<HirExpr*, bool> Checker::checkPattern(AstNode* node, Type* expect_type
         } else {
             type = checkTypeLabel(node->an_Sel.expr, true);
             if (!tctx.Equal(type, expect_type)) {
-                error(node->span, "type {} cannot match {}", type->ToString(), expect_type);
+                error(node->span, "type {} cannot match {}", type->ToString(), expect_type->ToString());
             }
         }
 
         hexpr = checkEnumLit(node, type);
         getPatternCtx().enum_usages.insert(hexpr->ir_EnumLit.tag_value);
     } break;
+    default:
+        Panic("unimplemented pattern in checking: {}", (int)node->kind);
+        break;
     }
 
     return { hexpr, false };
@@ -133,4 +138,18 @@ bool Checker::isEnumExhaustive(Type* expr_type) {
     }
 
     return false;
+}
+
+/* -------------------------------------------------------------------------- */
+
+Checker::PatternContext& Checker::getPatternCtx() {
+    return pattern_ctx_stack.back();
+}
+
+void Checker::pushPatternCtx() {
+    pattern_ctx_stack.emplace_back();
+}
+
+void Checker::popPatternCtx() {
+    pattern_ctx_stack.pop_back();
 }

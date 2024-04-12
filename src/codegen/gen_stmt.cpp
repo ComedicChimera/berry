@@ -258,10 +258,12 @@ void CodeGenerator::genForLoop(HirStmt* node) {
 
 void CodeGenerator::genMatchStmt(HirStmt* node) {
     std::vector<PatternBranch> branches;
-    for (auto& acase : node->ir_Match.cases) {
+    std::vector<std::pair<HirStmt*, llvm::BasicBlock*>> case_blocks;
+    for (auto& hcase : node->ir_Match.cases) {
         auto* case_block = appendBlock();
+        case_blocks.emplace_back(hcase.body, case_block);
 
-        for (auto* pattern : acase.patterns) {
+        for (auto* pattern : hcase.patterns) {
             branches.emplace_back(pattern, case_block);
         }
     }
@@ -270,16 +272,16 @@ void CodeGenerator::genMatchStmt(HirStmt* node) {
 
     genPatternMatch(node->ir_Match.expr, branches, exit_block);
 
-    for (size_t i = 0; i < branches.size(); i++) {
-        auto& branch = branches[i];
+    for (size_t i = 0; i < case_blocks.size(); i++) {
+        auto [ body, block ] = case_blocks[i];
 
-        if (i == branches.size() - 1)
+        if (i == case_blocks.size() - 1)
             fallthru_stack.push_back(exit_block);
         else
-            fallthru_stack.push_back(branches[i+1].block);
+            fallthru_stack.push_back(case_blocks[i+1].second);
 
-        setCurrentBlock(branch.block);
-        genStmt(node->ir_Match.cases[i].body);
+        setCurrentBlock(block);
+        genStmt(body);
 
         if (!currentHasTerminator())
             irb.CreateBr(exit_block);

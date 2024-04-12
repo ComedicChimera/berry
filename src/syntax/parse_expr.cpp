@@ -487,6 +487,7 @@ AstNode* Parser::parseAtom() {
             next();
 
             auto* asel = allocNode(AST_SELECTOR, SpanOver(adot->span, prev.span));
+            asel->an_Sel.expr = adot;
             asel->an_Sel.field_name = ast_arena.MoveStr(std::move(prev.value));
 
             return asel;

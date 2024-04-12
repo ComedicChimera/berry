@@ -239,7 +239,7 @@ llvm::Value* CodeGenerator::genNewArray(HirExpr* node, llvm::Value* alloc_loc) {
     llvm::Value* data_ptr;
     llvm::Value* len_val;
     if (hnew.const_len) {
-        auto* len_val = getPlatformIntConst(hnew.const_len);
+        len_val = getPlatformIntConst(hnew.const_len);
         auto* ll_array_type = llvm::ArrayType::get(ll_elem_type, hnew.const_len);
 
         if (hnew.alloc_mode == HIRMEM_HEAP) {
@@ -287,7 +287,7 @@ llvm::Value* CodeGenerator::genNewArray(HirExpr* node, llvm::Value* alloc_loc) {
 }
 
 llvm::Value* CodeGenerator::genNewStruct(HirExpr* node) {
-    auto* struct_type = node->type->FullUnwrap();
+    auto* struct_type = node->type->ty_Ptr.elem_type->FullUnwrap();
     auto* ll_struct_type = genType(struct_type, true);
 
     auto& hnew = node->ir_StructLit;
@@ -301,7 +301,7 @@ llvm::Value* CodeGenerator::genNewStruct(HirExpr* node) {
     );
 
     for (auto& hfield : hnew.field_inits) {
-        auto* field_ptr = irb.CreateInBoundsGEP(ll_struct_type, struct_ptr, { getInt32Const(0), getPlatformIntConst(hfield.field_index) });
+        auto* field_ptr = irb.CreateInBoundsGEP(ll_struct_type, struct_ptr, { getInt32Const(0), getInt32Const(hfield.field_index) });
         genStoreExpr(hfield.expr, field_ptr);
     }
 
@@ -389,7 +389,7 @@ llvm::Value* CodeGenerator::genStructLit(HirExpr* node, llvm::Value* alloc_loc) 
         );
 
         for (auto& hfield : hstruct.field_inits) {
-            auto* field_ptr = irb.CreateInBoundsGEP(ll_struct_type, struct_ptr, { getInt32Const(0), getPlatformIntConst(hfield.field_index) });
+            auto* field_ptr = irb.CreateInBoundsGEP(ll_struct_type, struct_ptr, { getInt32Const(0), getInt32Const(hfield.field_index) });
             genStoreExpr(hfield.expr, field_ptr);
         }
 

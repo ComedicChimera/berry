@@ -211,7 +211,7 @@ AstNode* Parser::parseGlobalVarDecl(bool exported) {
 
     defineGlobal(symbol);
 
-    auto* avar = allocNode(comptime ? AST_VAR : AST_CONST, SpanOver(start_span, end_span));
+    auto* avar = allocNode(comptime ? AST_CONST : AST_VAR, SpanOver(start_span, end_span));
     avar->an_Var.symbol = symbol;
     avar->an_Var.type = type;
     avar->an_Var.init = init_expr;

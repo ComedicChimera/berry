@@ -97,7 +97,7 @@ ConstValue* Checker::evalComptime(HirExpr* node) {
             auto* value = allocComptime(CONST_FUNC);
             value->v_func = symbol;
         } else {
-            auto* decl = mod.deps[node->ir_StaticGet.dep_id].mod->unsorted_decls[symbol->decl_number];
+            auto* decl = mod.deps[node->ir_StaticGet.dep_id].mod->sorted_decls[symbol->decl_number];
             Assert(decl->hir_decl != nullptr && decl->hir_decl->kind == HIR_GLOBAL_CONST, "invalid comptime symbol");
             value = decl->hir_decl->ir_GlobalConst.init;
         }

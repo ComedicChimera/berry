@@ -19,7 +19,10 @@ struct TargetPlatform {
 
     llvm::LLVMContext ll_context;
     llvm::Triple ll_triple;
-    llvm::DataLayout ll_layout;
+    llvm::DataLayout* ll_layout;
+
+    TargetPlatform()
+    {}
 
     // Used by frontend only.
     uint64_t GetComptimeSizeOf(Type* type);

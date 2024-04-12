@@ -125,7 +125,7 @@ private:
         // Generate all the user modules.
         for (auto* mod : loader.SortModulesByDepGraph()) {
             auto& ll_mod = ll_mods.emplace_back(std::make_unique<llvm::Module>(std::format("m{}-{}", mod->id, mod->name), tp.ll_context));
-            ll_mod->setDataLayout(tp.ll_layout);
+            ll_mod->setDataLayout(*tp.ll_layout);
             ll_mod->setTargetTriple(tp.ll_triple.str());
 
             CodeGenerator cg(tp.ll_context, *ll_mod, *mod, cfg.should_emit_debug, mainb, arena);
@@ -251,7 +251,7 @@ private:
 
         initTargets();
         tmach = createTargetMachine(str_triple);
-        tp.ll_layout = tmach->createDataLayout();
+        tp.ll_layout = arena.New<llvm::DataLayout>(tmach->createDataLayout());
     }
 
     void initTargets() {

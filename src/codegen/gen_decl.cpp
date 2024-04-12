@@ -27,8 +27,11 @@ void CodeGenerator::genDeclProto(Decl* decl) {
         // TODO: handle alias metadata
         genType(node->ir_TypeDef.symbol->type, true);
         break;
+    case HIR_ENUM:
+        // Nothing to do :)
+        break;
     default:
-        Panic("top declaration codegen not implemented for {}", (int)node->kind);
+        Panic("declaration prototype codegen not implemented for {}", (int)node->kind);
     }
 }
 
@@ -46,7 +49,7 @@ void CodeGenerator::genDeclBody(Decl* decl) {
         // Nothing to do :)
         break;
     default:
-        Panic("predicate codegen not implemented for {}", (int)node->kind);
+        Panic("declaration body codegen not implemented for {}", (int)node->kind);
     }
 }
 
@@ -107,6 +110,9 @@ void CodeGenerator::genFuncProto(Decl* decl) {
 
 void CodeGenerator::genFuncBody(Decl* decl) {
     auto* node = decl->hir_decl;
+    if (node->ir_Func.body == nullptr) {
+        return;
+    }
 
     debug.BeginFuncBody(decl, llvm::dyn_cast<llvm::Function>(node->ir_Func.symbol->llvm_value));
     debug.ClearDebugLocation();
