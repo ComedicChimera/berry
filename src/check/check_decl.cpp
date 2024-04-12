@@ -177,13 +177,14 @@ HirDecl* Checker::checkGlobalConst(AstNode* node) {
 
     ConstValue* value;
     if (node->an_Var.init) {
+        comptime_depth++;
         auto* hinit = checkExpr(node->an_Var.init, type);
+        comptime_depth--;
+        
         hinit = subtypeCast(hinit, type);
         finishExpr();
 
-        comptime_depth++;
         value = evalComptime(hinit);
-        comptime_depth--;
     } else {
         value = getComptimeNull(type);
     }

@@ -3,13 +3,14 @@
 #include "target.hpp"
 
 uint64_t Checker::checkComptimeSize(AstNode* node) {
+    comptime_depth++;
     auto* expr = checkExpr(node, platform_int_type);
+    comptime_depth--;
+    
     mustIntType(expr->span, expr->type);
     finishExpr();
 
-    comptime_depth++;
     auto* value = evalComptime(expr);
-    comptime_depth--;
 
     switch (value->kind) {
     case CONST_I8:
@@ -771,7 +772,6 @@ ConstValue* Checker::evalComptimeStructLit(HirExpr* node) {
 
     auto* value = allocComptime(CONST_STRUCT);
     value->v_struct.fields = arena.MoveVec(std::move(field_values));
-    value->v_struct.struct_type = struct_type;
     value->v_struct.mod_id = mod.id;
     value->v_struct.alloc_loc = nullptr;
     return value;
@@ -1013,7 +1013,6 @@ ConstValue* Checker::getComptimeNull(Type* type) {
 
         value = allocComptime(CONST_STRUCT);
         value->v_struct.fields = arena.MoveVec(std::move(field_values));
-        value->v_struct.struct_type = type;
         value->v_struct.mod_id = mod.id;
         value->v_struct.alloc_loc = nullptr;
     } break;

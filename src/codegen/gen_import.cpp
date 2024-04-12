@@ -3,19 +3,29 @@
 void CodeGenerator::genImports() {
     size_t i = 0;
     for (auto& dep : src_mod.deps) {
-        for (auto def_num : dep.usages) {
-            auto* def = dep.mod->defs[def_num];
+        for (auto decl_num : dep.usages) {
+            auto* decl = dep.mod->sorted_decls[decl_num];
+            auto* hir_decl = decl->hir_decl;
 
-            switch (def->kind) {
-            case AST_FUNC:
-                loaded_imports[i].emplace(def->an_Func.symbol->def_number, genImportFunc(*dep.mod, def));
+            switch (hir_decl->kind) {
+            case HIR_FUNC:
+                loaded_imports[i].emplace(decl_num, genImportFunc(*dep.mod, decl));
                 break;
-            case AST_GLVAR:
-                loaded_imports[i].emplace(def->an_GlVar.symbol->def_number, genImportGlobalVar(*dep.mod, def));
+            case HIR_GLOBAL_VAR:
+                loaded_imports[i].emplace(decl_num, genImportGlobalVar(*dep.mod, decl));
                 break;
-            case AST_STRUCT:
+            case HIR_GLOBAL_CONST: {
+                auto* ll_const = genComptime(
+                    hir_decl->ir_GlobalConst.init, 
+                    CTG_EXPORTED, 
+                    hir_decl->ir_GlobalConst.symbol->type
+                );
+
+                loaded_imports[i].emplace(decl_num, ll_const);
+            } break;
+            case HIR_STRUCT:
                 // TODO: handle struct metadata
-                genType(def->an_Struct.symbol->type);
+                genType(hir_decl->ir_TypeDef.symbol->type);
                 break;
             }
         }
@@ -26,8 +36,9 @@ void CodeGenerator::genImports() {
 
 /* -------------------------------------------------------------------------- */
 
-llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, AstDef* node) {
-    auto* symbol = node->an_Func.symbol;
+llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, Decl* decl) {
+    auto* node = decl->hir_decl;
+    auto* symbol = node->ir_Func.symbol;
 
     auto* ll_type = genType(symbol->type);
     Assert(ll_type->isFunctionTy(), "function signature is not a function type in codegen");
@@ -36,7 +47,7 @@ llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, AstDef* node) {
 
     std::string ll_name {};
     llvm::CallingConv::ID cconv = llvm::CallingConv::C;
-    for (auto& attr : node->attrs) {
+    for (auto& attr : decl->attrs) {
         if (attr.name == "extern" || attr.name == "abientry") {
             ll_name = attr.value.size() == 0 ? symbol->name : attr.value;
         } else if (attr.name == "callconv") {
@@ -59,16 +70,15 @@ llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, AstDef* node) {
     return ll_func;
 }
 
-llvm::Value* CodeGenerator::genImportGlobalVar(Module& imported_mod, AstDef* node) {
-    if (node->an_GlVar.symbol->flags & SYM_COMPTIME)
-        return genComptime(node->an_GlVar.const_value, true);
+llvm::Value* CodeGenerator::genImportGlobalVar(Module& imported_mod, Decl* decl) {
+    auto* node = decl->hir_decl;
+    auto* symbol = node->ir_GlobalVar.symbol;
 
-    auto* symbol = node->an_GlVar.symbol;
 
     auto* ll_type = genType(symbol->type);
 
     // TODO: handle attributes
-    Assert(node->attrs.size() == 0, "attributes for global variables not implemented");
+    Assert(decl->attrs.size() == 0, "attributes for global variables not implemented");
 
     return new llvm::GlobalVariable(
         mod, 

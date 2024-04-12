@@ -128,20 +128,16 @@ private:
 
     ConstValue* evalComptime(HirExpr* expr);
     ConstValue* evalComptimeCast(HirExpr* node);
+    ConstValue* evalComptimeBinaryOp(HirExpr* node);
+    ConstValue* evalComptimeUnaryOp(HirExpr* node);
+    ConstValue* evalComptimeStructLit(HirExpr* node);
+    ConstValue* evalComptimeIndex(HirExpr* node);
+    ConstValue* evalComptimeSlice(HirExpr* node);
 
-    ConstValue *evalComptimeBinaryOp(HirExpr *node);
+    uint64_t evalComptimeIndexValue(HirExpr* node, uint64_t len);
+    bool evalComptimeSizeValue(HirExpr* node, uint64_t* out_size);
 
-    ConstValue *evalComptimeUnaryOp(HirExpr *node);
-
-    ConstValue *evalComptimeStructLit(HirExpr *node);
-
-    ConstValue *evalComptimeIndex(HirExpr *node);
-
-    ConstValue *evalComptimeSlice(HirExpr *node);
-    uint64_t evalComptimeIndexValue(HirExpr *node, uint64_t len);
-    bool evalComptimeSizeValue(HirExpr *node, uint64_t *out_size);
-
-    ConstValue *getComptimeNull(Type *type);
+    ConstValue* getComptimeNull(Type* type);
     ConstValue* allocComptime(ConstKind kind);
     void comptimeEvalError(const TextSpan& span, const std::string& message);
 

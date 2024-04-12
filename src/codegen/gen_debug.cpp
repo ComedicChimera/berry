@@ -70,7 +70,7 @@ void DebugGenerator::FinishModule() {
 
 /* -------------------------------------------------------------------------- */
 
-void DebugGenerator::BeginFuncBody(AstDef* fd, llvm::Function* ll_func) {
+void DebugGenerator::BeginFuncBody(Decl* decl, llvm::Function* ll_func) {
     if (no_emit) {
         return;
     }
@@ -78,7 +78,7 @@ void DebugGenerator::BeginFuncBody(AstDef* fd, llvm::Function* ll_func) {
     Assert(curr_file != nullptr, "function debug info missing enclosing file");
 
     auto call_conv = llvm::dwarf::DW_CC_normal;
-    for (auto& attr : fd->attrs) {
+    for (auto& attr : decl->attrs) {
         if (attr.name == "callconv") {
             if (attr.value == "win64") {
                 call_conv = llvm::dwarf::DW_CC_LLVM_Win64;
@@ -89,14 +89,15 @@ void DebugGenerator::BeginFuncBody(AstDef* fd, llvm::Function* ll_func) {
         }
     }
 
+    auto* symbol = decl->hir_decl->ir_Func.symbol;
     auto* sub = db.createFunction(
         curr_file,
-        fd->an_Func.symbol->name,
+        symbol->name,
         ll_func->getLinkage() == llvm::GlobalValue::ExternalLinkage ? "external" : "private",
         curr_file,
-        fd->span.start_line,
-        llvm::dyn_cast<llvm::DISubroutineType>(GetDIType(fd->an_Func.symbol->type, call_conv)),
-        fd->span.start_line,
+        decl->hir_decl->span.start_line,
+        llvm::dyn_cast<llvm::DISubroutineType>(GetDIType(symbol->type, call_conv)),
+        decl->hir_decl->span.start_line,
         llvm::DINode::FlagPrototyped,
         llvm::DISubprogram::SPFlagDefinition
     );
@@ -116,7 +117,7 @@ void DebugGenerator::EndFuncBody() {
     lexical_blocks.pop_back();
 }
 
-void DebugGenerator::EmitGlobalVariableInfo(AstDef* node, llvm::GlobalVariable* ll_gv) {
+void DebugGenerator::EmitGlobalVariableInfo(Decl* decl, llvm::GlobalVariable* ll_gv) {
     if (no_emit) {
         return;
     }
@@ -125,20 +126,21 @@ void DebugGenerator::EmitGlobalVariableInfo(AstDef* node, llvm::GlobalVariable* 
 
     bool is_external = ll_gv->getLinkage() == llvm::GlobalValue::ExternalLinkage;
 
+    auto* symbol = decl->hir_decl->ir_GlobalVar.symbol;
     auto* ll_di_gv = db.createGlobalVariableExpression(
         curr_file,
-        node->an_GlVar.symbol->name,
+        symbol->name,
         is_external ? "external" : "private",
         curr_file,
-        node->span.start_line,
-        GetDIType(node->an_GlVar.symbol->type),
+        decl->hir_decl->span.start_line,
+        GetDIType(symbol->type),
         !is_external
     );
 
     ll_gv->addDebugInfo(ll_di_gv);
 }
 
-void DebugGenerator::EmitLocalVariableInfo(AstStmt* node, llvm::Value* ll_var) {
+void DebugGenerator::EmitLocalVariableInfo(HirStmt* node, llvm::Value* ll_var) {
     if (no_emit) {
         return;
     }
@@ -148,10 +150,10 @@ void DebugGenerator::EmitLocalVariableInfo(AstStmt* node, llvm::Value* ll_var) {
 
     auto* di_local = db.createAutoVariable(
         scope,
-        node->an_LocalVar.symbol->name,
+        node->ir_LocalVar.symbol->name,
         curr_file,
         node->span.start_line,
-        GetDIType(node->an_LocalVar.symbol->type),
+        GetDIType(node->ir_LocalVar.symbol->type),
         true
     );
 

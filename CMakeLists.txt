@@ -45,7 +45,7 @@ set(SRCS
     "check/hir_alloc.cpp"
 
     "codegen/codegen.cpp"
-    "codegen/gen_def.cpp"
+    "codegen/gen_decl.cpp"
     "codegen/gen_expr.cpp"
     "codegen/gen_stmt.cpp"
     "codegen/gen_debug.cpp"

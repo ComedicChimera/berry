@@ -6,78 +6,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DIBuilder.h"
 
-#include "ast.hpp"
-
-enum ConstKind {
-    CONST_I8,
-    CONST_U8,
-    CONST_I16,
-    CONST_U16,
-    CONST_I32,
-    CONST_U32,
-    CONST_I64,
-    CONST_U64,
-    CONST_F32,
-    CONST_F64,
-    CONST_BOOL,
-    CONST_PTR,
-    CONST_FUNC,
-    CONST_ARRAY,
-    CONST_ZERO_ARRAY,
-    CONST_STRING,
-    CONST_STRUCT,
-    CONST_ENUM,
-
-    CONSTS_COUNT
-};
-
-struct ConstValue {
-    ConstKind kind;
-    union {
-        int8_t v_i8;
-        uint8_t v_u8;
-        int16_t v_i16;
-        uint16_t v_u16;
-        int32_t v_i32;
-        uint32_t v_u32;
-        int64_t v_i64;
-        uint64_t v_u64;
-        float v_f32;
-        double v_f64;
-        bool v_bool;
-        size_t v_ptr;
-        Symbol* v_func;
-        struct {
-            std::span<ConstValue*> elems;
-            Type* elem_type;
-            size_t mod_id;
-            llvm::Constant* alloc_loc;
-        } v_array;
-        struct {
-            size_t num_elems;
-            Type* elem_type;
-            size_t mod_id;
-            llvm::Constant* alloc_loc;
-        } v_zarr;
-        struct {
-            std::string_view value;
-            size_t mod_id;
-            llvm::Constant* alloc_loc;
-        } v_str;
-        struct {
-            std::span<ConstValue*> fields;
-            Type* struct_type;
-            size_t mod_id;
-            llvm::Constant* alloc_loc;
-        } v_struct;
-        struct {
-            Type* enum_type;
-            size_t variant_id;
-        } v_enum;
-    };
-};
-
-/* -------------------------------------------------------------------------- */
+#include "hir.hpp"
 
 class MainBuilder {
     llvm::LLVMContext& ctx;
@@ -138,10 +67,10 @@ public:
 
     /* ---------------------------------------------------------------------- */
 
-    void BeginFuncBody(AstDef* fd, llvm::Function* ll_func);
+    void BeginFuncBody(Decl* decl, llvm::Function* ll_func);
     void EndFuncBody();
-    void EmitGlobalVariableInfo(AstDef* node, llvm::GlobalVariable* ll_gv);
-    void EmitLocalVariableInfo(AstStmt* node, llvm::Value* ll_var);
+    void EmitGlobalVariableInfo(Decl* decl, llvm::GlobalVariable* ll_gv);
+    void EmitLocalVariableInfo(HirStmt* node, llvm::Value* ll_var);
 
     /* ---------------------------------------------------------------------- */
 
@@ -223,8 +152,8 @@ class CodeGenerator {
     // platform.  This will be i64 for 64-bit and i32 for 32-bit.
     llvm::IntegerType* ll_platform_int_type { nullptr };
 
-    // ll_array_type is the LLVM type for all Berry arrays (opaque pointer POG).
-    llvm::StructType* ll_array_type { nullptr };
+    // ll_slice_type is the LLVM type for all Berry slices (opaque pointer POG).
+    llvm::StructType* ll_slice_type { nullptr };
     
     // ll_rtstub_type is the function type for runtime stubs.
     llvm::FunctionType* ll_rtstub_type { nullptr };
@@ -253,6 +182,8 @@ class CodeGenerator {
     // loaded_imports stores the imports that are loaded.  The first index is
     // the dependency ID and the second index is the definition number.
     std::vector<std::unordered_map<size_t, llvm::Value*>> loaded_imports;
+
+    /* ---------------------------------------------------------------------- */
 
     // cconv_name_to_id maps Berry calling convention names to their LLVM IDs.
     std::unordered_map<std::string_view, llvm::CallingConv::ID> cconv_name_to_id {
@@ -290,37 +221,23 @@ private:
     /* ---------------------------------------------------------------------- */
 
     void genImports();
-    llvm::Value* genImportFunc(Module &imported_mod, AstDef* node);
-    llvm::Value* genImportGlobalVar(Module &imported_mod, AstDef* node);
+    llvm::Value* genImportFunc(Module &imported_mod, Decl* decl);
+    llvm::Value* genImportGlobalVar(Module &imported_mod, Decl* decl);
 
-    void genTopDecl(AstDef* def);
-    void genPredicates(AstDef* def);
+    void genDeclProto(Decl* decl);
+    void genDeclBody(Decl* decl);
 
-    void genFuncProto(AstDef* node);
-    void genFuncBody(AstDef* node);
+    void genFuncProto(Decl* decl);
+    void genFuncBody(Decl* node);
 
-    void genGlobalVarDecl(AstDef* node);
-    void genEnumVariants(AstDef *node);
-    void genGlobalVarInit(AstDef *node);
+    void genGlobalVarDecl(Decl* decl);
+    void genGlobalVarInit(HirDecl* node);
+    void genGlobalConst(Decl* decl);
 
     std::string mangleName(std::string_view name);
     std::string mangleName(Module &imported_bry_mod, std::string_view name);
 
     /* ---------------------------------------------------------------------- */
-    
-    ConstValue* evalComptime(AstExpr* node);
-    ConstValue* evalComptimeCast(AstExpr* node);
-    ConstValue* evalComptimeBinaryOp(AstExpr* node);
-    ConstValue* evalComptimeUnaryOp(AstExpr* node);
-    ConstValue* evalComptimeStructLitPos(AstExpr* node);
-    ConstValue* evalComptimeStructLitNamed(AstExpr* node);
-    ConstValue* evalComptimeSlice(AstExpr* node);
-    uint64_t evalComptimeIndexValue(AstExpr* node, uint64_t len);
-    bool evalComptimeSize(AstExpr* node, uint64_t* out_size);
-    void comptimeEvalError(const TextSpan& span, const std::string& message);
-
-    ConstValue* getComptimeNull(Type *type);
-    ConstValue* allocComptime(ConstKind kind);
 
     enum {
         CTG_NONE = 0,
@@ -330,23 +247,23 @@ private:
     };
     typedef int ComptimeGenFlags;
 
-    llvm::Constant* genComptime(ConstValue* value, ComptimeGenFlags flags);
-    llvm::Constant* genComptimeArray(ConstValue* value, ComptimeGenFlags flags);
-    llvm::Constant* genComptimeZeroArray(ConstValue* value, ComptimeGenFlags flags);
+    llvm::Constant* genComptime(ConstValue* value, ComptimeGenFlags flags, Type* expect_type);
+    llvm::Constant* genComptimeArray(ConstValue* value, ComptimeGenFlags flags, Type* expect_type);
+    llvm::Constant* genComptimeZeroArray(ConstValue* value, ComptimeGenFlags flags, Type* expect_type);
     llvm::Constant* genComptimeString(ConstValue* value, ComptimeGenFlags flags);
-    llvm::Constant* genComptimeStruct(ConstValue* value, ComptimeGenFlags flags);
-    llvm::Constant* genComptimeInnerStruct(ConstValue *value, ComptimeGenFlags flags);
+    llvm::Constant* genComptimeStruct(ConstValue* value, ComptimeGenFlags flags, Type* expect_type);
+    llvm::Constant* genComptimeInnerStruct(ConstValue *value, ComptimeGenFlags flags, Type* expect_type);
 
     /* ---------------------------------------------------------------------- */
 
-    void genStmt(AstStmt* stmt);
-    void genIfTree(AstStmt* node);
-    void genWhileLoop(AstStmt* node);
-    void genForLoop(AstStmt* node);
-    void genMatchStmt(AstStmt* node);
-    void genLocalVar(AstStmt* node);
-    void genAssign(AstStmt* node);
-    void genIncDec(AstStmt* node);
+    void genStmt(HirStmt* node);
+    void genIfTree(HirStmt* node);
+    void genWhileLoop(HirStmt* node);
+    void genForLoop(HirStmt* node);
+    void genMatchStmt(HirStmt* node);
+    void genLocalVar(HirStmt* node);
+    void genAssign(HirStmt* node);
+    void genIncDec(HirStmt* node);
 
     LoopContext& getLoopCtx();
     void pushLoopContext(llvm::BasicBlock* break_block, llvm::BasicBlock* continue_block);
@@ -355,53 +272,55 @@ private:
     /* ---------------------------------------------------------------------- */
 
     struct PatternBranch {
-        AstExpr* pattern;
+        HirExpr* pattern;
         llvm::BasicBlock* block;
     };
 
-    void genPatternMatch(AstExpr* expr, const std::vector<PatternBranch>& pcases, llvm::BasicBlock* nm_block);
-    bool pmAddCase(llvm::SwitchInst *pswitch, llvm::Value *match_operand, AstExpr *pattern, llvm::BasicBlock *case_block);
+    void genPatternMatch(HirExpr* expr, const std::vector<PatternBranch>& pcases, llvm::BasicBlock* nm_block);
+    bool pmAddCase(llvm::SwitchInst *pswitch, llvm::Value *match_operand, HirExpr *pattern, llvm::BasicBlock *case_block);
     void pmGenCapture(Symbol* capture_sym, llvm::Value* match_operand, llvm::BasicBlock* case_block);
 
     void pmGenStrMatch(llvm::Value *match_operand, const std::vector<PatternBranch> &pcases, llvm::BasicBlock *nm_block);
     typedef std::unordered_map<size_t, std::vector<PatternBranch>> PatternBuckets;
-    llvm::BasicBlock* pmAddStringCase(PatternBuckets& buckets, llvm::Value* match_operand, AstExpr* pattern, llvm::BasicBlock* case_block);
+    llvm::BasicBlock* pmAddStringCase(PatternBuckets& buckets, llvm::Value* match_operand, HirExpr* pattern, llvm::BasicBlock* case_block);
 
     /* ---------------------------------------------------------------------- */
 
-    llvm::Value* genExpr(AstExpr* expr, bool expect_addr = false, llvm::Value* alloc_loc = nullptr);
+    llvm::Value* genExpr(HirExpr* expr, bool expect_addr = false, llvm::Value* alloc_loc = nullptr);
 
-    llvm::Value* genTestMatch(AstExpr *node);
+    llvm::Value* genTestMatch(HirExpr *node);
     
-    llvm::Value* genCast(AstExpr *node);
-    llvm::Value* genBinop(AstExpr* node);
+    llvm::Value* genCast(HirExpr *node);
+    llvm::Value* genBinop(HirExpr* node);
     llvm::Value* genStrEq(llvm::Value* lhs, llvm::Value* rhs);
-    llvm::Value* genUnop(AstExpr* node);
+    llvm::Value* genUnop(HirExpr* node);
 
     /* ---------------------------------------------------------------------- */
 
-    llvm::Value* genCall(AstExpr* node, llvm::Value* alloc_loc);
-    llvm::Value* genIndexExpr(AstExpr* node, bool expect_addr);
-    llvm::Value* genSliceExpr(AstExpr* node, llvm::Value* alloc_loc);
-    llvm::Value* genFieldExpr(AstExpr* node, bool expect_addr);
-    llvm::Value* genArrayLit(AstExpr* node, llvm::Value* alloc_loc);
-    llvm::Value* genNewExpr(AstExpr* node, llvm::Value* alloc_loc);
-    llvm::Value* genStructLit(AstExpr* node, llvm::Value* alloc_loc);
-    llvm::Value* genStrLit(AstExpr* node, llvm::Value* alloc_loc);
-    llvm::Value* genIdent(AstExpr* node, bool expect_addr);
+    llvm::Value* genCall(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genIndexExpr(HirExpr* node, bool expect_addr);
+    llvm::Value* genSliceExpr(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genFieldExpr(HirExpr* node, bool expect_addr);
+    llvm::Value* genNewExpr(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genNewArray(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genNewStruct(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genArrayLit(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genStructLit(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genStringLit(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genIdent(HirExpr* node, bool expect_addr);
 
     /* ---------------------------------------------------------------------- */
 
-    void genStoreExpr(AstExpr* node, llvm::Value* dest);
+    void genStoreExpr(HirExpr* node, llvm::Value* dest);
     void genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest);
 
-    inline llvm::Value* genAlloc(Type* type, AstAllocMode mode) { return genAlloc(genType(type, true), mode); }
-    llvm::Value* genAlloc(llvm::Type* llvm_type, AstAllocMode mode);
+    inline llvm::Value* genAlloc(Type* type, HirAllocMode mode) { return genAlloc(genType(type, true), mode); }
+    llvm::Value* genAlloc(llvm::Type* llvm_type, HirAllocMode mode);
 
-    llvm::Value* getArrayData(llvm::Value* array);
-    llvm::Value* getArrayLen(llvm::Value *array);
-    llvm::Value* getArrayDataPtr(llvm::Value* array_ptr);
-    llvm::Value* getArrayLenPtr(llvm::Value* array_ptr);
+    llvm::Value* getSliceData(llvm::Value* array);
+    llvm::Value* getSliceLen(llvm::Value *array);
+    llvm::Value* getSliceDataPtr(llvm::Value* array_ptr);
+    llvm::Value* getSliceLenPtr(llvm::Value* array_ptr);
     void genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len = false);
     
     llvm::Constant* getNullValue(Type *type);

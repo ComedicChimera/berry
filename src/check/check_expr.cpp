@@ -177,10 +177,32 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
         // TODO: revise for heap allocation
         hexpr->ir_New.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
     } break;
-    case AST_NEW_ARRAY:
+    case AST_NEW_ARRAY: {
+        markNonComptime(node->span);
+
+        auto* elem_type = checkTypeLabel(node->an_NewArray.type, true);
+
+        is_comptime_expr = true;
+        auto* hlen = checkExpr(node->an_NewArray.len, platform_int_type);
+        finishExpr();
+
+        ConstValue* const_len = nullptr;
+        if (is_comptime_expr) {
+            const_len = evalComptime(hlen);
+        }
+
+        is_comptime_expr = false;
+
+        auto* slice_type = allocType(TYPE_SLICE);
+        slice_type->ty_Slice.elem_type = elem_type;
+
+        hexpr = allocExpr(HIR_NEW_ARRAY, node->span);
+        hexpr->type = slice_type;
+        hexpr->ir_NewArray.len = hlen;
+        hexpr->ir_NewArray.const_len = const_len;
         // TODO: revise for automatic allocation
-        Panic("checking for NEW_ARRAY is not implemented");
-        break;
+        hexpr->ir_NewArray.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+    } break;
     case AST_NEW_STRUCT:
         hexpr = checkNewStruct(node, infer_type);
         break;

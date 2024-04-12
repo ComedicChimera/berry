@@ -13,41 +13,20 @@ void CodeGenerator::GenerateModule() {
         debug.EmitFileInfo(file);
     }
 
-    for (size_t def_num : src_mod.init_order) {
-        auto* def = src_mod.defs[def_num];
-        src_file = &src_mod.files[def->parent_file_number];
+    for (auto* decl : src_mod.sorted_decls) {
+        src_file = &src_mod.files[decl->file_number];
 
-        if (def->kind == AST_GLVAR) {
-            genGlobalVarDecl(def);
-        } else if (def->kind == AST_ENUM) {
-            genEnumVariants(def);
-        }
-    }
-
-    for (auto* def : src_mod.defs) {
-        auto& def_src_file = src_mod.files[def->parent_file_number];
-        src_file = &def_src_file;
-        debug.SetCurrentFile(def_src_file);
-
-        genTopDecl(def);
+        genDeclProto(decl);
     }
 
     genBuiltinFuncs();
 
-    for (size_t def_num : src_mod.init_order) {
-        auto* def = src_mod.defs[def_num];
-        src_file = &src_mod.files[def->parent_file_number];
+    for (auto* decl : src_mod.sorted_decls) {
+        src_file = &src_mod.files[decl->file_number];
+        debug.SetCurrentFile(*src_file);
 
-        genGlobalVarInit(def);
-    }
-
-    for (auto* def : src_mod.defs) {
-        auto& def_src_file = src_mod.files[def->parent_file_number];
-        src_file = &def_src_file;
-        debug.SetCurrentFile(def_src_file);
-
-        genPredicates(def);
-    }
+        genDeclBody(decl);
+    }  
 
     finishModule();    
 }
@@ -61,10 +40,10 @@ void CodeGenerator::createBuiltinGlobals() {
     ll_platform_int_type = llvm::IntegerType::get(ctx, bit_size);
 
     // Declare the global array type.
-    ll_array_type = llvm::StructType::create(
+    ll_slice_type = llvm::StructType::create(
         ctx, 
         { llvm::PointerType::get(ctx, 0), llvm::Type::getInt64Ty(ctx) }, 
-        "_array"
+        "_slice"
     );
 
     // Set the global runtime stub type (void function accepting no arguments).
@@ -91,7 +70,7 @@ void CodeGenerator::genBuiltinFuncs() {
         rtstub_strcmp = llvm::Function::Create(
             llvm::FunctionType::get(
                 ll_platform_int_type,
-                { ll_array_type, ll_array_type },
+                { ll_slice_type, ll_slice_type },
                 false
             ),
             llvm::Function::ExternalLinkage,
@@ -105,7 +84,7 @@ void CodeGenerator::genBuiltinFuncs() {
         rtstub_strhash = llvm::Function::Create(
             llvm::FunctionType::get(
                 ll_platform_int_type,
-                { ll_array_type },
+                { ll_slice_type },
                 false
             ),
             llvm::Function::ExternalLinkage,
@@ -257,9 +236,18 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
 
         return llvm::FunctionType::get(ll_return_type, ll_param_types, false);
     } break;
+    case TYPE_ARRAY:
+        if (alloc_type) {
+            return llvm::ArrayType::get(
+                genType(type->ty_Array.elem_type, true),
+                type->ty_Array.len
+            );
+        }
+
+        return llvm::PointerType::get(ctx, 0);
     case TYPE_SLICE: 
     case TYPE_STRING:
-        return ll_array_type;
+        return ll_slice_type;
     case TYPE_STRUCT:
         return genNamedBaseType(type, alloc_type, "");     
     case TYPE_NAMED:
@@ -307,7 +295,9 @@ llvm::Type* CodeGenerator::genNamedBaseType(Type* type, bool alloc_type, std::st
 bool CodeGenerator::shouldPtrWrap(Type* type) {
     type = type->Inner();
 
-    if (type->kind == TYPE_NAMED || type->kind == TYPE_STRUCT) {
+    if (type->kind == TYPE_ARRAY) {
+        return true;
+    } else if (type->kind == TYPE_NAMED || type->kind == TYPE_STRUCT) {
         return shouldPtrWrap(genType(type, true));
     }
 
@@ -315,6 +305,9 @@ bool CodeGenerator::shouldPtrWrap(Type* type) {
 }
 
 bool CodeGenerator::shouldPtrWrap(llvm::Type* type) {
+    if (llvm::ArrayType::classof(type))
+        return true;
+
     return getLLVMByteSize(type) > layout.getPointerSize() * 2;
 }
 

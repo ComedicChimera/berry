@@ -67,6 +67,73 @@ struct HirNode {
 
 /* -------------------------------------------------------------------------- */
 
+enum ConstKind {
+    CONST_I8,
+    CONST_U8,
+    CONST_I16,
+    CONST_U16,
+    CONST_I32,
+    CONST_U32,
+    CONST_I64,
+    CONST_U64,
+    CONST_F32,
+    CONST_F64,
+    CONST_BOOL,
+    CONST_PTR,
+    CONST_FUNC,
+    CONST_ARRAY,
+    CONST_ZERO_ARRAY,
+    CONST_STRING,
+    CONST_STRUCT,
+    CONST_ENUM,
+
+    CONSTS_COUNT
+};
+
+struct ConstValue {
+    ConstKind kind;
+    union {
+        int8_t v_i8;
+        uint8_t v_u8;
+        int16_t v_i16;
+        uint16_t v_u16;
+        int32_t v_i32;
+        uint32_t v_u32;
+        int64_t v_i64;
+        uint64_t v_u64;
+        float v_f32;
+        double v_f64;
+        bool v_bool;
+        uint64_t v_ptr;
+        Symbol* v_func;
+        struct {
+            std::span<ConstValue*> elems;
+            Type* elem_type;
+            size_t mod_id;
+            llvm::Constant* alloc_loc;
+        } v_array;
+        struct {
+            uint64_t num_elems;
+            Type* elem_type;
+            size_t mod_id;
+            llvm::Constant* alloc_loc;
+        } v_zarr;
+        struct {
+            std::string_view value;
+            size_t mod_id;
+            llvm::Constant* alloc_loc;
+        } v_str;
+        struct {
+            std::span<ConstValue*> fields;
+            size_t mod_id;
+            llvm::Constant* alloc_loc;
+        } v_struct;
+        uint64_t v_enum;
+    };
+};
+
+/* -------------------------------------------------------------------------- */
+
 enum HirOpKind {
     HIROP_ADD,
     HIROP_SUB,
@@ -160,6 +227,7 @@ struct HirExpr : public HirNode {
         struct {
             HirAllocMode alloc_mode;
             HirExpr* len;
+            ConstValue* const_len;
         } ir_NewArray;
         struct {
             std::span<HirFieldInit> field_inits;
@@ -201,74 +269,6 @@ struct HirExpr : public HirNode {
         struct {
             HirExpr* arg;
         } ir_ValueMacro;
-    };
-};
-
-/* -------------------------------------------------------------------------- */
-
-enum ConstKind {
-    CONST_I8,
-    CONST_U8,
-    CONST_I16,
-    CONST_U16,
-    CONST_I32,
-    CONST_U32,
-    CONST_I64,
-    CONST_U64,
-    CONST_F32,
-    CONST_F64,
-    CONST_BOOL,
-    CONST_PTR,
-    CONST_FUNC,
-    CONST_ARRAY,
-    CONST_ZERO_ARRAY,
-    CONST_STRING,
-    CONST_STRUCT,
-    CONST_ENUM,
-
-    CONSTS_COUNT
-};
-
-struct ConstValue {
-    ConstKind kind;
-    union {
-        int8_t v_i8;
-        uint8_t v_u8;
-        int16_t v_i16;
-        uint16_t v_u16;
-        int32_t v_i32;
-        uint32_t v_u32;
-        int64_t v_i64;
-        uint64_t v_u64;
-        float v_f32;
-        double v_f64;
-        bool v_bool;
-        uint64_t v_ptr;
-        Symbol* v_func;
-        struct {
-            std::span<ConstValue*> elems;
-            Type* elem_type;
-            size_t mod_id;
-            llvm::Constant* alloc_loc;
-        } v_array;
-        struct {
-            uint64_t num_elems;
-            Type* elem_type;
-            size_t mod_id;
-            llvm::Constant* alloc_loc;
-        } v_zarr;
-        struct {
-            std::string_view value;
-            size_t mod_id;
-            llvm::Constant* alloc_loc;
-        } v_str;
-        struct {
-            std::span<ConstValue*> fields;
-            Type* struct_type;
-            size_t mod_id;
-            llvm::Constant* alloc_loc;
-        } v_struct;
-        uint64_t v_enum;
     };
 };
 
