@@ -207,6 +207,7 @@ struct HirExpr : public HirNode {
         struct {
             HirExpr* func;
             std::span<HirExpr*> args;
+            HirAllocMode alloc_mode;
         } ir_Call;
         struct {
             HirExpr* expr;

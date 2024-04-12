@@ -1,7 +1,7 @@
 #include "codegen.hpp"
 
-llvm::Value* CodeGenerator::genCall(AstExpr* node, llvm::Value* alloc_loc) {
-    auto* func_ptr = genExpr(node->an_Call.func);
+llvm::Value* CodeGenerator::genCall(HirExpr* node, llvm::Value* alloc_loc) {
+    auto* func_ptr = genExpr(node->ir_Call.func);
 
     // Handle global values.
     llvm::FunctionType* ll_func_type;
@@ -16,7 +16,7 @@ llvm::Value* CodeGenerator::genCall(AstExpr* node, llvm::Value* alloc_loc) {
     }
 
     std::vector<llvm::Value*> args;
-    for (auto& arg : node->an_Call.args) {
+    for (auto& arg : node->ir_Call.args) {
         args.push_back(genExpr(arg));
     }
 
@@ -26,7 +26,7 @@ llvm::Value* CodeGenerator::genCall(AstExpr* node, llvm::Value* alloc_loc) {
             irb.CreateCall(ll_func_type, func_ptr, args);
             return nullptr;
         } else {
-            auto* ret_val = genAlloc(node->type, node->an_Call.alloc_mode);
+            auto* ret_val = genAlloc(node->type, node->ir_Call.alloc_mode);
             args.insert(args.begin(), ret_val);
             irb.CreateCall(ll_func_type, func_ptr, args);
             return ret_val;
@@ -36,18 +36,25 @@ llvm::Value* CodeGenerator::genCall(AstExpr* node, llvm::Value* alloc_loc) {
     return irb.CreateCall(ll_func_type, func_ptr, args);
 }
 
-llvm::Value* CodeGenerator::genIndexExpr(AstExpr* node, bool expect_addr) {
-    auto& aindex = node->an_Index;
+llvm::Value* CodeGenerator::genIndexExpr(HirExpr* node, bool expect_addr) {
+    auto& aindex = node->ir_Index;
 
-    // Assert(aindex.array->type->Inner()->kind == TYPE_SLICE, "index on non-array type in codegen");
+    auto* x_type = aindex.expr->type->Inner();
+    auto* x_val = genExpr(aindex.expr);
 
-    auto* array_val = genExpr(aindex.array);
     auto* index_val = genExpr(aindex.index);
-
-    genBoundsCheck(index_val, getArrayLen(array_val));
-
     auto* ll_elem_type = genType(node->type->Inner(), true);
-    auto* elem_ptr = irb.CreateGEP(llvm::ArrayType::get(ll_elem_type, 0), getArrayData(array_val), { getInt32Const(0), index_val });
+
+    llvm::Value* elem_ptr;
+    if (x_type->kind == TYPE_ARRAY) {
+        genBoundsCheck(index_val, getPlatformIntConst(x_type->ty_Array.len));
+
+        elem_ptr = irb.CreateGEP(ll_elem_type, x_val, { index_val });
+    } else {
+        genBoundsCheck(index_val, getSliceLen(x_val));
+
+        elem_ptr = irb.CreateGEP(ll_elem_type, getSliceData(x_val), { index_val });
+    }    
 
     if (expect_addr || shouldPtrWrap(ll_elem_type)) {
         return elem_ptr;
@@ -56,13 +63,18 @@ llvm::Value* CodeGenerator::genIndexExpr(AstExpr* node, bool expect_addr) {
     }
 }
 
-llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) {
-    auto& aslice = node->an_Slice;
+llvm::Value* CodeGenerator::genSliceExpr(HirExpr* node, llvm::Value* alloc_loc) {
+    auto& aslice = node->ir_Slice;
 
-    // Assert(aslice.array->type->Inner()->kind == TYPE_SLICE, "slice on non-array type in codegen");
+    auto* x_type = aslice.expr->type->Inner();
+    auto* x_val = genExpr(aslice.expr);
 
-    auto* array_val = genExpr(aslice.array);
-    auto* len_val = getArrayLen(array_val);
+    llvm::Value* len_val;
+    if (x_type->kind == TYPE_ARRAY) {
+        len_val = getPlatformIntConst(x_type->ty_Array.len);
+    } else {
+        len_val = getSliceLen(x_val);
+    }
 
     bool needs_bad_slice_check = aslice.start_index && aslice.end_index;
 
@@ -98,102 +110,113 @@ llvm::Value* CodeGenerator::genSliceExpr(AstExpr* node, llvm::Value* alloc_loc) 
     }
 
     auto* ll_elem_type = genType(node->type->ty_Slice.elem_type, true);
+    llvm::Value* new_slice_data;
+    if (x_type->kind == TYPE_ARRAY) {
+        new_slice_data = irb.CreateGEP(ll_elem_type, x_val, { start_ndx_val });
+    } else {
+        new_slice_data = irb.CreateGEP(ll_elem_type, getSliceData(x_val), { start_ndx_val });
+    }
 
-    auto* new_arr_data = irb.CreateGEP(llvm::ArrayType::get(ll_elem_type, 0), getArrayData(array_val), { getInt32Const(0), start_ndx_val });
-    auto* new_arr_len = irb.CreateSub(end_ndx_val, start_ndx_val);
-
+    auto* new_slice_len = irb.CreateSub(end_ndx_val, start_ndx_val);
     if (alloc_loc) {
-        auto* data_ptr = getArrayDataPtr(alloc_loc);
-        irb.CreateStore(new_arr_data, data_ptr);
+        auto* data_ptr = getSliceDataPtr(alloc_loc);
+        irb.CreateStore(new_slice_data, data_ptr);
 
-        auto* len_ptr = getArrayLenPtr(alloc_loc);
-        irb.CreateStore(new_arr_len, len_ptr);
+        auto* len_ptr = getSliceLenPtr(alloc_loc);
+        irb.CreateStore(new_slice_len, len_ptr);
         return nullptr;
     } else {
-        auto* empty_array = llvm::Constant::getNullValue(ll_array_type);
-        auto* new_array = irb.CreateInsertValue(empty_array, new_arr_data, 0);
-        return irb.CreateInsertValue(new_array, new_arr_len, 1);
+        auto* empty_array = llvm::Constant::getNullValue(ll_slice_type);
+        auto* new_array = irb.CreateInsertValue(empty_array, new_slice_data, 0);
+        return irb.CreateInsertValue(new_array, new_slice_len, 1);
     }
 }
 
-llvm::Value* CodeGenerator::genFieldExpr(AstExpr* node, bool expect_addr) {
-    auto& afield = node->an_Field;
+llvm::Value* CodeGenerator::genFieldExpr(HirExpr* node, bool expect_addr) {
+    auto& afield = node->ir_Field;
 
-    auto* root_inner_type = afield.root->type->FullUnwrap();
+    auto* x_type = afield.expr->type->FullUnwrap();
 
     if (expect_addr || shouldPtrWrap(node->type)) {
-        llvm::Value* root_ptr;
-        if (root_inner_type->kind == TYPE_PTR) {
-            root_ptr = genExpr(afield.root);
-            root_inner_type = root_inner_type->ty_Ptr.elem_type->FullUnwrap();
+        llvm::Value* x_ptr;
+        if (node->kind == HIR_DEREF_FIELD) {
+            x_ptr = genExpr(afield.expr);
+            x_type = x_type->ty_Ptr.elem_type->FullUnwrap();
         } else {
-            root_ptr = genExpr(afield.root, true);
+            x_ptr = genExpr(afield.expr, true);
         }
 
-        switch (root_inner_type->kind) {
+        switch (x_type->kind) {
         case TYPE_STRUCT:
             return irb.CreateInBoundsGEP(
-                genType(root_inner_type, true),
-                root_ptr, 
+                genType(x_type, true),
+                x_ptr, 
                 { getInt32Const(0), getInt32Const(afield.field_index)}
             );
+        case TYPE_ARRAY:
+            if (afield.field_index == 0) {
+                return x_ptr;
+            } else if (afield.field_index == 1) {
+                Panic("expect_addr used for array._len");
+            }
         case TYPE_SLICE:
         case TYPE_STRING:
-            if (afield.field_name == "_ptr") {
-                return getArrayDataPtr(root_ptr);
-            } else if (afield.field_name == "_len") {
-                return getArrayLenPtr(root_ptr);
-            } else {
-                Panic("bad array field {} in codegen", afield.field_name);
-                return nullptr;
-            }
+            if (afield.field_index == 0) {
+                return getSliceDataPtr(x_ptr);
+            } else if (afield.field_index == 1) {
+                return getSliceLenPtr(x_ptr);
+            } 
             break;
         }
     } else {
-        auto* root_val = genExpr(afield.root);
+        auto* x_val = genExpr(afield.expr);
 
-        if (root_inner_type->kind == TYPE_PTR) {
-            root_inner_type = root_inner_type->ty_Ptr.elem_type->FullUnwrap();
+        if (node->kind == HIR_DEREF_FIELD) {
+            x_type = x_type->ty_Ptr.elem_type->FullUnwrap();
 
-            if (!shouldPtrWrap(root_inner_type)) {
-                root_val = irb.CreateLoad(genType(root_inner_type), root_val);
+            if (!shouldPtrWrap(x_type)) {
+                x_val = irb.CreateLoad(genType(x_type), x_val);
             }
         }
 
-        switch (root_inner_type->kind) {
+        switch (x_type->kind) {
         case TYPE_STRUCT:
-            if (shouldPtrWrap(root_inner_type)) {
+            if (shouldPtrWrap(x_type)) {
                 auto* field_ptr = irb.CreateInBoundsGEP(
-                    genType(root_inner_type, true),
-                    root_val, 
+                    genType(x_type, true),
+                    x_val, 
                     { getInt32Const(0), getInt32Const(afield.field_index)}
                 );
 
-                return irb.CreateLoad(genType(root_inner_type->ty_Struct.fields[afield.field_index].type), field_ptr);
+                return irb.CreateLoad(genType(x_type->ty_Struct.fields[afield.field_index].type), field_ptr);
             } else {
-                return irb.CreateExtractValue(root_val, afield.field_index);
+                return irb.CreateExtractValue(x_val, afield.field_index);
             }
+        case TYPE_ARRAY:
+            if (afield.field_index == 0) {
+                return x_val;
+            } else if (afield.field_index == 1) {
+                return getPlatformIntConst(x_type->kind == TYPE_ARRAY);
+            } 
         case TYPE_SLICE:
         case TYPE_STRING:
-            if (afield.field_name == "_ptr") {
-                return getArrayData(root_val);
-            } else if (afield.field_name == "_len") {
-                return getArrayLen(root_val);
-            } else {
-                Panic("bad array field {} in codegen", afield.field_name);
-                return nullptr;
+            if (afield.field_index == 0) {
+                return getSliceData(x_val);
+            } else if (afield.field_index == 1) {
+                return getSliceLen(x_val);
             }
             break;
         }
     }
     
-    Panic("bad get field type in codegen");
+    Panic("bad get field in codegen");
     return nullptr;
 }
+
 /* -------------------------------------------------------------------------- */
 
-llvm::Value* CodeGenerator::genArrayLit(AstExpr* node, llvm::Value* alloc_loc) {
-    auto& array = node->an_Array;
+llvm::Value* CodeGenerator::genArrayLit(HirExpr* node, llvm::Value* alloc_loc) {
+    auto& array = node->ir_Array;
 
     auto* ll_elem_type = genType(array.elems[0]->type, true);
     auto* len_val = getPlatformIntConst(array.elems.size());
@@ -241,14 +264,14 @@ llvm::Value* CodeGenerator::genArrayLit(AstExpr* node, llvm::Value* alloc_loc) {
 }
 
 llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
-    auto& anew = node->an_New;
+    auto& anew = node->ir_New;
     
     auto* ll_elem_type = genType(anew.elem_type, true);
     llvm::Value* addr_val { nullptr };
     if (anew.size_expr) {
         // TODO: variable sizes/size checking
-        Assert(node->an_New.size_expr->kind == AST_INT, "variable length arrays are not implemented in codegen");
-        size_t array_len_val = (size_t)node->an_New.size_expr->an_Int.value;
+        Assert(node->ir_New.size_expr->kind == AST_INT, "variable length arrays are not implemented in codegen");
+        size_t array_len_val = (size_t)node->ir_New.size_expr->ir_Int.value;
         auto array_len = getPlatformIntConst(array_len_val);
         
         if (anew.alloc_mode == A_ALLOC_HEAP) {
@@ -306,7 +329,7 @@ llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
 }
 
 llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) {
-    auto* struct_type = node->an_StructLitPos.root->type;
+    auto* struct_type = node->ir_StructLitPos.root->type;
     auto* ll_struct_type = genType(struct_type, true);
 
     bool needs_alloc = alloc_loc == nullptr || node->kind > AST_STRUCT_LIT_NAMED;
@@ -314,11 +337,11 @@ llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) 
         llvm::Value* lit_value = getNullValue(ll_struct_type);
 
         if (node->kind == AST_STRUCT_LIT_POS) {
-            for (size_t i = 0; i < node->an_StructLitPos.field_inits.size(); i++) {
-                lit_value = irb.CreateInsertValue(lit_value, genExpr(node->an_StructLitPos.field_inits[i]), i);
+            for (size_t i = 0; i < node->ir_StructLitPos.field_inits.size(); i++) {
+                lit_value = irb.CreateInsertValue(lit_value, genExpr(node->ir_StructLitPos.field_inits[i]), i);
             }
         } else {
-            for (auto& field_init : node->an_StructLitNamed.field_inits) {
+            for (auto& field_init : node->ir_StructLitNamed.field_inits) {
                 lit_value = irb.CreateInsertValue(lit_value, genExpr(field_init.expr), field_init.field_index);
             }
         }
@@ -327,21 +350,21 @@ llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) 
     }
 
     if (needs_alloc) {
-        alloc_loc = genAlloc(ll_struct_type, node->an_StructLitPos.alloc_mode);
+        alloc_loc = genAlloc(ll_struct_type, node->ir_StructLitPos.alloc_mode);
     }
 
     if (node->kind == AST_STRUCT_LIT_POS || node->kind == AST_STRUCT_PTR_LIT_POS) {
-        for (size_t i = 0; i < node->an_StructLitPos.field_inits.size(); i++) {
+        for (size_t i = 0; i < node->ir_StructLitPos.field_inits.size(); i++) {
             auto* field_ptr = irb.CreateInBoundsGEP(
                 ll_struct_type,
                 alloc_loc,
                 { getInt32Const(0), getInt32Const(i) }
             );
 
-            genStoreExpr(node->an_StructLitPos.field_inits[i], field_ptr);
+            genStoreExpr(node->ir_StructLitPos.field_inits[i], field_ptr);
         }
     } else {
-        for (auto& field_init : node->an_StructLitNamed.field_inits) {
+        for (auto& field_init : node->ir_StructLitNamed.field_inits) {
             auto* field_ptr = irb.CreateInBoundsGEP(
                 ll_struct_type, 
                 alloc_loc, 
@@ -356,7 +379,7 @@ llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) 
 }
 
 llvm::Value* CodeGenerator::genStrLit(AstExpr* node, llvm::Value* alloc_loc) {
-    auto decoded = decodeStrLit(node->an_String.value);
+    auto decoded = decodeStrLit(node->ir_String.value);
     auto* str_constant = llvm::ConstantDataArray::getString(ctx, decoded, false);
 
     auto* gv_str_data = new llvm::GlobalVariable(
@@ -394,7 +417,7 @@ llvm::Value* CodeGenerator::genStrLit(AstExpr* node, llvm::Value* alloc_loc) {
 }
 
 llvm::Value* CodeGenerator::genIdent(AstExpr* node, bool expect_addr) {
-    auto* symbol = node->an_Ident.symbol;
+    auto* symbol = node->ir_Ident.symbol;
     Assert(symbol != nullptr, "unresolved symbol in codegen");
 
     llvm::Value* ll_value;

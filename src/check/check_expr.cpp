@@ -320,6 +320,8 @@ HirExpr* Checker::checkCall(AstNode* node) {
     hcall->type = func_type->ty_Func.return_type;
     hcall->ir_Call.func = hfunc;
     hcall->ir_Call.args = arena.MoveVec(std::move(hargs));
+    // TODO: heap allocation
+    hcall->ir_Call.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
     return hcall;
 }
 
@@ -402,9 +404,11 @@ HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const T
 
     Type* result_type = nullptr;
     size_t field_index = 0;
+    bool assignable = root->assignable;
     switch (root_type->kind) {
     case TYPE_ARRAY:
     case TYPE_SLICE:
+    case TYPE_STRING:
         if (field_name == "_ptr") {
             result_type = allocType(TYPE_PTR);
 
@@ -414,6 +418,8 @@ HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const T
         } else if (field_name == "_len") {
             result_type = platform_int_type;
             field_index = 1;
+
+            assignable &= root_type->kind != TYPE_ARRAY;
         }
         break;
     case TYPE_STRUCT: {
@@ -437,6 +443,7 @@ HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const T
 
     auto* hexpr = allocExpr(is_auto_deref ? HIR_DEREF_FIELD : HIR_FIELD, span);
     hexpr->type = result_type;
+    hexpr->assignable = assignable;
     hexpr->ir_Field.expr = root;
     hexpr->ir_Field.field_index = field_index;
     return hexpr;
