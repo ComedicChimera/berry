@@ -122,7 +122,7 @@ void CodeGenerator::genFuncBody(Decl* decl) {
         auto* ll_param = irb.CreateAlloca(ll_type);
 
         if (shouldPtrWrap(ll_type)) {
-            genStructCopy(ll_type, param->llvm_value, ll_param);
+            genMemCopy(ll_type, param->llvm_value, ll_param);
         } else {
             irb.CreateStore(param->llvm_value, ll_param);
         }

@@ -86,7 +86,7 @@ void CodeGenerator::pmGenCapture(Symbol* capture_sym, llvm::Value* match_operand
     auto* ll_capture_type = genType(capture_sym->type, true);
     auto* capture = genAlloc(ll_capture_type, A_ALLOC_STACK);
     if (shouldPtrWrap(match_operand->getType())) {
-        genStructCopy(ll_capture_type, match_operand, capture);
+        genMemCopy(ll_capture_type, match_operand, capture);
     } else {
         irb.CreateStore(match_operand, capture);
     }

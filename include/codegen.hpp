@@ -301,9 +301,10 @@ private:
     llvm::Value* genIndexExpr(HirExpr* node, bool expect_addr);
     llvm::Value* genSliceExpr(HirExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genFieldExpr(HirExpr* node, bool expect_addr);
-    llvm::Value* genNewExpr(HirExpr* node, llvm::Value* alloc_loc);
+
+    llvm::Value* genNewExpr(HirExpr* node);
     llvm::Value* genNewArray(HirExpr* node, llvm::Value* alloc_loc);
-    llvm::Value* genNewStruct(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genNewStruct(HirExpr* node);
     llvm::Value* genArrayLit(HirExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genStructLit(HirExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genStringLit(HirExpr* node, llvm::Value* alloc_loc);
@@ -312,7 +313,7 @@ private:
     /* ---------------------------------------------------------------------- */
 
     void genStoreExpr(HirExpr* node, llvm::Value* dest);
-    void genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest);
+    void genMemCopy(llvm::Type* ll_type, llvm::Value* src, llvm::Value* dest);
 
     inline llvm::Value* genAlloc(Type* type, HirAllocMode mode) { return genAlloc(genType(type, true), mode); }
     llvm::Value* genAlloc(llvm::Type* llvm_type, HirAllocMode mode);

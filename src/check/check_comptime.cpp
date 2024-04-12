@@ -10,44 +10,11 @@ uint64_t Checker::checkComptimeSize(AstNode* node) {
     mustIntType(expr->span, expr->type);
     finishExpr();
 
-    auto* value = evalComptime(expr);
-
-    switch (value->kind) {
-    case CONST_I8:
-        if (value->v_i8 < 0) {
-            fatal(node->span, "compile time size cannot be less than zero");
-        }
-
-        return (uint64_t)value->v_i8;
-    case CONST_U8:
-        return (uint64_t)value->v_u8;
-    case CONST_I16:
-        if (value->v_i16 < 0) {
-            fatal(node->span, "compile time size cannot be less than zero");
-        }
-
-        return (uint64_t)value->v_i16;
-    case CONST_U16:
-        return (uint64_t)value->v_u16;
-    case CONST_I32:
-        if (value->v_i32 < 0) {
-            fatal(node->span, "compile time size cannot be less than zero");
-        }
-
-        return (uint64_t)value->v_i32;
-    case CONST_U32:
-        return (uint64_t)value->v_u32;
-    case CONST_I64:
-        if (value->v_i64 < 0) {
-            fatal(node->span, "compile time size cannot be less than zero");
-        }
-
-        return (uint64_t)value->v_i64;
-    case CONST_U64:
-        return value->v_u64;
-    default:
-        Panic("const value should have been an integer type");
-        break;
+    uint64_t size;
+    if (evalComptimeSizeValue(expr, &size)) {
+        return size;
+    } else {
+        fatal(node->span, "compile time size cannot be less than zero");
     }
 
     return 0;

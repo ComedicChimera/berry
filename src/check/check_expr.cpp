@@ -174,35 +174,13 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type = nullptr) {
         hexpr = allocExpr(HIR_NEW, node->span);
         hexpr->type = allocType(TYPE_PTR);
         hexpr->type->ty_Ptr.elem_type = elem_type;
+        hexpr->ir_New.elem_type = elem_type;
         // TODO: revise for heap allocation
         hexpr->ir_New.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
     } break;
-    case AST_NEW_ARRAY: {
-        markNonComptime(node->span);
-
-        auto* elem_type = checkTypeLabel(node->an_NewArray.type, true);
-
-        is_comptime_expr = true;
-        auto* hlen = checkExpr(node->an_NewArray.len, platform_int_type);
-        finishExpr();
-
-        ConstValue* const_len = nullptr;
-        if (is_comptime_expr) {
-            const_len = evalComptime(hlen);
-        }
-
-        is_comptime_expr = false;
-
-        auto* slice_type = allocType(TYPE_SLICE);
-        slice_type->ty_Slice.elem_type = elem_type;
-
-        hexpr = allocExpr(HIR_NEW_ARRAY, node->span);
-        hexpr->type = slice_type;
-        hexpr->ir_NewArray.len = hlen;
-        hexpr->ir_NewArray.const_len = const_len;
-        // TODO: revise for automatic allocation
-        hexpr->ir_NewArray.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
-    } break;
+    case AST_NEW_ARRAY: 
+        hexpr = checkNewArray(node);
+        break;
     case AST_NEW_STRUCT:
         hexpr = checkNewStruct(node, infer_type);
         break;
@@ -487,6 +465,39 @@ HirExpr* Checker::checkStaticGet(size_t dep_id, Symbol* imported_symbol, std::st
     return hexpr;
 }
 
+HirExpr* Checker::checkNewArray(AstNode* node) {
+    markNonComptime(node->span);
+
+    auto* elem_type = checkTypeLabel(node->an_NewArray.type, true);
+
+    is_comptime_expr = true;
+    auto* hlen = checkExpr(node->an_NewArray.len, platform_int_type);
+    finishExpr();
+
+    uint64_t const_len = 0;
+    if (is_comptime_expr) {
+        if (evalComptimeSizeValue(hlen, &const_len)) {
+            if (const_len == 0) {
+                fatal(hlen->span, "array size must be greater than zero");
+            }
+        } else {
+            fatal(hlen->span, "array size must be greater than zero");
+        }
+    }
+
+    is_comptime_expr = false;
+
+    auto* slice_type = allocType(TYPE_SLICE);
+    slice_type->ty_Slice.elem_type = elem_type;
+
+    auto* hexpr = allocExpr(HIR_NEW_ARRAY, node->span);
+    hexpr->type = slice_type;
+    hexpr->ir_NewArray.len = hlen;
+    hexpr->ir_NewArray.const_len = const_len;
+    // TODO: revise for automatic allocation
+    hexpr->ir_NewArray.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+}
+
 HirExpr* Checker::checkNewStruct(AstNode* node, Type* infer_type) {
     auto* atype = node->an_StructLit.type;
 
@@ -523,9 +534,9 @@ HirExpr* Checker::checkNewStruct(AstNode* node, Type* infer_type) {
 
     auto* hexpr = allocExpr(HIR_NEW_STRUCT, node->span);
     hexpr->type = ptr_type;
-    hexpr->ir_NewStruct.field_inits = arena.MoveVec(std::move(field_inits));
+    hexpr->ir_StructLit.field_inits = arena.MoveVec(std::move(field_inits));
     // TODO: heap allocation
-    hexpr->ir_NewStruct.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+    hexpr->ir_StructLit.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
     return hexpr;
 }
 
@@ -551,9 +562,16 @@ HirExpr* Checker::checkArrayLit(AstNode* node, Type* infer_type) {
         mustEqual(items[i]->span, first_type, items[i]->type);
     }
 
-    auto* arr_type = allocType(TYPE_ARRAY);
-    arr_type->ty_Array.elem_type = first_type;
-    arr_type->ty_Array.len = (uint64_t)items.size();
+    Type* arr_type;
+    if (infer_type && infer_type->kind == TYPE_ARRAY) {
+        arr_type = allocType(TYPE_ARRAY);
+        arr_type->ty_Array.elem_type = first_type;
+        arr_type->ty_Array.len = (uint64_t)items.size();
+    } else {
+        arr_type = allocType(TYPE_SLICE);
+        arr_type->ty_Slice.elem_type = first_type;
+    }
+    
 
     auto* hexpr = allocExpr(HIR_ARRAY_LIT, node->span);
     hexpr->type = arr_type;

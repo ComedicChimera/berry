@@ -37,12 +37,12 @@ llvm::Value* CodeGenerator::genCall(HirExpr* node, llvm::Value* alloc_loc) {
 }
 
 llvm::Value* CodeGenerator::genIndexExpr(HirExpr* node, bool expect_addr) {
-    auto& aindex = node->ir_Index;
+    auto& hindex = node->ir_Index;
 
-    auto* x_type = aindex.expr->type->Inner();
-    auto* x_val = genExpr(aindex.expr);
+    auto* x_type = hindex.expr->type->Inner();
+    auto* x_val = genExpr(hindex.expr);
 
-    auto* index_val = genExpr(aindex.index);
+    auto* index_val = genExpr(hindex.index);
     auto* ll_elem_type = genType(node->type->Inner(), true);
 
     llvm::Value* elem_ptr;
@@ -64,10 +64,10 @@ llvm::Value* CodeGenerator::genIndexExpr(HirExpr* node, bool expect_addr) {
 }
 
 llvm::Value* CodeGenerator::genSliceExpr(HirExpr* node, llvm::Value* alloc_loc) {
-    auto& aslice = node->ir_Slice;
+    auto& hslice = node->ir_Slice;
 
-    auto* x_type = aslice.expr->type->Inner();
-    auto* x_val = genExpr(aslice.expr);
+    auto* x_type = hslice.expr->type->Inner();
+    auto* x_val = genExpr(hslice.expr);
 
     llvm::Value* len_val;
     if (x_type->kind == TYPE_ARRAY) {
@@ -76,19 +76,19 @@ llvm::Value* CodeGenerator::genSliceExpr(HirExpr* node, llvm::Value* alloc_loc) 
         len_val = getSliceLen(x_val);
     }
 
-    bool needs_bad_slice_check = aslice.start_index && aslice.end_index;
+    bool needs_bad_slice_check = hslice.start_index && hslice.end_index;
 
     llvm::Value* start_ndx_val;
-    if (aslice.start_index) {
-        start_ndx_val = genExpr(aslice.start_index);
+    if (hslice.start_index) {
+        start_ndx_val = genExpr(hslice.start_index);
         genBoundsCheck(start_ndx_val, len_val);
     } else {
         start_ndx_val = getPlatformIntConst(0);
     }
 
     llvm::Value* end_ndx_val;
-    if (aslice.end_index) {
-        end_ndx_val = genExpr(aslice.end_index);
+    if (hslice.end_index) {
+        end_ndx_val = genExpr(hslice.end_index);
         genBoundsCheck(end_ndx_val, len_val, true);
     } else {
         end_ndx_val = len_val;
@@ -133,17 +133,17 @@ llvm::Value* CodeGenerator::genSliceExpr(HirExpr* node, llvm::Value* alloc_loc) 
 }
 
 llvm::Value* CodeGenerator::genFieldExpr(HirExpr* node, bool expect_addr) {
-    auto& afield = node->ir_Field;
+    auto& hfield = node->ir_Field;
 
-    auto* x_type = afield.expr->type->FullUnwrap();
+    auto* x_type = hfield.expr->type->FullUnwrap();
 
     if (expect_addr || shouldPtrWrap(node->type)) {
         llvm::Value* x_ptr;
         if (node->kind == HIR_DEREF_FIELD) {
-            x_ptr = genExpr(afield.expr);
+            x_ptr = genExpr(hfield.expr);
             x_type = x_type->ty_Ptr.elem_type->FullUnwrap();
         } else {
-            x_ptr = genExpr(afield.expr, true);
+            x_ptr = genExpr(hfield.expr, true);
         }
 
         switch (x_type->kind) {
@@ -151,25 +151,25 @@ llvm::Value* CodeGenerator::genFieldExpr(HirExpr* node, bool expect_addr) {
             return irb.CreateInBoundsGEP(
                 genType(x_type, true),
                 x_ptr, 
-                { getInt32Const(0), getInt32Const(afield.field_index)}
+                { getInt32Const(0), getInt32Const(hfield.field_index)}
             );
         case TYPE_ARRAY:
-            if (afield.field_index == 0) {
+            if (hfield.field_index == 0) {
                 return x_ptr;
-            } else if (afield.field_index == 1) {
+            } else if (hfield.field_index == 1) {
                 Panic("expect_addr used for array._len");
             }
         case TYPE_SLICE:
         case TYPE_STRING:
-            if (afield.field_index == 0) {
+            if (hfield.field_index == 0) {
                 return getSliceDataPtr(x_ptr);
-            } else if (afield.field_index == 1) {
+            } else if (hfield.field_index == 1) {
                 return getSliceLenPtr(x_ptr);
             } 
             break;
         }
     } else {
-        auto* x_val = genExpr(afield.expr);
+        auto* x_val = genExpr(hfield.expr);
 
         if (node->kind == HIR_DEREF_FIELD) {
             x_type = x_type->ty_Ptr.elem_type->FullUnwrap();
@@ -185,24 +185,24 @@ llvm::Value* CodeGenerator::genFieldExpr(HirExpr* node, bool expect_addr) {
                 auto* field_ptr = irb.CreateInBoundsGEP(
                     genType(x_type, true),
                     x_val, 
-                    { getInt32Const(0), getInt32Const(afield.field_index)}
+                    { getInt32Const(0), getInt32Const(hfield.field_index)}
                 );
 
-                return irb.CreateLoad(genType(x_type->ty_Struct.fields[afield.field_index].type), field_ptr);
+                return irb.CreateLoad(genType(x_type->ty_Struct.fields[hfield.field_index].type), field_ptr);
             } else {
-                return irb.CreateExtractValue(x_val, afield.field_index);
+                return irb.CreateExtractValue(x_val, hfield.field_index);
             }
         case TYPE_ARRAY:
-            if (afield.field_index == 0) {
+            if (hfield.field_index == 0) {
                 return x_val;
-            } else if (afield.field_index == 1) {
+            } else if (hfield.field_index == 1) {
                 return getPlatformIntConst(x_type->kind == TYPE_ARRAY);
             } 
         case TYPE_SLICE:
         case TYPE_STRING:
-            if (afield.field_index == 0) {
+            if (hfield.field_index == 0) {
                 return getSliceData(x_val);
-            } else if (afield.field_index == 1) {
+            } else if (hfield.field_index == 1) {
                 return getSliceLen(x_val);
             }
             break;
@@ -215,170 +215,199 @@ llvm::Value* CodeGenerator::genFieldExpr(HirExpr* node, bool expect_addr) {
 
 /* -------------------------------------------------------------------------- */
 
-llvm::Value* CodeGenerator::genArrayLit(HirExpr* node, llvm::Value* alloc_loc) {
-    auto& array = node->ir_Array;
+llvm::Value* CodeGenerator::genNewExpr(HirExpr* node) {
+    auto& hnew = node->ir_New;
+    
+    auto* ll_elem_type = genType(hnew.elem_type, true);
+    auto* data_ptr = genAlloc(ll_elem_type, hnew.alloc_mode);
 
-    auto* ll_elem_type = genType(array.elems[0]->type, true);
-    auto* len_val = getPlatformIntConst(array.elems.size());
+    irb.CreateMemSet(
+        data_ptr,
+        getInt8Const(0),
+        getLLVMByteSize(ll_elem_type),
+        layout.getPrefTypeAlign(ll_elem_type)
+    );
 
-    llvm::Value* data_val;
-    auto* ll_const_array_type = llvm::ArrayType::get(ll_elem_type, array.elems.size());
-    if (array.alloc_mode == A_ALLOC_HEAP) {
-        Panic("heap allocation not implemented in codegen");
-    } else if (array.alloc_mode == A_ALLOC_GLOBAL) {
-        data_val = new llvm::GlobalVariable(
-            mod,
-            ll_const_array_type,
-            false,
-            llvm::GlobalValue::PrivateLinkage,
-            getNullValue(ll_const_array_type)
-        );
-    } else {
-        auto* curr_block = getCurrentBlock();
-        setCurrentBlock(var_block);
-
-        data_val = irb.CreateAlloca(ll_elem_type, len_val);
-
-        setCurrentBlock(curr_block);
-    } 
-
-    for (int32_t i = 0; i < array.elems.size(); i++) {
-        auto* elem_ptr = irb.CreateInBoundsGEP(ll_const_array_type, data_val, { getInt32Const(0), getPlatformIntConst(i) });
-        
-        genStoreExpr(array.elems[i], elem_ptr);
-    }
-
-    if (alloc_loc) {
-        auto* data_ptr = getArrayDataPtr(alloc_loc);
-        irb.CreateStore(data_val, data_ptr);
-
-        auto* len_ptr = getArrayLenPtr(alloc_loc);
-        irb.CreateStore(len_val, len_ptr);
-        return nullptr;
-    } else {
-        llvm::Value* array = getNullValue(ll_array_type);
-        array = irb.CreateInsertValue(array, data_val, 0);
-        array = irb.CreateInsertValue(array, len_val, 1);
-        return array;
-    }
+    return data_ptr;
 }
 
-llvm::Value* CodeGenerator::genNewExpr(AstExpr* node, llvm::Value* alloc_loc) {
-    auto& anew = node->ir_New;
-    
-    auto* ll_elem_type = genType(anew.elem_type, true);
-    llvm::Value* addr_val { nullptr };
-    if (anew.size_expr) {
-        // TODO: variable sizes/size checking
-        Assert(node->ir_New.size_expr->kind == AST_INT, "variable length arrays are not implemented in codegen");
-        size_t array_len_val = (size_t)node->ir_New.size_expr->ir_Int.value;
-        auto array_len = getPlatformIntConst(array_len_val);
-        
-        if (anew.alloc_mode == A_ALLOC_HEAP) {
-            Panic("heap allocation not implemented in codegen");
-        } else if (anew.alloc_mode == A_ALLOC_GLOBAL) {
-            auto* ll_const_array_type = llvm::ArrayType::get(ll_elem_type, array_len_val);
+llvm::Value* CodeGenerator::genNewArray(HirExpr* node, llvm::Value* alloc_loc) {
+    auto& hnew = node->ir_NewArray;
 
-            addr_val = new llvm::GlobalVariable(
+    auto* ll_elem_type = genType(node->type->ty_Slice.elem_type, true);
+
+    llvm::Value* data_ptr;
+    llvm::Value* len_val;
+    if (hnew.const_len) {
+        auto* len_val = getPlatformIntConst(hnew.const_len);
+        auto* ll_array_type = llvm::ArrayType::get(ll_elem_type, hnew.const_len);
+
+        if (hnew.alloc_mode == HIRMEM_HEAP) {
+            Panic("heap allocation not implemented in codegen");
+        } else if (hnew.alloc_mode == HIRMEM_GLOBAL) {
+
+            data_ptr = new llvm::GlobalVariable(
                 mod,
-                ll_const_array_type,
+                ll_array_type,
                 false,
                 llvm::GlobalValue::PrivateLinkage,
-                getNullValue(ll_const_array_type)
+                getNullValue(ll_array_type)
             );
         } else {
             auto* curr_block = getCurrentBlock();
             setCurrentBlock(var_block);
 
-            addr_val = irb.CreateAlloca(ll_elem_type, array_len);
+            data_ptr = irb.CreateAlloca(ll_elem_type, hnew.const_len);
             irb.CreateMemSet(
-                addr_val,
+                data_ptr,
                 getInt8Const(0),
-                array_len_val * getLLVMByteSize(ll_elem_type),
+                getLLVMByteSize(ll_array_type),
                 layout.getPrefTypeAlign(ll_elem_type)
             );
 
             setCurrentBlock(curr_block);
         } 
-
-        if (alloc_loc) {
-            auto* data_ptr = getArrayDataPtr(alloc_loc);
-            irb.CreateStore(addr_val, data_ptr);
-
-            auto* len_ptr = getArrayLenPtr(alloc_loc);
-            irb.CreateStore(array_len, len_ptr);
-            return nullptr;
-        } else {
-            llvm::Value* array = getNullValue(ll_array_type);
-            array = irb.CreateInsertValue(array, addr_val, 0);
-            array = irb.CreateInsertValue(array, array_len, 1);
-            return array;
-        }
     } else {
-        addr_val = genAlloc(ll_elem_type, anew.alloc_mode);
+        Panic("heap allocation ot implemented in codegen");
+    }
+    
+    if (alloc_loc) {
+        auto* slice_data_ptr = getSliceDataPtr(alloc_loc);
+        irb.CreateStore(data_ptr, slice_data_ptr);
 
-        irb.CreateMemSet(
-            addr_val,
-            getInt8Const(0),
-            getLLVMByteSize(ll_elem_type),
-            layout.getPrefTypeAlign(ll_elem_type)
-        );
-
-        return addr_val;
+        auto* len_ptr = getSliceLenPtr(alloc_loc);
+        irb.CreateStore(len_val, len_ptr);
+        return nullptr;
+    } else {
+        llvm::Value* array = getNullValue(ll_slice_type);
+        array = irb.CreateInsertValue(array, data_ptr, 0);
+        array = irb.CreateInsertValue(array, len_val, 1);
+        return array;
     }
 }
 
-llvm::Value* CodeGenerator::genStructLit(AstExpr* node, llvm::Value* alloc_loc) {
-    auto* struct_type = node->ir_StructLitPos.root->type;
+llvm::Value* CodeGenerator::genNewStruct(HirExpr* node) {
+    auto* struct_type = node->type->FullUnwrap();
     auto* ll_struct_type = genType(struct_type, true);
 
-    bool needs_alloc = alloc_loc == nullptr || node->kind > AST_STRUCT_LIT_NAMED;
-    if (node->kind < AST_STRUCT_PTR_LIT_POS && needs_alloc && !shouldPtrWrap(ll_struct_type) ) {
-        llvm::Value* lit_value = getNullValue(ll_struct_type);
+    auto& hnew = node->ir_StructLit;
+    auto* struct_ptr = genAlloc(ll_struct_type, hnew.alloc_mode);
 
-        if (node->kind == AST_STRUCT_LIT_POS) {
-            for (size_t i = 0; i < node->ir_StructLitPos.field_inits.size(); i++) {
-                lit_value = irb.CreateInsertValue(lit_value, genExpr(node->ir_StructLitPos.field_inits[i]), i);
-            }
-        } else {
-            for (auto& field_init : node->ir_StructLitNamed.field_inits) {
-                lit_value = irb.CreateInsertValue(lit_value, genExpr(field_init.expr), field_init.field_index);
-            }
-        }
+    irb.CreateMemSet(
+        struct_ptr,
+        getInt8Const(0),
+        getLLVMByteSize(ll_struct_type),
+        layout.getPrefTypeAlign(ll_struct_type)
+    );
 
-        return lit_value;
+    for (auto& hfield : hnew.field_inits) {
+        auto* field_ptr = irb.CreateInBoundsGEP(ll_struct_type, struct_ptr, { getInt32Const(0), getPlatformIntConst(hfield.field_index) });
+        genStoreExpr(hfield.expr, field_ptr);
     }
 
-    if (needs_alloc) {
-        alloc_loc = genAlloc(ll_struct_type, node->ir_StructLitPos.alloc_mode);
-    }
-
-    if (node->kind == AST_STRUCT_LIT_POS || node->kind == AST_STRUCT_PTR_LIT_POS) {
-        for (size_t i = 0; i < node->ir_StructLitPos.field_inits.size(); i++) {
-            auto* field_ptr = irb.CreateInBoundsGEP(
-                ll_struct_type,
-                alloc_loc,
-                { getInt32Const(0), getInt32Const(i) }
-            );
-
-            genStoreExpr(node->ir_StructLitPos.field_inits[i], field_ptr);
-        }
-    } else {
-        for (auto& field_init : node->ir_StructLitNamed.field_inits) {
-            auto* field_ptr = irb.CreateInBoundsGEP(
-                ll_struct_type, 
-                alloc_loc, 
-                { getInt32Const(0), getInt32Const(field_init.field_index)}
-            );
-
-            genStoreExpr(field_init.expr, field_ptr);
-        }
-    }
-
-    return needs_alloc ? alloc_loc : nullptr;
+    return struct_ptr;
 }
 
-llvm::Value* CodeGenerator::genStrLit(AstExpr* node, llvm::Value* alloc_loc) {
+llvm::Value* CodeGenerator::genArrayLit(HirExpr* node, llvm::Value* alloc_loc) {
+    auto& array = node->ir_ArrayLit;
+
+    auto* ll_elem_type = genType(array.items[0]->type, true);
+    auto* ll_array_type = llvm::ArrayType::get(ll_elem_type, array.items.size());
+    auto* len_val = getPlatformIntConst(array.items.size());
+
+    llvm::Value* data_ptr;
+    if (node->type->kind == TYPE_ARRAY && alloc_loc) {
+        data_ptr = alloc_loc;
+    } else {
+        if (array.alloc_mode == HIRMEM_HEAP) {
+            Panic("heap allocation not implemented in codegen");
+        } else if (array.alloc_mode == HIRMEM_GLOBAL) {
+            data_ptr = new llvm::GlobalVariable(
+                mod,
+                ll_array_type,
+                false,
+                llvm::GlobalValue::PrivateLinkage,
+                getNullValue(ll_array_type)
+            );
+        } else {
+            auto* curr_block = getCurrentBlock();
+            setCurrentBlock(var_block);
+
+            data_ptr = irb.CreateAlloca(ll_elem_type, len_val);
+
+            setCurrentBlock(curr_block);
+        } 
+    }
+
+    for (size_t i = 0; i < array.items.size(); i++) {
+        auto* elem_ptr = irb.CreateInBoundsGEP(ll_array_type, data_ptr, { getInt32Const(0), getPlatformIntConst(i) });
+        
+        genStoreExpr(array.items[i], elem_ptr);
+    }
+
+    if (node->type->kind == TYPE_ARRAY) {
+        if (alloc_loc) {
+            return nullptr;
+        } else {
+            return data_ptr;
+        }
+    } else {
+        if (alloc_loc) {
+            auto* slice_data_ptr = getSliceDataPtr(alloc_loc);
+            irb.CreateStore(data_ptr, slice_data_ptr);
+
+            auto* slice_len_ptr = getSliceLenPtr(alloc_loc);
+            irb.CreateStore(len_val, slice_len_ptr);
+            return nullptr;
+        } else {
+            llvm::Value* array = getNullValue(ll_slice_type);
+            array = irb.CreateInsertValue(array, data_ptr, 0);
+            array = irb.CreateInsertValue(array, len_val, 1);
+            return array;
+        }
+    }    
+}
+
+llvm::Value* CodeGenerator::genStructLit(HirExpr* node, llvm::Value* alloc_loc) {
+    auto* struct_type = node->type->FullUnwrap();
+    auto* ll_struct_type = genType(struct_type, true);
+
+    auto& hstruct = node->ir_StructLit;
+    if (shouldPtrWrap(ll_struct_type)) {
+        llvm::Value* struct_ptr;
+        if (alloc_loc) {
+            struct_ptr = alloc_loc;
+        } else {
+            struct_ptr = genAlloc(ll_struct_type, node->ir_StructLit.alloc_mode);
+        }
+
+        irb.CreateMemSet(
+            struct_ptr,
+            getInt8Const(0),
+            getLLVMByteSize(ll_struct_type),
+            layout.getPrefTypeAlign(ll_struct_type)
+        );
+
+        for (auto& hfield : hstruct.field_inits) {
+            auto* field_ptr = irb.CreateInBoundsGEP(ll_struct_type, struct_ptr, { getInt32Const(0), getPlatformIntConst(hfield.field_index) });
+            genStoreExpr(hfield.expr, field_ptr);
+        }
+
+        if (alloc_loc) {
+            return nullptr;
+        } else {
+            return struct_ptr;
+        }
+    } else {
+        llvm::Value* struct_value = getNullValue(ll_struct_type);
+        for (auto& hfield : hstruct.field_inits) {
+            struct_value = irb.CreateInsertValue(struct_value, genExpr(hfield.expr), hfield.field_index);
+        }
+        return struct_value;
+    }
+}
+
+llvm::Value* CodeGenerator::genStringLit(HirExpr* node, llvm::Value* alloc_loc) {
     auto decoded = decodeStrLit(node->ir_String.value);
     auto* str_constant = llvm::ConstantDataArray::getString(ctx, decoded, false);
 
@@ -394,29 +423,29 @@ llvm::Value* CodeGenerator::genStrLit(AstExpr* node, llvm::Value* alloc_loc) {
     auto* len_const = getPlatformIntConst(decoded.size());
 
     if (alloc_loc) {
-        auto data_ptr = getArrayDataPtr(alloc_loc);
+        auto data_ptr = getSliceDataPtr(alloc_loc);
         irb.CreateStore(gv_str_data, data_ptr);
 
-        auto len_ptr = getArrayLenPtr(alloc_loc);
+        auto len_ptr = getSliceLenPtr(alloc_loc);
         irb.CreateStore(len_const, len_ptr);
 
         return nullptr;
     } else {
-        auto* str_array_constant = llvm::ConstantStruct::get(ll_array_type, { gv_str_data, len_const });
+        auto* str_array_constant = llvm::ConstantStruct::get(ll_slice_type, { gv_str_data, len_const });
         auto* gv_str = new llvm::GlobalVariable(
             mod,
-            ll_array_type,
+            ll_slice_type,
             true,
             llvm::GlobalValue::PrivateLinkage,
             str_array_constant
         );
         gv_str->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
-        return irb.CreateLoad(ll_array_type, gv_str);
+        return irb.CreateLoad(ll_slice_type, gv_str);
     }
 }
 
-llvm::Value* CodeGenerator::genIdent(AstExpr* node, bool expect_addr) {
+llvm::Value* CodeGenerator::genIdent(HirExpr* node, bool expect_addr) {
     auto* symbol = node->ir_Ident.symbol;
     Assert(symbol != nullptr, "unresolved symbol in codegen");
 
@@ -424,7 +453,7 @@ llvm::Value* CodeGenerator::genIdent(AstExpr* node, bool expect_addr) {
     if (symbol->parent_id != src_mod.id) {
         Assert((symbol->flags & SYM_EXPORTED) != 0, "unexported core symbol used in codegen");
         
-        ll_value = loaded_imports.back()[symbol->def_number];
+        ll_value = loaded_imports.back()[symbol->decl_number];
     } else {
         ll_value = symbol->llvm_value;
     }
@@ -438,32 +467,32 @@ llvm::Value* CodeGenerator::genIdent(AstExpr* node, bool expect_addr) {
 
 /* -------------------------------------------------------------------------- */
 
-void CodeGenerator::genStoreExpr(AstExpr* node, llvm::Value* dest) {
+void CodeGenerator::genStoreExpr(HirExpr* node, llvm::Value* dest) {
     auto src = genExpr(node, false, dest);
     if (src != nullptr) {
         auto* ll_type = genType(node->type, true);
         if (shouldPtrWrap(ll_type)) {
-            genStructCopy(ll_type, src, dest);
+            genMemCopy(ll_type, src, dest);
         } else {
             irb.CreateStore(src, dest);
         }
     }
 }
 
-void CodeGenerator::genStructCopy(llvm::Type* llvm_struct_type, llvm::Value* src, llvm::Value* dest) {
-    auto pref_align = layout.getPrefTypeAlign(llvm_struct_type);
+void CodeGenerator::genMemCopy(llvm::Type* ll_type, llvm::Value* src, llvm::Value* dest) {
+    auto pref_align = layout.getPrefTypeAlign(ll_type);
 
     irb.CreateMemCpy(
         dest,
         pref_align,
         src,
         pref_align,
-        getPlatformIntConst(getLLVMByteSize(llvm_struct_type))
+        getPlatformIntConst(getLLVMByteSize(ll_type))
     );
 }
 
-llvm::Value* CodeGenerator::genAlloc(llvm::Type* llvm_type, AstAllocMode mode) {
-    if (mode == A_ALLOC_STACK) {
+llvm::Value* CodeGenerator::genAlloc(llvm::Type* llvm_type, HirAllocMode mode) {
+    if (mode == HIRMEM_STACK) {
         auto* curr_block = getCurrentBlock();
         setCurrentBlock(var_block);
 
@@ -472,7 +501,7 @@ llvm::Value* CodeGenerator::genAlloc(llvm::Type* llvm_type, AstAllocMode mode) {
         setCurrentBlock(curr_block);
 
         return alloc_value;
-    } else if (mode == A_ALLOC_GLOBAL) {
+    } else if (mode == HIRMEM_GLOBAL) {
         return new llvm::GlobalVariable(
             mod,
             llvm_type,
@@ -510,20 +539,20 @@ void CodeGenerator::genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool 
     setCurrentBlock(bb_in_bounds);
 }
 
-llvm::Value* CodeGenerator::getArrayData(llvm::Value* array) {
-    return irb.CreateExtractValue(array, 0);
+llvm::Value* CodeGenerator::getSliceData(llvm::Value* slice) {
+    return irb.CreateExtractValue(slice, 0);
 }
 
-llvm::Value* CodeGenerator::getArrayLen(llvm::Value* array) {
-    return irb.CreateExtractValue(array, 1);
+llvm::Value* CodeGenerator::getSliceLen(llvm::Value* slice) {
+    return irb.CreateExtractValue(slice, 1);
 }
 
-llvm::Value* CodeGenerator::getArrayDataPtr(llvm::Value* array_ptr) {
-    return irb.CreateInBoundsGEP(ll_array_type, array_ptr, { getInt32Const(0), getInt32Const(0) });
+llvm::Value* CodeGenerator::getSliceDataPtr(llvm::Value* slice_ptr) {
+    return irb.CreateInBoundsGEP(ll_slice_type, slice_ptr, { getInt32Const(0), getInt32Const(0) });
 }
 
-llvm::Value* CodeGenerator::getArrayLenPtr(llvm::Value* array_ptr) {
-    return irb.CreateInBoundsGEP(ll_array_type, array_ptr, { getInt32Const(0), getInt32Const(1) });
+llvm::Value* CodeGenerator::getSliceLenPtr(llvm::Value* slice_ptr) {
+    return irb.CreateInBoundsGEP(ll_slice_type, slice_ptr, { getInt32Const(0), getInt32Const(1) });
 }
 
 /* -------------------------------------------------------------------------- */

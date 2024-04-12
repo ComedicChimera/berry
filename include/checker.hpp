@@ -177,6 +177,7 @@ private:
     HirExpr* checkField(HirExpr* root, std::string_view field_name, const TextSpan& span);
     HirExpr* checkEnumLit(AstNode* node, Type* type);
     HirExpr* checkStaticGet(size_t dep_id, Symbol* imported_symbol, std::string_view mod_name, const TextSpan& span);
+    HirExpr* checkNewArray(AstNode* node);
     HirExpr* checkNewStruct(AstNode* node, Type* infer_type);
     HirExpr* checkArrayLit(AstNode* node, Type* infer_type);
     HirExpr* checkStructLit(AstNode* node, Type* infer_type);

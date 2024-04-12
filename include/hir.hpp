@@ -42,7 +42,7 @@ enum HirKind {
     HIR_DEREF_FIELD,    // uses ir_Field
     HIR_NEW,
     HIR_NEW_ARRAY,
-    HIR_NEW_STRUCT,
+    HIR_NEW_STRUCT,     // uses ir_StructLit
     HIR_ARRAY_LIT,
     HIR_STRUCT_LIT,
     HIR_ENUM_LIT,
@@ -223,23 +223,21 @@ struct HirExpr : public HirNode {
             size_t field_index;
         } ir_Field;
         struct {
+            Type* elem_type;
             HirAllocMode alloc_mode;
         } ir_New;
         struct {
             HirAllocMode alloc_mode;
             HirExpr* len;
-            ConstValue* const_len;
+            uint64_t const_len;
         } ir_NewArray;
-        struct {
-            std::span<HirFieldInit> field_inits;
-            HirAllocMode alloc_mode;
-        } ir_NewStruct;
         struct {
             std::span<HirExpr*> items;
             HirAllocMode alloc_mode;
         } ir_ArrayLit;
         struct {
             std::span<HirFieldInit> field_inits;
+            HirAllocMode alloc_mode;
         } ir_StructLit;
         struct {
             size_t tag_value;
