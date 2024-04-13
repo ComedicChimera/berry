@@ -48,7 +48,6 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
 
     sizeof(size_ref_node.an_Macro),
     sizeof(size_ref_node.an_Macro),
-    sizeof(size_ref_node.an_Macro),
 
     sizeof(size_ref_node.an_TypePrim),
     sizeof(size_ref_node.an_TypeArray),

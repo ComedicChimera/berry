@@ -256,19 +256,6 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
         hexpr->type = platform_int_type;
         hexpr->ir_TypeMacro.arg = type;
     } break;
-    case AST_MACRO_FUNCADDR: {
-        markNonComptime(node->span);
-
-        auto* harg = checkExpr(node->an_Macro.arg);
-
-        if (harg->type->Inner()->kind != TYPE_FUNC) {
-            error(node->span, "@_funcaddr expects a function as an argument");
-        }
-
-        hexpr = allocExpr(HIR_MACRO_FUNCADDR, node->span);
-        hexpr->type = &prim_ptr_u8_type;
-        hexpr->ir_ValueMacro.arg = harg;
-    } break;
     default:
         Panic("expr checking is not implemented for {}", (int)node->kind);
         return nullptr;
@@ -404,6 +391,14 @@ HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const T
             field_index = 1;
 
             assignable &= root_type->kind != TYPE_ARRAY;
+        }
+        break;
+    case TYPE_FUNC:
+        if (field_name == "_addr") {
+            result_type = &prim_ptr_u8_type;
+
+            field_index = 0;
+            assignable = false;
         }
         break;
     case TYPE_STRUCT: {

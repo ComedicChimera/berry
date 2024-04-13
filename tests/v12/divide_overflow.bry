@@ -1,0 +1,11 @@
+import io.std;
+
+func main() {
+    let x: i32 = -(1 << 31);
+    std.putint(x as int);
+    std.putr('\n');
+
+    let y: i32 = -1;
+
+    std.putint(x / y as int);
+}

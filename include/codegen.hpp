@@ -155,8 +155,9 @@ class CodeGenerator {
     // ll_slice_type is the LLVM type for all Berry slices (opaque pointer POG).
     llvm::StructType* ll_slice_type { nullptr };
     
-    // ll_rtstub_type is the function type for runtime stubs.
-    llvm::FunctionType* ll_rtstub_type { nullptr };
+    // ll_rtstub_void_type is the function type for runtime stubs that do not
+    // take or return values (ex: panic functions, init module, etc.)
+    llvm::FunctionType* ll_rtstub_void_type { nullptr };
 
     /* ---------------------------------------------------------------------- */
 
@@ -174,6 +175,9 @@ class CodeGenerator {
     llvm::Function* rtstub_panic_oob { nullptr };
     llvm::Function* rtstub_panic_badslice { nullptr };
     llvm::Function* rtstub_panic_unreachable { nullptr };
+    llvm::Function* rtstub_panic_divide { nullptr };
+    llvm::Function* rtstub_panic_overflow { nullptr };
+    llvm::Function* rtstub_panic_shift { nullptr };
     llvm::Function* rtstub_strcmp { nullptr };
     llvm::Function* rtstub_strhash { nullptr };
 
@@ -215,7 +219,7 @@ public:
 private:
     void createBuiltinGlobals();
     void genBuiltinFuncs();
-    llvm::Function* genRuntimeStub(const std::string& stub_name);
+    llvm::Function* genPanicStub(const std::string& stub_name);
     void finishModule();
 
     /* ---------------------------------------------------------------------- */
@@ -299,6 +303,11 @@ private:
     llvm::Value* genStrEq(llvm::Value* lhs, llvm::Value* rhs);
     llvm::Value* genUnop(HirExpr* node);
 
+    void genDivideByZeroCheck(llvm::Value* divisor, Type* int_type);
+    void genDivideOverflowCheck(llvm::Value* dividend, llvm::Value* divisor, Type* int_type);
+    void genShiftOverflowCheck(llvm::Value* rhs, Type* int_type);
+    llvm::Value* genLLVMExpect(llvm::Value* value, llvm::Value* expected);
+
     /* ---------------------------------------------------------------------- */
 
     llvm::Value* genCall(HirExpr* node, llvm::Value* alloc_loc);
@@ -322,11 +331,12 @@ private:
     inline llvm::Value* genAlloc(Type* type, HirAllocMode mode) { return genAlloc(genType(type, true), mode); }
     llvm::Value* genAlloc(llvm::Type* llvm_type, HirAllocMode mode);
 
+    void genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len = false);
+    
     llvm::Value* getSliceData(llvm::Value* array);
     llvm::Value* getSliceLen(llvm::Value *array);
     llvm::Value* getSliceDataPtr(llvm::Value* array_ptr);
     llvm::Value* getSliceLenPtr(llvm::Value* array_ptr);
-    void genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len = false);
     
     llvm::Constant* getNullValue(Type *type);
     llvm::Constant* getNullValue(llvm::Type* ll_type);

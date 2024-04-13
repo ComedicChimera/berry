@@ -47,24 +47,20 @@ void CodeGenerator::createBuiltinGlobals() {
     );
 
     // Set the global runtime stub type (void function accepting no arguments).
-    ll_rtstub_type = llvm::FunctionType::get(llvm::Type::getVoidTy(ctx), false);
+    ll_rtstub_void_type = llvm::FunctionType::get(llvm::Type::getVoidTy(ctx), false);
 }
 
 void CodeGenerator::genBuiltinFuncs() {
     // Generate the module's init function signature.
     ll_init_func = llvm::Function::Create(
-        ll_rtstub_type, 
+        ll_rtstub_void_type, 
         llvm::Function::ExternalLinkage, 
         std::format("__berry_init_mod${}", src_mod.id), 
         mod
     );
     ll_init_block = llvm::BasicBlock::Create(ctx, "entry", ll_init_func);
 
-    // Generate the runtime stubs.
-    rtstub_panic_oob = genRuntimeStub("__berry_panic_oob");
-    rtstub_panic_badslice = genRuntimeStub("__berry_panic_badslice");
-    rtstub_panic_unreachable = genRuntimeStub("__berry_panic_unreachable");
-
+    // Generate the regular runtime stubs.
     rtstub_strcmp = mod.getFunction("__berry_strcmp");
     if (rtstub_strcmp == nullptr) {
         rtstub_strcmp = llvm::Function::Create(
@@ -94,12 +90,12 @@ void CodeGenerator::genBuiltinFuncs() {
     }
 }
 
-llvm::Function* CodeGenerator::genRuntimeStub(const std::string& stub_name) {
+llvm::Function* CodeGenerator::genPanicStub(const std::string& stub_name) {
     auto* stub_func = mod.getFunction(stub_name);
 
     if (stub_func == nullptr) {
         return llvm::Function::Create(
-            ll_rtstub_type,
+            ll_rtstub_void_type,
             llvm::Function::ExternalLinkage,
             stub_name,
             mod

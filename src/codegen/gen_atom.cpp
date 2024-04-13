@@ -96,13 +96,17 @@ llvm::Value* CodeGenerator::genSliceExpr(HirExpr* node, llvm::Value* alloc_loc) 
 
     if (needs_bad_slice_check) {
         auto* is_good_slice = irb.CreateICmpSLE(start_ndx_val, end_ndx_val);
+        is_good_slice = genLLVMExpect(is_good_slice, makeLLVMIntLit(&prim_bool_type, 1));
 
         auto* bb_is_bad_slice = appendBlock();
         auto* bb_is_good_slice = appendBlock();
 
         irb.CreateCondBr(is_good_slice, bb_is_good_slice, bb_is_bad_slice);
-
         setCurrentBlock(bb_is_bad_slice);
+
+        if (rtstub_panic_badslice)
+            rtstub_panic_badslice = genPanicStub("__berry_panic_badslice");
+
         irb.CreateCall(rtstub_panic_badslice);
         irb.CreateUnreachable();
 
@@ -206,6 +210,9 @@ llvm::Value* CodeGenerator::genFieldExpr(HirExpr* node, bool expect_addr) {
                 return getSliceLen(x_val);
             }
             break;
+        case TYPE_FUNC:
+            // TODO: handle function unboxing as necessary
+            return x_val;
         }
     }
     
@@ -526,18 +533,24 @@ void CodeGenerator::genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool 
         is_lt_len = irb.CreateICmpSLT(ndx, arr_len);
     }
     auto* is_in_bounds = irb.CreateAnd(is_ge_zero, is_lt_len);
+    is_in_bounds = genLLVMExpect(is_in_bounds, makeLLVMIntLit(&prim_bool_type, 1));
 
     auto* bb_oob = appendBlock();
     auto* bb_in_bounds = appendBlock();
 
     irb.CreateCondBr(is_in_bounds, bb_in_bounds, bb_oob);
-    
     setCurrentBlock(bb_oob);
+
+    if (rtstub_panic_oob == nullptr)
+        rtstub_panic_oob = genPanicStub("__berry_panic_oob");
+
     irb.CreateCall(rtstub_panic_oob);
     irb.CreateUnreachable();
 
     setCurrentBlock(bb_in_bounds);
 }
+
+/* -------------------------------------------------------------------------- */
 
 llvm::Value* CodeGenerator::getSliceData(llvm::Value* slice) {
     return irb.CreateExtractValue(slice, 0);

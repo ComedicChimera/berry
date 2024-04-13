@@ -585,12 +585,6 @@ AstNode* Parser::parseMacroCall() {
 
         expr = allocNode(AST_MACRO_ALIGNOF, SpanOver(start_span, prev.span));
         expr->an_Macro.arg = type;
-    } else if (macro_ident.value == "_funcaddr") {
-        auto* arg_expr = parseExpr();
-        want(TOK_RPAREN);
-
-        expr = allocNode(AST_MACRO_FUNCADDR, SpanOver(start_span, prev.span));
-        expr->an_Macro.arg = arg_expr;
     } else {
         fatal(macro_ident.span, "unknown macro: {}", macro_ident.value);
     }

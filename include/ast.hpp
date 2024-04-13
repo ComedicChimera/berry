@@ -50,7 +50,6 @@ enum AstKind {
 
     AST_MACRO_SIZEOF,   // uses an_Macro
     AST_MACRO_ALIGNOF,  // uses an_Macro
-    AST_MACRO_FUNCADDR, // uses an_Macro
 
     AST_TYPE_PRIM,
     AST_TYPE_ARRAY,

@@ -55,8 +55,7 @@ static size_t hir_variant_sizes[HIRS_COUNT] = {
     sizeof(size_ref_expr.ir_String),
     0,
     sizeof(size_ref_expr.ir_TypeMacro),
-    sizeof(size_ref_expr.ir_TypeMacro),
-    sizeof(size_ref_expr.ir_ValueMacro),
+    sizeof(size_ref_expr.ir_TypeMacro)
 };
 
 #define LARGEST_DECL_VARIANT_SIZE ((sizeof(size_ref_decl.ir_Func)))

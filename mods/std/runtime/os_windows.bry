@@ -7,7 +7,7 @@ import sys.windows;
 func _sys_init() {
     sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
 
-    windows.AddVectoredExceptionHandler(0, @_funcaddr(_win_veh_handler));
+    windows.AddVectoredExceptionHandler(0, _win_veh_handler._addr);
 }
 
 func sys_exit(exit_code: int) {

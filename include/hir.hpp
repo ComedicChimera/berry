@@ -55,7 +55,6 @@ enum HirKind {
     HIR_NULL,
     HIR_MACRO_SIZEOF,
     HIR_MACRO_ALIGNOF,
-    HIR_MACRO_FUNCADDR,
 
     HIRS_COUNT
 };
@@ -270,9 +269,6 @@ struct HirExpr : public HirNode {
         struct {
             Type* arg;
         } ir_TypeMacro;
-        struct {
-            HirExpr* arg;
-        } ir_ValueMacro;
     };
 
     HirExpr() {}

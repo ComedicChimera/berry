@@ -9,18 +9,6 @@ func _panic_stack() {
     _dopanic();
 }
 
-func _panic_overflow() {
-    rputs("panic: integer overflow\n\n");
-
-    _dopanic();
-}
-
-func _panic_divide() {
-    rputs("panic: integer divide by zero\n\n");
-
-    _dopanic();
-}
-
 func _panic_mem(addr: uint) {
     if addr == 0 {
         rputs("panic: null pointer dereference\n\n");
@@ -34,6 +22,27 @@ func _panic_mem(addr: uint) {
 
 func _panic_float() {
     rputs("panic: floating point error");
+
+    _dopanic();
+}
+
+@abientry("__berry_panic_overflow")
+func _panic_overflow() {
+    rputs("panic: integer overflow\n\n");
+
+    _dopanic();
+}
+
+@abientry("__berry_panic_divide")
+func _panic_divide() {
+    rputs("panic: integer divide by zero\n\n");
+
+    _dopanic();
+}
+
+@abientry("__berry_panic_shift")
+func _panic_shift() {
+    rputs("panic: shift overflow\n\n");
 
     _dopanic();
 }

@@ -89,9 +89,6 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
         return makeLLVMIntLit(platform_uint_type, getLLVMByteSize(genType(node->ir_TypeMacro.arg, true)));
     case HIR_MACRO_ALIGNOF:
         return makeLLVMIntLit(platform_uint_type, getLLVMByteAlign(genType(node->ir_TypeMacro.arg, true)));
-    case HIR_MACRO_FUNCADDR:
-        // TODO: make this more sophisticated later...
-        return genExpr(node->ir_ValueMacro.arg);
     default:
         Panic("expr codegen not implemented for {}", (int)node->kind);
         break;
@@ -321,7 +318,10 @@ llvm::Value* CodeGenerator::genBinop(HirExpr* node) {
         break;
     case HIROP_DIV:
         if (lhs_type->kind == TYPE_INT) {
+            genDivideByZeroCheck(rhs_val, lhs_type);
+
             if (lhs_type->ty_Int.is_signed) {
+                genDivideOverflowCheck(lhs_val, rhs_val, lhs_type);
                 return irb.CreateSDiv(lhs_val, rhs_val);
             } else {
                 return irb.CreateUDiv(lhs_val, rhs_val);
@@ -333,6 +333,8 @@ llvm::Value* CodeGenerator::genBinop(HirExpr* node) {
         break;
     case HIROP_MOD:
         if (lhs_type->kind == TYPE_INT) {
+            genDivideByZeroCheck(rhs_val, lhs_type);
+
             if (lhs_type->ty_Int.is_signed) {
                 return irb.CreateSRem(lhs_val, rhs_val);
             } else {
@@ -345,10 +347,12 @@ llvm::Value* CodeGenerator::genBinop(HirExpr* node) {
         break;
     case HIROP_SHL:
         Assert(lhs_type->kind == TYPE_INT, "invalid types for SHL op in codegen");
+        genShiftOverflowCheck(rhs_val, lhs_type);
         return irb.CreateShl(lhs_val, rhs_val);
     case HIROP_SHR:
         Assert(lhs_type->kind == TYPE_INT, "invalid types for SHR op in codegen");
 
+        genShiftOverflowCheck(rhs_val, lhs_type);
         if (lhs_type->ty_Int.is_signed) {
             return irb.CreateAShr(lhs_val, rhs_val);
         } else {
@@ -519,4 +523,72 @@ llvm::Value* CodeGenerator::genUnop(HirExpr* node) {
 
     Panic("unsupported unary operator in codegen: {}", (int)node->ir_Unop.op);
     return nullptr;
+}
+
+/* -------------------------------------------------------------------------- */
+
+void CodeGenerator::genDivideByZeroCheck(llvm::Value* divisor, Type* int_type) {
+    auto* is_zero_val = irb.CreateICmpEQ(divisor, makeLLVMIntLit(int_type, 0));
+    is_zero_val = genLLVMExpect(is_zero_val, makeLLVMIntLit(&prim_bool_type, 0));
+
+    auto* bb_zero = appendBlock();
+    auto* bb_nonzero = appendBlock();
+
+    irb.CreateCondBr(is_zero_val, bb_zero, bb_nonzero);
+
+    setCurrentBlock(bb_zero);
+    
+    if (rtstub_panic_divide == nullptr)
+        rtstub_panic_divide = genPanicStub("__berry_panic_divide");
+
+    irb.CreateCall(rtstub_panic_divide);
+    irb.CreateUnreachable();
+
+    setCurrentBlock(bb_nonzero);
+}
+
+void CodeGenerator::genDivideOverflowCheck(llvm::Value* dividend, llvm::Value* divisor, Type* int_type) {
+    uint64_t max_neg_int = 1 << (int_type->ty_Int.bit_size - 1); 
+    auto* is_max_neg_int = irb.CreateICmpEQ(dividend, makeLLVMIntLit(int_type, max_neg_int));
+    auto* is_neg_one = irb.CreateICmpEQ(divisor, makeLLVMIntLit(int_type, -1));
+
+    auto* is_div_overflow = irb.CreateAnd(is_max_neg_int, is_neg_one);
+    is_div_overflow = genLLVMExpect(is_div_overflow, makeLLVMIntLit(&prim_bool_type, 0));
+    
+    auto* bb_overflow = appendBlock();
+    auto* bb_ok = appendBlock();
+
+    irb.CreateCondBr(is_div_overflow, bb_overflow, bb_ok);
+    setCurrentBlock(bb_overflow);
+
+    if (rtstub_panic_overflow == nullptr)
+        rtstub_panic_overflow = genPanicStub("__berry_panic_overflow");
+
+    irb.CreateCall(rtstub_panic_overflow);
+    irb.CreateUnreachable();
+
+    setCurrentBlock(bb_ok);
+}
+
+void CodeGenerator::genShiftOverflowCheck(llvm::Value* rhs, Type* int_type) {
+    auto* is_good_shift = irb.CreateICmpULT(rhs, makeLLVMIntLit(int_type, int_type->ty_Int.bit_size));
+    is_good_shift = genLLVMExpect(is_good_shift, makeLLVMIntLit(&prim_bool_type, 1));
+
+    auto* bb_bad_shift = appendBlock();
+    auto* bb_good_shift = appendBlock();
+
+    irb.CreateCondBr(is_good_shift, bb_good_shift, bb_bad_shift);
+    setCurrentBlock(bb_bad_shift);
+
+    if (rtstub_panic_overflow == nullptr)
+        rtstub_panic_overflow = genPanicStub("__berry_panic_overflow");
+
+    irb.CreateCall(rtstub_panic_overflow);
+    irb.CreateUnreachable();
+
+    setCurrentBlock(bb_good_shift);
+}
+
+llvm::Value* CodeGenerator::genLLVMExpect(llvm::Value* value, llvm::Value* expected) {
+    return irb.CreateIntrinsic(value->getType(), llvm::Intrinsic::expect, { value, expected });
 }

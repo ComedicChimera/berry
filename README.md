@@ -95,7 +95,7 @@ don't always get time (or energy) to work on it.
     * All array constants default to array.
     * Arrays implicitly convert to slices
 
-- [ ] Target 12: Error Handling
+- [x] Target 12: Error Handling
     * Factor platform bindings into `sys.windows`
     * Signal Handling
         - Stack Overflow

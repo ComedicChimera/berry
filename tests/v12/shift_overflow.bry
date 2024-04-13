@@ -1,0 +1,8 @@
+import io.std;
+
+func main() {
+    let x = 12;
+    let y = 64;
+
+    std.putint(x << y);
+}
