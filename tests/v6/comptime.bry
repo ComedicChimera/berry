@@ -11,7 +11,7 @@ const first_name: string = name[:5];
 const primes: []i64 = [2, 3, 5, 7, 11, 13];
 const second_prime: i64 = primes[1];
 const middle_primes: []i64 = primes[1:y - 6];
-const zero_array: []i64 = new i64[x];
+const zero_array: [x]i64;
 
 struct Vec2 {
     x, y: i64;

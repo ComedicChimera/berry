@@ -26,7 +26,7 @@ const glob_arr: []int = [1, 2, 3, 4];
 const glob_arr2: [4]int = [5, 6, 7, 8];
 
 func main() {
-    let arr = [1, 2, 3, 4, 5];
+    let arr: [5]int = [1, 2, 3, 4, 5];
 
     // Equality
     let arr2: [5]int = arr;

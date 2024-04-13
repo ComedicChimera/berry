@@ -115,7 +115,7 @@ std::pair<HirExpr*, bool> Checker::checkPattern(AstNode* node, Type* expect_type
 
 void Checker::declarePatternCaptures(HirExpr* pattern) {
     switch (pattern->kind) {
-    case AST_IDENT:
+    case HIR_IDENT:
         if (pattern->ir_Ident.symbol)
             declareLocal(pattern->ir_Ident.symbol);
         

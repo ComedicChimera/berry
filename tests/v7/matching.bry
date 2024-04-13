@@ -56,7 +56,7 @@ func main() {
         std.puts("is even (again for the boys)\n");
     }
 
-    if n match Four {
+    if n match .Four {
         std.puts("is four\n");
     }
 

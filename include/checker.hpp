@@ -92,7 +92,9 @@ class Checker {
         // different pattern cases.
         std::unordered_set<size_t> enum_usages;
 
-        PatternContext() {}
+        PatternContext() 
+        : fallthru_used(false)
+        {}
     };
 
     // pattern_ctx_stack is the stack of pattern contexts.
@@ -122,7 +124,6 @@ private:
     void checkGlobalVarAttrs(Decl* decl);
 
     Type* checkTypeLabel(AstNode* node, bool should_expand);
-
 
     /* ---------------------------------------------------------------------- */
 

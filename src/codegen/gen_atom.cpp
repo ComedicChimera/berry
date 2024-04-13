@@ -196,7 +196,7 @@ llvm::Value* CodeGenerator::genFieldExpr(HirExpr* node, bool expect_addr) {
             if (hfield.field_index == 0) {
                 return x_val;
             } else if (hfield.field_index == 1) {
-                return getPlatformIntConst(x_type->kind == TYPE_ARRAY);
+                return getPlatformIntConst(x_type->ty_Array.len);
             } 
         case TYPE_SLICE:
         case TYPE_STRING:
@@ -257,7 +257,7 @@ llvm::Value* CodeGenerator::genNewArray(HirExpr* node, llvm::Value* alloc_loc) {
             auto* curr_block = getCurrentBlock();
             setCurrentBlock(var_block);
 
-            data_ptr = irb.CreateAlloca(ll_elem_type, hnew.const_len);
+            data_ptr = irb.CreateAlloca(ll_elem_type, len_val);
             irb.CreateMemSet(
                 data_ptr,
                 getInt8Const(0),
