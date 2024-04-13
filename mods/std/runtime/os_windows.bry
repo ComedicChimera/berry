@@ -7,6 +7,11 @@ import sys.windows;
 func _sys_init() {
     sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
 
+    _tls_rtstate_index = windows.TlsAlloc();
+    if _tls_rtstate_index == windows.TLS_OUT_OF_INDEXES {
+        throw("bad tls alloc");
+    }
+
     windows.AddVectoredExceptionHandler(0, _win_veh_handler._addr);
 }
 
@@ -14,11 +19,15 @@ func sys_exit(exit_code: int) {
     windows.ExitProcess(exit_code as windows.UINT);
 }
 
+/* -------------------------------------------------------------------------- */
+
 let sys_stderr: windows.HANDLE;
 
 func sys_eprint(b: []u8) {
     windows.WriteConsoleA(sys_stderr, b._ptr, b._len as windows.DWORD, null, null);
 }
+
+/* -------------------------------------------------------------------------- */
 
 enum _WinExcCode {
     AccessViolation = windows.EXCEPTION_ACCESS_VIOLATION;
@@ -67,8 +76,34 @@ func _win_veh_handler(exc_info: *windows.EXCEPTION_POINTERS) windows.DWORD {
     // All panic handlers should kill their current thread and thus never
     // return. If we reach here, something is very wrong with the runtime, and
     // we should abort immediately.
-    abort();
+    throw("panic handler returned");
 
     // Unreachable.
     return windows.EXCEPTION_CONTINUE_SEARCH;
+}
+
+/* -------------------------------------------------------------------------- */
+
+let _tls_rstate_index: windows.DWORD = windows.TLS_OUT_OF_INDEXES;
+
+func get_rstate() *Rstate {
+    let rstate: *Rstate;
+
+    unsafe {
+        rstate = windows.TlsGetValue(_tls_rstate_index) as *Rstate;
+    }
+
+    if rstate == null {
+        throw("rstate is null");
+    }
+
+    return rstate;
+}
+
+func set_rstate(rstate: *Rstate) {
+    unsafe {
+        if windows.TlsSetValue(_tls_rstate_index, rstate as *u8) == 0 {
+            throw("bad tls set value");
+        }
+    }
 }

@@ -1,0 +1,5 @@
+module runtime;
+
+struct Rstate {
+    panicking: bool;
+}

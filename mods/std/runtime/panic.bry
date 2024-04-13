@@ -77,25 +77,16 @@ func _panic_user(message: string) {
     _dopanic();
 }
 
-enum PanicMode {
-    Normal;
-    Throw;
-    Abort;
-}
-
-let panic_mode: PanicMode = .Normal;
+/* -------------------------------------------------------------------------- */
 
 func _dopanic() {
-    match panic_mode {
-    case .Normal:
-        panic_mode = .Throw;
-    case .Throw:
-        throw("panic inside runtime");
-    case _:
-        // This is PanicMode.Abort or an invalid panic mode.  In either case,
-        // the runtime state is badly corrupted, and we want to crash and burn.
-        abort();
+    let rstate = get_rstate();
+
+    if rstate.panicking {
+        throw("panic while panicking");
     }
+
+    rstate.panicking = true;
 
     // TODO: stack tracing
 
@@ -105,13 +96,11 @@ func _dopanic() {
 /* -------------------------------------------------------------------------- */
 
 func throw(message: string) {
-    panic_mode = .Abort;
-
     rputs("throw: ");
     rputs(message);
     rputs("\n\n");
 
-    exit(-1);
+    abort();
 }
 
 func abort() {

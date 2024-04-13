@@ -20,3 +20,15 @@ pub func AddVectoredExceptionHandler(
     First: ULONG,
     Handler: *u8
 ) *u8;
+
+@[extern, callconv("win64")]
+pub func TlsAlloc() DWORD;
+
+@[extern, callconv("win64")]
+pub func TlsGetValue(dwTlsIndex: DWORD) *u8;
+
+@[extern, callconv("win64")]
+pub func TlsSetValue(
+    dwTlsIndex: DWORD,
+    lpTlsValue: *u8
+) BOOL;

@@ -7,6 +7,10 @@ func _umain();
 func _rtstartup() {
     _sys_init();
 
+    // TODO: move this to heap?
+    let rstate = Rstate{panicking=false};
+    set_rstate(&rstate);
+
     _umain();
 
     exit(0);
