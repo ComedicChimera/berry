@@ -34,8 +34,8 @@ func filled(x: i64) Vec2 {
 
 func sub_vec2(a, b: Vec2) Vec2 {
     let v: Vec2;
-    v.x = a.x + b.x;
-    v.y = a.y + b.y;
+    v.x = a.x - b.x;
+    v.y = a.y - b.y;
     return v;
 }
 

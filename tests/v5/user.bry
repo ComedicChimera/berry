@@ -1,7 +1,7 @@
 import io.std;
 
 struct User {
-    name, email: []u8;
+    name, email: string;
     age: i64;
 }
 
@@ -38,7 +38,7 @@ func get_user() User {
     return .{"Bob", "bob@hotmail.com", 25};
 }
 
-func set_email(u: User, email: []u8) User {
+func set_email(u: User, email: string) User {
     u.email = email;
     return u;
 }

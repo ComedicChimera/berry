@@ -271,7 +271,7 @@ AstNode* Parser::parseStructLit(AstNode* type) {
 
             want(TOK_RBRACE);
         } else {
-            std::vector<AstNode*> field_inits({ first_expr });
+            field_inits.push_back(first_expr);
 
             if (has(TOK_COMMA)) {
                 next();
