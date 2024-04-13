@@ -89,7 +89,7 @@ don't always get time (or energy) to work on it.
     * Platform Sized Ints: `int` and `uint`
         - Update compiler code to user platform-sized integers where appropriate
 
-- [ ] Target 11: Arrays and Slices
+- [x] Target 11: Arrays and Slices
     * Rename variable length arrays to slices
     * Add a fixed size array type: `[N]Type`
     * All array constants default to array.
@@ -101,7 +101,6 @@ don't always get time (or energy) to work on it.
         - Stack Overflow
         - Access Violation
         - Int and Float Errors 
-    * Stack Unwinding and Traceback Support
     * Proper Handling of Divide by Zero and Invalid Shifts
         - Capture poison values as they occur
     * Use `llvm.expect` to speed up checks for optimizer
@@ -110,8 +109,6 @@ don't always get time (or energy) to work on it.
     * Primitive Thread Operations
         - Create, Suspend, Kill, GetID
     * Thread Local Storage + TL Runtime State
-        - Allocate TLS data globally for now (just use a big array)
-        - We will replace this with dynamic memory in the next target
     * Semaphores and Mutexes
 
 - [ ] Target 14: Dynamic Memory
@@ -120,7 +117,6 @@ don't always get time (or energy) to work on it.
         - Should support multi-threading
         - Base it off either glibc malloc or tcmalloc
         - We can improve it later
-    * Move TLS to the heap
 
 - [ ] Target 15: Garbage Collection
     * Simple Mark-and-Sweep Garbage Collector
@@ -142,16 +138,17 @@ don't always get time (or energy) to work on it.
         - `.len()`
         - Make accessing properties directly `unsafe` only.
 
-- [ ] Target 18: Interfaces
+- [ ] Target 18: Better Functions
+    * Variadic Arguments
+    * Named Arguments
+    * Function Overloading
+    * Constructors
+
+- [ ] Target 19: Interfaces
     * Interface Declarations 
     * Interface Inheritance
     * Virtual methods
     * The `any` type
-
-- [ ] Target 19: Better Functions
-    * Variadic Arguments
-    * Named Arguments
-    * Function Overloading
 
 - [ ] Target 20: Formatted IO
     * Make `io.std` more usable `std.println`, etc...
@@ -165,16 +162,17 @@ don't always get time (or energy) to work on it.
     * Generic Types and Functions
     * Generic Interface Binding
 
-- [ ] Target 24: Closures
+- [ ] Target 24: Monadic Error Handling
 
-- [ ] Target 25: Monadic Error Handling
+- [ ] Target 25: Operator Overloading
 
-- [ ] Target 26: Operator Overloading
+- [ ] Target 26: Builtin Collections
 
-- [ ] Target 27: Builtin Collections
+- [ ] Target 27: Closures and Defer
 
 - [ ] Target 28: Iterators and Sequences
 
+- [ ] Target 29: Stack Traceback Support
 
 
 
