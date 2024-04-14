@@ -113,7 +113,8 @@ don't always get time (or energy) to work on it.
     * Function Type labels
         - No closures yet, just regular old functions
     * Linking and compiling asm files
-        - `#asm_include` directive
+        - For now, just set the compiler to always compile the appropriate
+          `asm/rt_[os]_[arch].asm` file.
 
 - [ ] Target 14: Dynamic Memory
     * Multithreaded Allocator

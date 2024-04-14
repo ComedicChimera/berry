@@ -112,10 +112,6 @@ func set_rstate(rstate: *Rstate) {
 
 type Rthread = windows.HANDLE;
 
-#if (ARCH == "amd64")
-#asm_include "asm/rt_windows_amd64.asm"
-#end
-
 // Note: This function is implemented in assembly because it needs to call to a
 // pointer.  It is technically callconv win64, but since we need call it
 // directly, we don't need to tag it.
