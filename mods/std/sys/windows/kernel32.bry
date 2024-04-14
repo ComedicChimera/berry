@@ -32,3 +32,18 @@ pub func TlsSetValue(
     dwTlsIndex: DWORD,
     lpTlsValue: *u8
 ) BOOL;
+
+@[extern, callconv("win64")]
+pub func CreateThread(
+    lpThreadAttributes: *u8,
+    dwStackSize: SIZE_T,
+    lpStartAddress: *u8,
+    lpParameter: *u8,
+    dwCreationFlags: DWORD,
+    lpThreadId: *DWORD
+) HANDLE;
+
+@[extern, callconv("win64")]
+pub func ExitThread(
+    dwExitCode: DWORD
+);

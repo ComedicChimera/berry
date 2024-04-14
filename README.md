@@ -110,6 +110,10 @@ don't always get time (or energy) to work on it.
         - Create, Suspend, Kill, GetID
     * Thread Local Storage + TL Runtime State
     * Semaphores and Mutexes
+    * Function Type labels
+        - No closures yet, just regular old functions
+    * Linking and compiling asm files
+        - `#asm_include` directive
 
 - [ ] Target 14: Dynamic Memory
     * Multithreaded Allocator
