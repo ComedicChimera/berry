@@ -110,25 +110,25 @@ func set_rstate(rstate: *Rstate) {
 
 /* -------------------------------------------------------------------------- */
 
-type Rthread = windows.HANDLE;
+// type Rthread = windows.HANDLE;
 
-// Note: This function is implemented in assembly because it needs to call to a
-// pointer.  It is technically callconv win64, but since we need call it
-// directly, we don't need to tag it.
-@extern("__berry_win_thread_callback")
-func _win_thread_callback(state: *u8) windows.DWORD;
+// // Note: This function is implemented in assembly because it needs to call to a
+// // pointer.  It is technically callconv win64, but since we need call it
+// // directly, we don't need to tag it.
+// @extern("__berry_win_thread_callback")
+// func _win_thread_callback(state: *u8) windows.DWORD;
 
-func thr_create(fn: func()) Rthread {
-    return windows.CreateThread(
-        null,
-        0,
-        _win_thread_callback._addr,
-        fn._addr,
-        0,
-        null
-    );
-}
+// func thr_create(fn: func()) Rthread {
+//     return windows.CreateThread(
+//         null,
+//         0,
+//         _win_thread_callback._addr,
+//         fn._addr,
+//         0,
+//         null
+//     );
+// }
 
-func thr_exit(exit_code: int) {
-    windows.ExitThread(exit_code as windows.DWORD);
-}
+// func thr_exit(exit_code: int) {
+//     windows.ExitThread(exit_code as windows.DWORD);
+// }

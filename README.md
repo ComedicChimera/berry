@@ -105,49 +105,72 @@ don't always get time (or energy) to work on it.
         - Capture poison values as they occur
     * Use `llvm.expect` to speed up checks for optimizer
 
-- [ ] Target 13: Threads and Semaphores
-    * Primitive Thread Operations
-        - Create, Suspend, Kill, GetID
-    * Thread Local Storage + TL Runtime State
-    * Semaphores and Mutexes
-    * Function Type labels
-        - No closures yet, just regular old functions
-    * Linking and compiling asm files
-        - For now, just set the compiler to always compile the appropriate
-          `asm/rt_[os]_[arch].asm` file.
+- [ ] Target 13: Methods
+    * Method Binding
+        - For named types: `Name.method()`
+        - For imported named types: `pkg.Name.method()`
+        - For non-named types: `(Type).method()`
+    * Method Calling
+    * Method importing and scoping
+    * Access to self pointer via `self`
+    * Default methods for arrays, slices, and strings.
+        - `.len()`
+        - Make accessing properties directly `unsafe` only.
+    * Factory functions
+        - Named Types: `factory Name(x)`
+        - Imported Named Types: `factory pkg.Name(x)`
+        - Can only be defined for named types
+        - Called via writing `Name()`
 
-- [ ] Target 14: Dynamic Memory
+- [ ] Target 14: Dynamic Memory, Mutexes, and TLS
+    * Thread Local Storage + TL Runtime State
+        - Allocate runtime state on heap
+    * Simple Mutexes
+        - Just wrap the OS mutexes
     * Multithreaded Allocator
         - Doesn't need to be to advanced, but good enough to last for a while.
         - Should support multi-threading
         - Base it off either glibc malloc or tcmalloc
         - We can improve it later
 
-- [ ] Target 15: Garbage Collection
+- [ ] Target 15: Multiple Threads
+    * Runtime Thread Support
+        - Creation of Rthreads
+        - Management of Threads and TLS state
+        - Thread shutdown on panic
+    * Expose thread functionality through `threads` package.
+        - Wrap `Rmutex` into `Mutex`
+        - Mutex Methods: `lock`, `unlock`, `try_lock`, `locked`
+        - Wrap `Rthread` into `Thread`
+        - Thread methods: `get_id`, `suspend`, `wait`, etc.
+        - Utility Method: `sleep`, `sleepms`, `get_current_thread`
+    * To allocate thread objects, just use `runtime.malloc` and then later
+      switch it to use `new ...`
+        - We can replace raw `malloc` calls with implicit calls to `gcmalloc`
+          later on.
+    * Function Type labels
+        - No closures yet, just regular old functions
+    * Linking and compiling asm files
+        - For now, just set the compiler to always compile the appropriate
+          `asm/rt_[os]_[arch].asm` file.
+    * Test allocator against multithreaded system
+
+- [ ] Target 16: Garbage Collection
     * Simple Mark-and-Sweep Garbage Collector
         - We can make it better letter on.
     * Automatic Heap Allocation
     * Escape Analysis
 
-- [ ] Target 16: Debug Info
+- [ ] Target 17: Debug Info
     * Fix DIType generation
     * Add code for debug assignment
     * Get debugging working on Windows (enable stepping through the program)
     * Proper handling of breakpoints and state dumping
 
-- [ ] Target 17: Methods
-    * Method Binding `interf for`
-    * Method Calling Syntax
-    * Method importing and scoping
-    * Default methods for arrays, slices, and strings.
-        - `.len()`
-        - Make accessing properties directly `unsafe` only.
-
 - [ ] Target 18: Better Functions
     * Variadic Arguments
     * Named Arguments
     * Function Overloading
-    * Constructors
 
 - [ ] Target 19: Interfaces
     * Interface Declarations 
