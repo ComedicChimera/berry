@@ -113,9 +113,7 @@ don't always get time (or energy) to work on it.
     * Method Calling
     * Method importing and scoping
     * Access to self pointer via `self`
-    * Default methods for arrays, slices, and strings.
-        - `.len()`
-        - Make accessing properties directly `unsafe` only.
+    * We won't implement `.len()` yet.
     * Factory functions
         - Named Types: `factory Name(x)`
         - Imported Named Types: `factory pkg.Name(x)`
@@ -190,7 +188,9 @@ don't always get time (or energy) to work on it.
 - [ ] Target 23: Generics
     * Generic Type Inference
     * Generic Types and Functions
-    * Generic Interface Binding
+    * Generic Method Binding
+    * Default methods like `.len()`
+    * Array Generics
 
 - [ ] Target 24: Monadic Error Handling
 
@@ -203,6 +203,8 @@ don't always get time (or energy) to work on it.
 - [ ] Target 28: Iterators and Sequences
 
 - [ ] Target 29: Stack Traceback Support
+
+- [ ] Target 30: Generic Control Flow
 
 
 
