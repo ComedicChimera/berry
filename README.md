@@ -121,6 +121,8 @@ don't always get time (or energy) to work on it.
         - Imported Named Types: `factory pkg.Name(x)`
         - Can only be defined for named types
         - Called via writing `Name()`
+    * Anonymous Importing
+        - `import pkg as _` imports method table with polluting namespace
 
 - [ ] Target 14: Dynamic Memory, Mutexes, and TLS
     * Thread Local Storage + TL Runtime State

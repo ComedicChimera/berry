@@ -1,0 +1,23 @@
+import io.std;
+
+func ([]int).print() {
+    for let i = 0; i < self.len(); i++ {
+        if i > 0 {
+            std.puts(", ");
+        }
+        
+        std.putint((*self)[i]);
+    }
+
+    std.putr('\n');
+}
+
+func main() {
+    let x = [1, 2, 3, 4, 5];
+    std.puts("len(x) = ");
+    std.putint(x.len());
+    std.putr('\n');
+
+    std.puts("x = ");
+    x.print();
+}

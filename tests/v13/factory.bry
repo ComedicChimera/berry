@@ -1,0 +1,21 @@
+import io.std;
+
+struct User {
+    name: string;
+    email: string;
+}
+
+factory User() User {
+    return .{"Test", "test@example.com"};
+}
+
+func main() {
+    let u = User();
+    std.puts("u.name = ");
+    std.puts(u.name);
+    std.putr('\n');
+
+    std.puts("u.email = ")
+    std.puts(u.email);
+    std.putr('\n');
+}

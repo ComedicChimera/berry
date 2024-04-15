@@ -1,0 +1,11 @@
+import io.std;
+
+import methods as vec;
+import extending as _;
+
+func main() {
+    let v = vec.Vec2{-10, 30};
+
+    std.puts("10 * v = ");
+    v.mul(10).print();
+}

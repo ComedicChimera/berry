@@ -1,0 +1,101 @@
+import io.std;
+
+pub struct Vec2 {
+    x, y: int;
+}
+
+pub func Vec2.print() {
+    std.putr('(');
+    std.putint(self.x);
+    std.puts(", ");
+    std.putint(self.y);
+    std.puts(")\n");
+}
+
+func Vec2.dot(other: Vec2) int {
+    return self.x * other.x + self.y * other.y;
+}
+
+func Vec2.mag_sq() int {
+    return self.dot(*self);
+}
+
+func Vec2.add(other: Vec2) Vec2 {
+    return .{self.x + other.x, self.y + other.y};
+}
+
+struct Vec3 {
+    x, y, z: int;
+}
+
+func Vec3.print() {
+    std.putr('(');
+    std.putint(self.x);
+    std.puts(", ");
+    std.putint(self.y);
+    std.puts(", ");
+    std.putint(self.z);
+    std.puts(")\n");
+}
+
+func Vec3.dot(other: Vec3) int {
+    return self.x * other.x + self.y * other.y + self.z * other.z;
+}
+
+func Vec3.mag_sq() int {
+    return self.dot(*self);
+}
+
+func Vec3.add(other: Vec3) Vec3 {
+    return .{self.x + other.x, self.y + other.y, self.z + other.z};
+}
+
+func main() {
+    let u2 = Vec2{1, 2};
+    let v2 = Vec2{3, 4};
+
+    std.puts("u2 = ");
+    u2.print();
+
+    std.puts("v2 = ");
+    v2.print();
+
+    std.puts("u2 * v2 = ");
+    std.putint(u2.dot(v2));
+    std.putr('\n');
+
+    std.puts("|u2|^2 = ");
+    std.putint(u2.mag_sq());
+    std.putr('\n');
+
+    std.puts("|v2|^2 = ");
+    std.putint(v2.mag_sq());
+    std.putr('\n');
+
+    std.puts("u2 + v2 = ");
+    u2.add(v2).print();
+
+    let u3 = Vec3{1, 2, 3};
+    let v2 = Vec3{4, 5, 6};
+
+    std.puts("u3 = ");
+    u3.print();
+
+    std.puts("v3 = ");
+    v3.print();
+
+    std.puts("u3 * v3 = ");
+    std.putint(u3.dot(v3));
+    std.putr('\n');
+
+    std.puts("|u3|^2 = ");
+    std.putint(u3.mag_sq());
+    std.putr('\n');
+
+    std.puts("|v3|^2 = ");
+    std.putint(v3.mag_sq());
+    std.putr('\n');
+
+    std.puts("u3 + v3 = ");
+    u2.add(v3).print();
+}

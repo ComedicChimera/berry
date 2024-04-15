@@ -1,0 +1,28 @@
+import io.std;
+
+import methods as vec;
+
+func vec.Vec2.sub(other: vec.Vec2) vec.Vec2 {
+    return .{self.x - other.x, self.y - other.y};
+}
+
+pub func vec.Vec2.mul(scalar: int) vec.Vec2 {
+    return .{self.x * scalar, self.y * scalar};
+}
+
+func main() {
+    let u2 = vec.Vec2{-1, 7};
+    let v2 = vec.Vec2{8, -2};
+
+    std.puts("u2 = ");
+    u2.print();
+
+    std.puts("v2 = ");
+    v2.print();
+
+    std.puts("u2 - v2 = ");
+    u2.sub(v2).print();
+
+    std.puts("2 * u2 = ");
+    u2.mul(2).print();
+}
