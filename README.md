@@ -171,41 +171,84 @@ don't always get time (or energy) to work on it.
     * Interface Inheritance
     * Virtual methods
     * The `any` type
+    * `is` Assertions
 
 - [ ] Target 19: Formatted IO
     * Make `io.std` more usable `std.println`, etc...
 
 - [ ] Target 20: Pattern Matching
+    * Tuple Pattern Matching
+    * Struct Pattern Matching
+    * Tuple and Struct Bindings (variables, assignment, etc.)
 
 - [ ] Target 21: Tagged Unions
+    * Enum-like Variants
+    * Tuple-like Variants
+    * Struct-like Variants
+    * Shared Fields
+    * Variant Types (use variants as pseudo-struct types)
+        - Ex: `AstExpr.Call`, `Type.Named`, etc.
+    * `is` Assertions for Variant Types
 
 - [ ] Target 22: Generics
     * Generic Type Inference
     * Generic Types and Functions
     * Generic Method Binding
-    * Default methods like `.len()`
-    * Array Generics
+    * Interface Constraints  
 
-- [ ] Target 23: Monadic Error Handling
+- [ ] Target 23: Better Method Binding  
+    * Bind methods onto any type (primitive, arrays, etc.)
+    * Default methods like `.len()` and `.hash()`
 
-- [ ] Target 24: Operator Overloading
+- [ ] Target 24: Iterators
+    * The `Iter` and `Seq` interfaces
+    * Builtin iterators 
+    * For each loops
 
-- [ ] Target 25: Builtin Collections
+- [ ] Target 25: Monadic Error Handling
+    * The `Chain` interface
+    * The `?` and `<-` Operators
+    * Conditional Binding
+        - Ex: `if x <- fn()` 
 
-- [ ] Target 26: Closures and Defer
+- [ ] Target 26: Operator Overloading
 
-- [ ] Target 27: Iterators and Sequences
+- [ ] Target 27: Builtin Collections
+    * `List[T]`
+    * `Map[K, V]`
+    * `Set[T]`
+    * `@map` macro for fast map creation
+    * Collection iterators
+    * The `Col` interface 
 
-- [ ] Target 28: Debug Info
+- [ ] Target 28: Closures and Defer
+    * Lambda functions: `|x, y| => expr`
+    * Lambda type inference
+    * Block lambda functions: `|x, y| { ... }`
+    * Closures and capture detection
+    * The `defer` statement
+
+- [ ] Target 29: Sequences
+    * Builtin sequence methods like `.map`, `.filter`, etc.
+    * The `sequences` package
+
+- [ ] Target 30: Better Generics
+    * Generic control flow
+    * Variadic generics
+
+- [ ] Target 31: Better Type Constraints
+    * Or (`|`) and And (`&`) Constraints
+    * Defined Constaints (Traits)
+    * Operator Constraints
+    * Builtin Numeric Constraints (`Int`, `Float`, `Num`)
+
+- [ ] Target 32: Debug Info
     * Fix DIType generation
     * Add code for debug assignment
     * Get debugging working on Windows (enable stepping through the program)
     * Proper handling of breakpoints and state dumping
     * Stack Traceback Support
 
-- [ ] Target 29: Better Generics
-    * Generic control flow
-    * Variadic generics
 
 
 
