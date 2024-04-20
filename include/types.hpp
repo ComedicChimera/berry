@@ -45,6 +45,17 @@ struct StructField {
     {}
 };
 
+// Method contains the shared type information for a method.
+struct Method {
+    size_t parent_id;
+    std::string_view name;
+    Type* signature;
+    bool exported;
+};
+
+// MethodTable is a collection of methods keyed by name.
+typedef std::unordered_map<std::string_view, Method*> MethodTable;
+
 // Type represents a Berry data type.
 struct Type {
     TypeKind kind;
@@ -78,6 +89,10 @@ struct Type {
             std::string_view mod_name;
             std::string_view name;
             Type* type;
+
+            // NOTE: This is stored as a pointer because it can't be allocated
+            // directly in the arena.
+            MethodTable* methods;
         } ty_Named;
         struct {
             std::span<StructField> fields;

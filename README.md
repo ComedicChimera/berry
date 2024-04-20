@@ -109,7 +109,7 @@ don't always get time (or energy) to work on it.
     * Method Binding
         - For named types: `Name.method()`
         - For imported named types: `pkg.Name.method()`
-        - For non-named types: `(Type).method()`
+        - Can only be defined for named types (for now)
     * Method Calling
     * Method importing and scoping
     * Access to self pointer via `self`
@@ -161,50 +161,51 @@ don't always get time (or energy) to work on it.
     * Automatic Heap Allocation
     * Escape Analysis
 
-- [ ] Target 17: Debug Info
-    * Fix DIType generation
-    * Add code for debug assignment
-    * Get debugging working on Windows (enable stepping through the program)
-    * Proper handling of breakpoints and state dumping
-
-- [ ] Target 18: Better Functions
+- [ ] Target 17: Better Functions
     * Variadic Arguments
     * Named Arguments
     * Function Overloading
 
-- [ ] Target 19: Interfaces
+- [ ] Target 18: Interfaces
     * Interface Declarations 
     * Interface Inheritance
     * Virtual methods
     * The `any` type
 
-- [ ] Target 20: Formatted IO
+- [ ] Target 19: Formatted IO
     * Make `io.std` more usable `std.println`, etc...
 
-- [ ] Target 21: Pattern Matching
+- [ ] Target 20: Pattern Matching
 
-- [ ] Target 22: Tagged Unions
+- [ ] Target 21: Tagged Unions
 
-- [ ] Target 23: Generics
+- [ ] Target 22: Generics
     * Generic Type Inference
     * Generic Types and Functions
     * Generic Method Binding
     * Default methods like `.len()`
     * Array Generics
 
-- [ ] Target 24: Monadic Error Handling
+- [ ] Target 23: Monadic Error Handling
 
-- [ ] Target 25: Operator Overloading
+- [ ] Target 24: Operator Overloading
 
-- [ ] Target 26: Builtin Collections
+- [ ] Target 25: Builtin Collections
 
-- [ ] Target 27: Closures and Defer
+- [ ] Target 26: Closures and Defer
 
-- [ ] Target 28: Iterators and Sequences
+- [ ] Target 27: Iterators and Sequences
 
-- [ ] Target 29: Stack Traceback Support
+- [ ] Target 28: Debug Info
+    * Fix DIType generation
+    * Add code for debug assignment
+    * Get debugging working on Windows (enable stepping through the program)
+    * Proper handling of breakpoints and state dumping
+    * Stack Traceback Support
 
-- [ ] Target 30: Generic Control Flow
+- [ ] Target 29: Better Generics
+    * Generic control flow
+    * Variadic generics
 
 
 
