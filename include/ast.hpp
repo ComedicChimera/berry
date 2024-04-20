@@ -9,6 +9,8 @@ enum AstKind {
     AST_VAR,
     AST_CONST,      // uses an_Var
     AST_TYPEDEF,
+    AST_METHOD,
+    AST_FACTORY,
 
     AST_BLOCK,
     AST_IF,
@@ -110,6 +112,19 @@ struct AstNode {
             Symbol* symbol;
             AstNode* type;
         } an_TypeDef;
+        struct {
+            AstNode* bind_type;
+            std::string_view name;
+            AstNode* func_type;
+            AstNode* body;
+            bool exported;
+        } an_Method;
+        struct {
+            AstNode* bind_type;
+            AstNode* func_type;
+            AstNode* body;
+            bool exported;
+        } an_Factory;
 
         struct {
             std::span<AstNode*> stmts;

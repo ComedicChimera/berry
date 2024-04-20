@@ -7,6 +7,8 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
     sizeof(size_ref_node.an_Var),
     sizeof(size_ref_node.an_Var),
     sizeof(size_ref_node.an_TypeDef),
+    sizeof(size_ref_node.an_Method),
+    sizeof(size_ref_node.an_Factory),
 
     sizeof(size_ref_node.an_Block),
     sizeof(size_ref_node.an_If),
@@ -61,7 +63,7 @@ static size_t ast_variant_sizes[ASTS_COUNT] = {
     0
 };
 
-#define LARGEST_AST_VARIANT_SIZE sizeof(size_ref_node.an_For)
+#define LARGEST_AST_VARIANT_SIZE sizeof(size_ref_node.an_Method)
 
 AstNode* Parser::allocNode(AstKind kind, const TextSpan& span) {
     size_t var_size = ast_variant_sizes[(int)kind];

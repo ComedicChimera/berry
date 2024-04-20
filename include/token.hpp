@@ -11,6 +11,7 @@ enum TokenKind {
     TOK_STRUCT,
     TOK_ENUM,
     TOK_TYPE,
+    TOK_FACTORY,
 
     TOK_IF,
     TOK_ELIF,

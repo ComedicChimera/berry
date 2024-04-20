@@ -9,6 +9,7 @@ std::string kindNames[TOKENS_COUNT] = {
     "struct",
     "enum",
     "type",
+    "factory",
     "if",
     "elif",
     "else",

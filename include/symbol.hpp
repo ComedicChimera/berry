@@ -189,8 +189,11 @@ struct SourceFile {
     // display_path is the path displayed to the user to identify the file.
     std::string display_path;
     
-    // import_table stores the package's imports.
+    // import_table stores the file's named imports.
     std::unordered_map<std::string_view, size_t> import_table;
+
+    // anon_imports stores the file's anonymous imports (`import pkg as _`).
+    std::unordered_set<size_t> anon_imports;
 
     // llvm_di_file is the debug info scope associated with this file.
     llvm::DIFile* llvm_di_file { nullptr };

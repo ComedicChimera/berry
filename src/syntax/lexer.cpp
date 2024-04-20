@@ -146,6 +146,7 @@ static std::unordered_map<std::string, TokenKind> keyword_patterns {
     { "struct", TOK_STRUCT },
     { "enum", TOK_ENUM },
     { "type", TOK_TYPE },
+    { "factory", TOK_FACTORY },
     { "if", TOK_IF },
     { "elif", TOK_ELIF },
     { "else", TOK_ELSE },

@@ -56,8 +56,12 @@ void Parser::parseModulePath() {
     if (it == src_file.import_table.end()) {
         auto dep_id = findOrAddModuleDep(mod_path);
 
-        auto imported_name = global_arena.MoveStr(std::move(imported_name_tok.value));
-        src_file.import_table.emplace(imported_name, dep_id);
+        if (imported_name_tok.value == "_") {
+            src_file.anon_imports.insert(dep_id);
+        } else {
+            auto imported_name = global_arena.MoveStr(std::move(imported_name_tok.value));
+            src_file.import_table.emplace(imported_name, dep_id);
+        }
 
         src_file.parent->deps[dep_id].import_locs.emplace_back(
             src_file.file_number, 

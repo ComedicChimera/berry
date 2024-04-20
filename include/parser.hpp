@@ -68,7 +68,9 @@ private:
     void parseAttribute(AttributeMap& attr_map);
 
     void parseDecl(AttributeMap&& attr_map, bool exported);
-    AstNode* parseFuncDecl(bool exported);
+    AstNode* parseFuncOrMethodDecl(bool exported);
+    AstNode* parseFactoryDecl(bool exported);
+    AstNode* parseFuncSignature();
     void parseFuncParams(std::vector<AstFuncParam>& params);
 
     AstNode* parseGlobalVarDecl(bool exported);

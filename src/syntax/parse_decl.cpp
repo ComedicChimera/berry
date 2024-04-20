@@ -52,7 +52,10 @@ void Parser::parseDecl(AttributeMap&& attr_map, bool exported) {
 
     switch (tok.kind) {
     case TOK_FUNC:
-        node = parseFuncDecl(exported);
+        node = parseFuncOrMethodDecl(exported);
+        break;
+    case TOK_FACTORY:
+        node = parseFactoryDecl(exported);
         break;
     case TOK_LET:
     case TOK_CONST:
@@ -83,25 +86,33 @@ void Parser::parseDecl(AttributeMap&& attr_map, bool exported) {
 
 /* -------------------------------------------------------------------------- */
 
-AstNode* Parser::parseFuncDecl(bool exported) {
+AstNode* Parser::parseFuncOrMethodDecl(bool exported) {
     auto start_span = tok.span;
     want(TOK_FUNC);
 
     auto name_tok = wantAndGet(TOK_IDENT);
 
-    std::vector<AstFuncParam> params;
-    want(TOK_LPAREN);
-    if (!has(TOK_RPAREN)) {
-        parseFuncParams(params);
-    }
-    want(TOK_RPAREN);
-    
-    AstNode* return_type { nullptr };
-    if (tok.kind != TOK_SEMI && tok.kind != TOK_LBRACE) {
-        return_type = parseTypeLabel();
+    AstNode* bind_type = nullptr;
+    if (has(TOK_DOT)) {
+        bind_type = allocNode(AST_IDENT, name_tok.span);
+        bind_type->an_Ident.name = ast_arena.MoveStr(std::move(name_tok.value));
+        bind_type->an_Ident.symbol = nullptr;
+
+        next();
+        name_tok = wantAndGet(TOK_IDENT);
+
+        if (has(TOK_DOT)) {
+            next();
+            name_tok = wantAndGet(TOK_IDENT);
+
+            auto* sel_type = allocNode(AST_SELECTOR, SpanOver(bind_type->span, name_tok.span));
+            sel_type->an_Sel.expr = bind_type;
+            sel_type->an_Sel.field_name = ast_arena.MoveStr(std::move(name_tok.value));
+            bind_type = sel_type;
+        }
     }
 
-    auto sig_end_span = prev.span;
+    auto* afunc_type = parseFuncSignature();
 
     AstNode* body { nullptr };
     TextSpan end_span;
@@ -119,9 +130,15 @@ AstNode* Parser::parseFuncDecl(bool exported) {
         break;
     }
 
-    auto* afunc_type = allocNode(AST_TYPE_FUNC, SpanOver(start_span, sig_end_span));
-    afunc_type->an_TypeFunc.params = ast_arena.MoveVec(std::move(params));
-    afunc_type->an_TypeFunc.return_type = return_type;
+    if (bind_type != nullptr) {
+        auto* amethod = allocNode(AST_METHOD, SpanOver(start_span, end_span));
+        amethod->an_Method.bind_type = bind_type;
+        amethod->an_Method.name = global_arena.MoveStr(std::move(name_tok.value));
+        amethod->an_Method.func_type = afunc_type;
+        amethod->an_Method.body = body;
+        amethod->an_Method.exported = exported;
+        return amethod;
+    }
 
     Symbol* symbol = global_arena.New<Symbol>(
         src_file.parent->id,
@@ -141,6 +158,57 @@ AstNode* Parser::parseFuncDecl(bool exported) {
     afunc->an_Func.body = body;
    
     return afunc;
+}
+
+AstNode* Parser::parseFactoryDecl(bool exported) {
+    auto start_span = tok.span;
+    want(TOK_FUNC);
+
+    auto name_tok = wantAndGet(TOK_IDENT);
+    auto* bind_type = allocNode(AST_IDENT, name_tok.span);
+    bind_type->an_Ident.name = ast_arena.MoveStr(std::move(name_tok.value));
+
+    if (has(TOK_DOT)) {
+        next();
+        name_tok = wantAndGet(TOK_IDENT);
+
+        auto* sel_type = allocNode(AST_SELECTOR, SpanOver(bind_type->span, name_tok.span));
+        sel_type->an_Sel.expr = bind_type;
+        sel_type->an_Sel.field_name = ast_arena.MoveStr(std::move(name_tok.value));
+        bind_type = sel_type;
+    }
+
+    auto* afunc_type = parseFuncSignature();
+    auto* body = parseBlock();
+
+    auto* afactory = allocNode(AST_FACTORY, SpanOver(start_span, body->span));
+    afactory->an_Factory.bind_type = bind_type;
+    afactory->an_Factory.func_type = afunc_type;
+    afactory->an_Factory.body = body;
+    afactory->an_Factory.exported = exported;
+
+    return afactory;
+}
+
+AstNode* Parser::parseFuncSignature() {
+    auto start_span = tok.span;
+
+    std::vector<AstFuncParam> params;
+    want(TOK_LPAREN);
+    if (!has(TOK_RPAREN)) {
+        parseFuncParams(params);
+    }
+    want(TOK_RPAREN);
+    
+    AstNode* return_type { nullptr };
+    if (tok.kind != TOK_SEMI && tok.kind != TOK_LBRACE) {
+        return_type = parseTypeLabel();
+    }
+
+    auto* afunc_type = allocNode(AST_TYPE_FUNC, SpanOver(start_span, prev.span));
+    afunc_type->an_TypeFunc.params = ast_arena.MoveVec(std::move(params));
+    afunc_type->an_TypeFunc.return_type = return_type;
+    return afunc_type;
 }
 
 void Parser::parseFuncParams(std::vector<AstFuncParam>& params) {

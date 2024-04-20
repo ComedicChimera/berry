@@ -113,7 +113,6 @@ don't always get time (or energy) to work on it.
     * Method Calling
     * Method importing and scoping
     * Access to self pointer via `self`
-    * We won't implement `.len()` yet.
     * Factory functions
         - Named Types: `factory Name(x)`
         - Imported Named Types: `factory pkg.Name(x)`
@@ -196,13 +195,9 @@ don't always get time (or energy) to work on it.
     * Generic Method Binding
     * Interface Constraints  
 
-- [ ] Target 23: Better Method Binding  
-    * Bind methods onto any type (primitive, arrays, etc.)
-    * Default methods like `.len()` and `.hash()`
-
 - [ ] Target 24: Iterators
     * The `Iter` and `Seq` interfaces
-    * Builtin iterators 
+    * Builtin methods: `.len()` and `.iter()`.
     * For each loops
 
 - [ ] Target 25: Monadic Error Handling
@@ -218,7 +213,8 @@ don't always get time (or energy) to work on it.
     * `Map[K, V]`
     * `Set[T]`
     * `@map` macro for fast map creation
-    * Collection iterators
+    * Builtin collection methods: `.at()`
+    * Builtin hashing: `.hash()`
     * The `Col` interface 
 
 - [ ] Target 28: Closures and Defer
