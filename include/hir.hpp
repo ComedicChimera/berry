@@ -10,6 +10,8 @@ enum HirKind {
     HIR_STRUCT,         // uses ir_TypeDef
     HIR_ALIAS,          // uses ir_TypeDef 
     HIR_ENUM,           // uses ir_TypeDef
+    HIR_METHOD,
+    HIR_FACTORY,
 
     HIR_BLOCK,
     HIR_IF,
@@ -36,6 +38,8 @@ enum HirKind {
     HIR_ADDR,
     HIR_DEREF,
     HIR_CALL,
+    HIR_CALL_METHOD,
+    HIR_CALL_FACTORY,
     HIR_INDEX,
     HIR_SLICE,
     HIR_FIELD,
@@ -213,6 +217,17 @@ struct HirExpr : public HirNode {
             std::span<HirExpr*> args;
             HirAllocMode alloc_mode;
         } ir_Call;
+        struct {
+            Method* method;
+            HirExpr* self;
+            std::span<HirExpr*> args;
+            HirAllocMode alloc_mode;
+        } ir_CallMethod;
+        struct {
+            FactoryFunc* func;
+            std::span<HirExpr*> args;
+            HirAllocMode alloc_mode;
+        } ir_CallFactory;
         struct {
             HirExpr* expr;
             HirExpr* index;
@@ -393,6 +408,20 @@ struct HirDecl : public HirNode {
         struct {
             Symbol* symbol;
         } ir_TypeDef;
+        struct {
+            Type* bind_type;
+            Method* method;
+            std::span<Symbol*> params;
+            Type* return_type;
+            HirStmt* body;
+        } ir_Method;
+        struct {
+            Type* bind_type;
+            FactoryFunc* func;
+            std::span<Symbol*> params;
+            Type* return_type;
+            HirStmt* body;
+        } ir_Factory;
     };
 
     HirDecl() {}

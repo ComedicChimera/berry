@@ -172,7 +172,7 @@ struct Module {
     // mtable_list stores all the method tables for named types allocated in the
     // module.  It is arranged as a linked list so as to guarantee the validity
     // of pointers to its elements as the list changes in size.
-    std::unique_ptr<MtableNode> mtable_list;
+    std::unique_ptr<MtableNode> mtable_list { nullptr };
 };
 
 // SourceFile represents a single source file in a Berry module.

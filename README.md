@@ -223,6 +223,7 @@ don't always get time (or energy) to work on it.
     * Block lambda functions: `|x, y| { ... }`
     * Closures and capture detection
     * The `defer` statement
+    * Method references (using `value.method` as a value)
 
 - [ ] Target 29: Sequences
     * Builtin sequence methods like `.map`, `.filter`, etc.

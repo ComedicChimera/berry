@@ -11,6 +11,8 @@ static size_t hir_variant_sizes[HIRS_COUNT] = {
     sizeof(size_ref_decl.ir_TypeDef),
     sizeof(size_ref_decl.ir_TypeDef),
     sizeof(size_ref_decl.ir_TypeDef),
+    sizeof(size_ref_decl.ir_Method),
+    sizeof(size_ref_decl.ir_Factory),
 
     sizeof(size_ref_stmt.ir_Block),
     sizeof(size_ref_stmt.ir_If),
@@ -37,6 +39,8 @@ static size_t hir_variant_sizes[HIRS_COUNT] = {
     sizeof(size_ref_expr.ir_Addr),
     sizeof(size_ref_expr.ir_Deref),
     sizeof(size_ref_expr.ir_Call),
+    sizeof(size_ref_expr.ir_CallMethod),
+    sizeof(size_ref_expr.ir_CallFactory),
     sizeof(size_ref_expr.ir_Index),
     sizeof(size_ref_expr.ir_Slice),
     sizeof(size_ref_expr.ir_Field),
@@ -58,9 +62,9 @@ static size_t hir_variant_sizes[HIRS_COUNT] = {
     sizeof(size_ref_expr.ir_TypeMacro)
 };
 
-#define LARGEST_DECL_VARIANT_SIZE ((sizeof(size_ref_decl.ir_Func)))
+#define LARGEST_DECL_VARIANT_SIZE ((sizeof(size_ref_decl.ir_Method)))
 #define LARGEST_STMT_VARIANT_SIZE ((sizeof(size_ref_stmt.ir_For)))
-#define LARGEST_EXPR_VARIANT_SIZE ((sizeof(size_ref_expr.ir_Slice)))
+#define LARGEST_EXPR_VARIANT_SIZE ((sizeof(size_ref_expr.ir_CallMethod)))
 
 HirDecl* Checker::allocDecl(HirKind kind, const TextSpan& span) {
     Assert(kind < HIR_BLOCK, "invalid kind for HIR decl");

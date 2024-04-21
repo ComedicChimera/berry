@@ -342,6 +342,8 @@ AstNode* Parser::parseStructDecl(bool exported) {
     named_type->ty_Named.mod_name = src_file.parent->name;  // No need to move to arena here.
     named_type->ty_Named.name = global_arena.MoveStr(std::move(name_tok.value));
     named_type->ty_Named.type = nullptr;
+    named_type->ty_Named.methods = nullptr;
+    named_type->ty_Named.factory = nullptr;
 
     auto* symbol = global_arena.New<Symbol>(
         src_file.parent->id,
@@ -382,6 +384,8 @@ AstNode* Parser::parseAliasDecl(bool exported) {
     alias_type->ty_Named.mod_name = src_file.parent->name;
     alias_type->ty_Named.name = global_arena.MoveStr(std::move(ident.value));
     alias_type->ty_Named.type = nullptr;
+    alias_type->ty_Named.methods = nullptr;
+    alias_type->ty_Named.factory = nullptr;
 
     auto* symbol = global_arena.New<Symbol>(
         src_file.parent->id,
@@ -447,6 +451,8 @@ AstNode* Parser::parseEnumDecl(bool exported) {
     named_type->ty_Named.mod_name = src_file.parent->name;
     named_type->ty_Named.name = global_arena.MoveStr(std::move(ident.value));
     named_type->ty_Named.type = nullptr;
+    named_type->ty_Named.methods = nullptr;
+    named_type->ty_Named.factory = nullptr;
 
     auto* symbol = global_arena.New<Symbol>(
         src_file.parent->id,

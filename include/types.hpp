@@ -56,6 +56,12 @@ struct Method {
 // MethodTable is a collection of methods keyed by name.
 typedef std::unordered_map<std::string_view, Method*> MethodTable;
 
+struct FactoryFunc {
+    size_t parent_id;
+    Type* signature;
+    bool exported;
+};
+
 // Type represents a Berry data type.
 struct Type {
     TypeKind kind;
@@ -90,9 +96,8 @@ struct Type {
             std::string_view name;
             Type* type;
 
-            // NOTE: This is stored as a pointer because it can't be allocated
-            // directly in the arena.
             MethodTable* methods;
+            FactoryFunc* factory;
         } ty_Named;
         struct {
             std::span<StructField> fields;
