@@ -134,6 +134,7 @@ AstNode* Parser::parseFuncOrMethodDecl(bool exported) {
         auto* amethod = allocNode(AST_METHOD, SpanOver(start_span, end_span));
         amethod->an_Method.bind_type = bind_type;
         amethod->an_Method.name = global_arena.MoveStr(std::move(name_tok.value));
+        amethod->an_Method.name_span = name_tok.span;
         amethod->an_Method.func_type = afunc_type;
         amethod->an_Method.body = body;
         amethod->an_Method.exported = exported;

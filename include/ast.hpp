@@ -115,6 +115,7 @@ struct AstNode {
         struct {
             AstNode* bind_type;
             std::string_view name;
+            TextSpan name_span;
             AstNode* func_type;
             AstNode* body;
             bool exported;

@@ -14,6 +14,20 @@ static Symbol* getDeclSymbol(AstNode* node) {
     return nullptr;
 }
 
+static std::pair<std::string_view, bool> getDeclNameAndConst(AstNode* node) {
+    switch (node->kind) {
+    case AST_METHOD:
+        return { node->an_Method.name, false };
+    case AST_FACTORY:
+        // TODO: get the factory name
+        return { "factory", false };
+    default: {
+        auto* symbol = getDeclSymbol(node);
+        return { symbol->name, symbol->flags & SYM_CONST };
+    } break;
+    }
+}
+
 void Checker::checkDecl(Decl* decl) {
     src_file = &mod.files[decl->file_number];
 
@@ -31,6 +45,12 @@ void Checker::checkDecl(Decl* decl) {
     switch (decl->ast_decl->kind) {
     case AST_FUNC:
         decl->hir_decl = checkFuncDecl(decl->ast_decl);
+        break;
+    case AST_METHOD:
+        decl->hir_decl = checkMethodDecl(decl->ast_decl);
+        break;
+    case AST_FACTORY:
+        decl->hir_decl = checkFactoryDecl(decl->ast_decl);
         break;
     case AST_VAR:
         decl->hir_decl = checkGlobalVar(decl->ast_decl);
@@ -95,9 +115,9 @@ void Checker::reportCycle(Decl* decl) {
 
         fmt_cycle += " -> ";
 
-        auto* symbol = getDeclSymbol(mod.unsorted_decls[n]->ast_decl);
-        fmt_cycle += symbol->name;
-        if (symbol->flags & SYM_CONST) {
+        auto [name, is_const] = getDeclNameAndConst(mod.unsorted_decls[n]->ast_decl);
+        fmt_cycle += name;
+        if (is_const) {
             cycle_involves_const = true;
         }
 
@@ -121,10 +141,78 @@ void Checker::reportCycle(Decl* decl) {
 
 HirDecl* Checker::checkFuncDecl(AstNode* node) {
     auto* symbol = node->an_Func.symbol;
-    auto& afunc_type = node->an_Func.func_type->an_TypeFunc;
+
+    std::vector<Symbol*> params;
+    auto* func_type = checkFuncSignature(node->an_Func.func_type, params);
+    symbol->type = func_type;
+
+    auto* hfunc = allocDecl(HIR_FUNC, node->span);
+    hfunc->ir_Func.symbol = symbol;
+    hfunc->ir_Func.params = arena.MoveVec(std::move(params));
+    hfunc->ir_Func.return_type = func_type->ty_Func.return_type;
+    hfunc->ir_Func.body = nullptr;
+
+    return hfunc;
+}
+
+HirDecl* Checker::checkMethodDecl(AstNode* node) {
+    auto& amethod = node->an_Method;
+    auto* bind_type = checkTypeLabel(amethod.bind_type, false);
+
+    auto& mtable = getMethodTable(bind_type);
+    if (mtable.contains(amethod.name)) {
+        fatal(amethod.name_span, "type {} has multiple methods named {}", bind_type->ToString(), amethod.name);
+    }    
+
+    std::vector<Symbol*> params;
+    auto* func_type = checkFuncSignature(amethod.func_type, params);
+
+    auto* method = arena.New<Method>(
+        mod.id,
+        amethod.name,
+        func_type,
+        amethod.exported
+    );
+    mtable.emplace(amethod.name, method);
+
+    auto* hmethod = allocDecl(HIR_METHOD, node->span);
+    hmethod->ir_Method.bind_type = bind_type;
+    hmethod->ir_Method.method = method;
+    hmethod->ir_Method.params = arena.MoveVec(std::move(params));
+    hmethod->ir_Method.return_type = func_type->ty_Func.return_type;
+    hmethod->ir_Method.body = nullptr;
+    return hmethod;
+}
+
+HirDecl* Checker::checkFactoryDecl(AstNode* node) {
+    auto& afact = node->an_Factory;
+    auto* bind_type = checkTypeLabel(afact.bind_type, false);
+
+    Assert(bind_type->kind == TYPE_NAMED || bind_type->kind == TYPE_ALIAS, "non-named method bind type");
+
+    std::vector<Symbol*> params;
+    auto* func_type = checkFuncSignature(afact.func_type, params);
+
+    auto* factory = arena.New<FactoryFunc>(
+        mod.id,
+        func_type,
+        afact.exported
+    );
+    bind_type->ty_Named.factory = factory;
+
+    auto* hfact = allocDecl(HIR_FACTORY, node->span);
+    hfact->ir_Factory.bind_type = bind_type;
+    hfact->ir_Factory.func = factory;
+    hfact->ir_Factory.params = arena.MoveVec(std::move(params));
+    hfact->ir_Factory.return_type = func_type->ty_Func.return_type;
+    hfact->ir_Factory.body = nullptr;
+    return hfact;
+}
+
+Type* Checker::checkFuncSignature(AstNode* node, std::vector<Symbol*>& params) {
+    auto& afunc_type = node->an_TypeFunc;
 
     std::vector<Type*> param_types;
-    std::vector<Symbol*> params;
     for (auto& aparam : afunc_type.params) {
         auto* param_type = checkTypeLabel(aparam.type, false);
         auto* param = arena.New<Symbol>(
@@ -150,16 +238,39 @@ HirDecl* Checker::checkFuncDecl(AstNode* node) {
     auto* func_type = allocType(TYPE_FUNC);
     func_type->ty_Func.param_types = arena.MoveVec(std::move(param_types));
     func_type->ty_Func.return_type = return_type;
-    symbol->type = func_type;
-
-    auto* hfunc = allocDecl(HIR_FUNC, node->span);
-    hfunc->ir_Func.symbol = symbol;
-    hfunc->ir_Func.params = arena.MoveVec(std::move(params));
-    hfunc->ir_Func.return_type = return_type;
-    hfunc->ir_Func.body = nullptr;
-
-    return hfunc;
+    return func_type;
 }
+
+MethodTable& Checker::getMethodTable(Type* bind_type) {
+    Assert(bind_type->kind == TYPE_NAMED || bind_type->kind == TYPE_ALIAS, "non-named method bind type");
+
+    if (bind_type->ty_Named.methods == nullptr) {
+        auto mnode = std::make_unique<Module::MtableNode>();
+        auto* mtable = &mnode->mtable;
+
+        if (bind_type->ty_Named.mod_id == mod.id) {
+            mnode->next = std::move(mod.mtable_list);
+            mod.mtable_list = std::move(mnode);
+        } else {
+            Module* dep_mod = nullptr;
+            for (auto& dep : mod.deps) {
+                if (dep.id == mod.id) {
+                    dep_mod = dep.mod;
+                    break;
+                }
+            }
+
+            mnode->next = std::move(dep_mod->mtable_list);
+            dep_mod->mtable_list = std::move(mnode);
+        }
+
+        bind_type->ty_Named.methods = mtable;
+    }
+
+    return *bind_type->ty_Named.methods;
+}
+
+/* -------------------------------------------------------------------------- */
 
 HirDecl* Checker::checkGlobalVar(AstNode* node) {
     auto* type = checkTypeLabel(node->an_Var.type, false);

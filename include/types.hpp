@@ -51,6 +51,13 @@ struct Method {
     std::string_view name;
     Type* signature;
     bool exported;
+
+    Method(size_t parent_id_, std::string_view name_, Type* sig_, bool exported_)
+    : parent_id(parent_id_)
+    , name(name_)
+    , signature(sig_)
+    , exported(exported_)
+    {}
 };
 
 // MethodTable is a collection of methods keyed by name.
@@ -60,6 +67,12 @@ struct FactoryFunc {
     size_t parent_id;
     Type* signature;
     bool exported;
+
+    FactoryFunc(size_t parent_id_, Type* sig_, bool exported_)
+    : parent_id(parent_id_)
+    , signature(sig_)
+    , exported(exported_)
+    {}
 };
 
 // Type represents a Berry data type.

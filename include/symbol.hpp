@@ -166,7 +166,7 @@ struct Module {
     // MtableNode is a node in the mtable linked list.
     struct MtableNode {
         MethodTable mtable;
-        std::unique_ptr<MtableNode> next;
+        std::unique_ptr<MtableNode> next { nullptr };
     };
 
     // mtable_list stores all the method tables for named types allocated in the
