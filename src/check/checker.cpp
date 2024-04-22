@@ -34,7 +34,25 @@ void Checker::CheckModule() {
 
         switch (decl->hir_decl->kind) {
         case HIR_FUNC:
-            checkFuncBody(decl);
+            checkFuncAttrs(decl);
+            if (decl->ast_decl->an_Func.body) {
+                decl->hir_decl->ir_Func.body = checkFuncBody(
+                    decl->ast_decl->an_Func.body,
+                    decl->hir_decl->ir_Func.params,
+                    decl->hir_decl->ir_Func.return_type
+                );
+            }
+            break;
+        case HIR_METHOD:
+            checkMethodBody(decl);
+            break;
+        case HIR_FACTORY:
+            checkFactoryAttrs(decl);
+            decl->hir_decl->ir_Factory.body = checkFuncBody(
+                decl->ast_decl->an_Factory.body,
+                decl->hir_decl->ir_Factory.params,
+                decl->hir_decl->ir_Factory.return_type
+            );
             break;
         case HIR_GLOBAL_VAR:
             checkGlobalVarInit(decl);
@@ -51,7 +69,7 @@ void Checker::CheckModule() {
     curr_decl_number = 0;
     for (auto* decl : mod.unsorted_decls) {
         switch (decl->hir_decl->kind) {
-        case HIR_FUNC:
+        case HIR_FUNC: case HIR_METHOD: case HIR_FACTORY:
             if (decl->color == COLOR_WHITE) {
                 mod.sorted_decls.push_back(decl);
             }
@@ -81,6 +99,12 @@ void Checker::CheckModule() {
         case HIR_ENUM:
         case HIR_ALIAS:
             decl->hir_decl->ir_TypeDef.symbol->decl_number = curr_decl_number;
+            break;
+        case HIR_METHOD:
+            decl->hir_decl->ir_Method.method->decl_number = curr_decl_number;
+            break;
+        case HIR_FACTORY:
+            decl->hir_decl->ir_Factory.bind_type->ty_Named.factory->decl_number = curr_decl_number;
             break;
         }
 

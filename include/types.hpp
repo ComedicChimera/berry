@@ -48,12 +48,15 @@ struct StructField {
 // Method contains the shared type information for a method.
 struct Method {
     size_t parent_id;
+    size_t decl_number;
+
     std::string_view name;
     Type* signature;
     bool exported;
 
     Method(size_t parent_id_, std::string_view name_, Type* sig_, bool exported_)
     : parent_id(parent_id_)
+    , decl_number(0)
     , name(name_)
     , signature(sig_)
     , exported(exported_)
@@ -65,11 +68,14 @@ typedef std::unordered_map<std::string_view, Method*> MethodTable;
 
 struct FactoryFunc {
     size_t parent_id;
+    size_t decl_number;
+
     Type* signature;
     bool exported;
 
     FactoryFunc(size_t parent_id_, Type* sig_, bool exported_)
     : parent_id(parent_id_)
+    , decl_number(0)
     , signature(sig_)
     , exported(exported_)
     {}

@@ -55,6 +55,42 @@ void Checker::checkFuncAttrs(Decl* decl) {
     }
 }
 
+void Checker::checkMethodAttrs(Decl* decl) {
+    auto& span = decl->ast_decl->an_Method.name_span;
+
+    if (decl->ast_decl->an_Method.body == nullptr) {
+        fatal(span, "method must have a body");
+    }
+
+    for (auto& attr : decl->attrs) {
+        if (attr.name == "abientry" || attr.name == "extern" || attr.name == "callconv") {
+            error(span, "method may not have @{} attribute", attr.name);
+        } else if (attr.name == "inline") {
+            if (attr.value.size() > 0) {
+                error(span, "@inline cannot take an argument");
+            }
+        }
+    }
+}
+
+void Checker::checkFactoryAttrs(Decl* decl) {
+    auto& span = decl->ast_decl->an_Factory.bind_type->span;
+
+    if (decl->ast_decl->an_Factory.body == nullptr) {
+        fatal(span, "factory function must have a body");
+    }
+
+    for (auto& attr : decl->attrs) {
+        if (attr.name == "abientry" || attr.name == "extern" || attr.name == "callconv") {
+            error(span, "factory function may not have @{} attribute", attr.name);
+        } else if (attr.name == "inline") {
+            if (attr.value.size() > 0) {
+                error(span, "@inline cannot take an argument");
+            }
+        }
+    }
+}
+
 void Checker::checkGlobalVarAttrs(Decl* decl) {
     auto& avar = decl->ast_decl->an_Var;
     auto span = avar.symbol->span;

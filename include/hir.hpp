@@ -411,6 +411,7 @@ struct HirDecl : public HirNode {
         struct {
             Type* bind_type;
             Method* method;
+            Symbol* self_ptr;
             std::span<Symbol*> params;
             Type* return_type;
             HirStmt* body;

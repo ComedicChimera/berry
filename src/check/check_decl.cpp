@@ -335,29 +335,64 @@ HirDecl* Checker::checkTypeDef(AstNode* node) {
 
 /* -------------------------------------------------------------------------- */
 
-void Checker::checkFuncBody(Decl* decl) {
-    checkFuncAttrs(decl);
-
-    if (decl->ast_decl->an_Func.body) {
-        auto& hfunc = decl->hir_decl->ir_Func;
-
-        pushScope();
-        for (auto* param : hfunc.params) {
-            declareLocal(param);
-        }
-
-        enclosing_return_type = hfunc.return_type;
-        auto [hbody, always_returns] = checkStmt(decl->ast_decl->an_Func.body);
-        enclosing_return_type = nullptr;
-
-        popScope();
-
-        if (hfunc.return_type->kind != TYPE_UNIT && !always_returns) {
-            error(hbody->span, "function must return a value");
-        }
-
-        hfunc.body = hbody;
+HirStmt* Checker::checkFuncBody(AstNode* body, std::span<Symbol*> params, Type* return_type) {
+    pushScope();
+    for (auto* param : params) {
+        declareLocal(param);
     }
+
+    enclosing_return_type = return_type;
+    auto [hbody, always_returns] = checkStmt(body);
+    enclosing_return_type = nullptr;
+
+    popScope();
+
+    if (return_type->kind != TYPE_UNIT && !always_returns) {
+        error(hbody->span, "function must return a value");
+    }
+
+    return hbody;
+}
+
+void Checker::checkMethodBody(Decl* decl) {
+    checkMethodAttrs(decl);
+    auto& hm = decl->hir_decl->ir_Method;
+
+    pushScope();
+
+    auto* self_ptr_type = allocType(TYPE_PTR);
+    self_ptr_type->ty_Ptr.elem_type = hm.bind_type;
+    auto* self_ptr = arena.New<Symbol>(
+        mod.id,
+        "self",
+        decl->ast_decl->an_Method.name_span,
+        SYM_FUNC,
+        0,
+        self_ptr_type,
+        false
+    );
+    declareLocal(self_ptr);
+    hm.self_ptr = self_ptr;
+
+    for (auto* param : hm.params) {
+        if (param->name == "self") {
+            fatal(param->span, "method cannot have a parameter named self");
+        }
+
+        declareLocal(param);
+    }
+
+    enclosing_return_type = hm.return_type;
+    auto [hbody, always_returns] = checkStmt(decl->ast_decl->an_Method.body);
+    enclosing_return_type = nullptr;
+
+    popScope();
+
+    if (hm.return_type->kind != TYPE_UNIT && !always_returns) {
+        error(hbody->span, "method must return a value");
+    }
+    
+    hm.body = hbody;
 }
 
 void Checker::checkGlobalVarInit(Decl* decl) {

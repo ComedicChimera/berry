@@ -122,10 +122,13 @@ private:
     HirDecl* checkGlobalConst(AstNode* node);
     HirDecl* checkTypeDef(AstNode* node);
 
-    void checkFuncBody(Decl* decl);
+    HirStmt* checkFuncBody(AstNode* body, std::span<Symbol*> params, Type* return_type);
+    void checkMethodBody(Decl* decl);
     void checkGlobalVarInit(Decl* decl);
 
     void checkFuncAttrs(Decl* decl);
+    void checkMethodAttrs(Decl* decl);
+    void checkFactoryAttrs(Decl* decl);
     void checkGlobalVarAttrs(Decl* decl);
 
     Type* checkTypeLabel(AstNode* node, bool should_expand);
