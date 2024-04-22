@@ -159,6 +159,15 @@ HirDecl* Checker::checkMethodDecl(AstNode* node) {
     auto& amethod = node->an_Method;
     auto* bind_type = checkTypeLabel(amethod.bind_type, false);
 
+    auto* uw_bind_type = bind_type->FullUnwrap();
+    if (uw_bind_type->kind == TYPE_STRUCT) {
+        for (auto& field : uw_bind_type->ty_Struct.fields) {
+            if (field.name == amethod.name) {
+                fatal(amethod.name_span, "type {} already has field named {}", bind_type->ToString(), field.name);
+            }
+        }
+    } 
+
     auto& mtable = getMethodTable(bind_type);
     if (mtable.contains(amethod.name)) {
         fatal(amethod.name_span, "type {} has multiple methods named {}", bind_type->ToString(), amethod.name);
@@ -189,6 +198,10 @@ HirDecl* Checker::checkFactoryDecl(AstNode* node) {
     auto* bind_type = checkTypeLabel(afact.bind_type, false);
 
     Assert(bind_type->kind == TYPE_NAMED || bind_type->kind == TYPE_ALIAS, "non-named method bind type");
+
+    if (bind_type->ty_Named.factory != nullptr) {
+        fatal(afact.bind_type->span, "multiple factory functions defined for type {}", bind_type->ToString());
+    }
 
     std::vector<Symbol*> params;
     auto* func_type = checkFuncSignature(afact.func_type, params);

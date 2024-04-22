@@ -267,33 +267,81 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
 HirExpr* Checker::checkCall(AstNode* node) {
     markNonComptime(node->span);
 
-    auto* hfunc = checkExpr(node->an_Call.func);
-    auto* func_type = hfunc->type->Inner();
+    auto* callee = node->an_Call.func;
+    HirExpr* hcallee = nullptr;
+    if (callee->kind == AST_IDENT) { // name()
+        auto [symbol, dep] = mustLookup(callee->an_Ident.name, callee->span);
+        if (dep != nullptr) {
+            fatal(callee->span, "cannot use a module as a value");
+        }
+
+        if (symbol->flags & SYM_TYPE) { // Type()
+            auto* factory_func = symbol->type->ty_Named.factory;
+            if (factory_func == nullptr) {
+                fatal(node->span, "type {} has no factory function", symbol->type->ToString());
+            }
+
+            if (factory_func->parent_id != mod.id && !factory_func->exported) {
+                fatal(node->span, "factory function {}() is not exported", symbol->type->ToString());
+            }
+
+            auto hargs = checkArgs(node->span, factory_func->signature, node->an_Call.args);
+
+            auto* hfcall = allocExpr(HIR_CALL_FACTORY, node->span);
+            hfcall->type = factory_func->signature->ty_Func.return_type;
+            hfcall->ir_CallFactory.func = factory_func;
+            hfcall->ir_CallFactory.args = hargs;
+            // TODO: heap allocation
+            hfcall->ir_CallFactory.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+            return hfcall;
+        }
+
+        hcallee = checkValueSymbol(symbol, callee->span);
+    } else if (callee->kind == AST_SELECTOR) { // [expr].name()
+        auto* root = callee->an_Sel.expr;
+        HirExpr* hroot = nullptr;
+        if (root->kind == AST_IDENT) { // name1.name2()
+
+        } else { // [expr].name()
+            hroot = checkExpr(root);
+        }
+
+        // TODO: try looking up method
+    } else {
+        hcallee = checkExpr(callee);
+    }
+    
+    auto* func_type = hcallee->type->Inner();
     if (func_type->kind != TYPE_FUNC) {
-        fatal(hfunc->span, "{} is not callable", hfunc->type->ToString());
+        fatal(hcallee->span, "{} is not callable", hcallee->type->ToString());
     }
 
-    auto aargs = node->an_Call.args;
+    auto hargs = checkArgs(node->span, func_type, node->an_Call.args);
+
+    auto* hcall = allocExpr(HIR_CALL, node->span);
+    hcall->type = func_type->ty_Func.return_type;
+    hcall->ir_Call.func = hcallee;
+    hcall->ir_Call.args = hargs;
+    // TODO: heap allocation
+    hcall->ir_Call.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+    return hcall;
+}
+
+std::span<HirExpr*> Checker::checkArgs(const TextSpan& span, Type* func_type, std::span<AstNode*>& args) {
     auto fparams = func_type->ty_Func.param_types;
-    if (aargs.size() != fparams.size()) {
-        fatal(node->span, "function expects {} arguments by got {}", fparams.size(), aargs.size());
+    if (args.size() != fparams.size()) {
+        fatal(span, "function expects {} arguments by got {}", fparams.size(), args.size());
     }
 
     std::vector<HirExpr*> hargs;
-    for (size_t i = 0; i < aargs.size(); i++) {
-        auto* harg = checkExpr(aargs[i], fparams[i]);
+    for (size_t i = 0; i < args.size(); i++) {
+        auto* harg = checkExpr(args[i], fparams[i]);
         harg = subtypeCast(harg, fparams[i]);
 
         hargs.push_back(harg);
     }
 
-    auto* hcall = allocExpr(HIR_CALL, node->span);
-    hcall->type = func_type->ty_Func.return_type;
-    hcall->ir_Call.func = hfunc;
-    hcall->ir_Call.args = arena.MoveVec(std::move(hargs));
-    // TODO: heap allocation
-    hcall->ir_Call.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
-    return hcall;
+    return arena.MoveVec(std::move(hargs));
 }
 
 HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {

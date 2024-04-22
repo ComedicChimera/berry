@@ -184,6 +184,7 @@ private:
     HirExpr* checkExpr(AstNode* node, Type* infer_type = nullptr);
 
     HirExpr* checkCall(AstNode* node);
+    std::span<HirExpr*> checkArgs(const TextSpan& span, Type* func_type, std::span<AstNode*>& args);
     HirExpr* checkSelector(AstNode* node, Type* infer_type);
     HirExpr* checkField(HirExpr* root, std::string_view field_name, const TextSpan& span);
     HirExpr* checkEnumLit(AstNode* node, Type* type);
