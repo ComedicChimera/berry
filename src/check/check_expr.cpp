@@ -357,7 +357,7 @@ HirExpr* Checker::checkFactoryCall(const TextSpan& span, Type* type, std::span<A
         } else {
             fatal(span, "factory function {}() is not exported", type->ToString());
         }
-    } else if (comptime_depth > 0) { // Do we even need this check?
+    } else if (!first_pass) {
         init_graph[curr_decl_number].push_back(factory_func->decl_number);
     }
 

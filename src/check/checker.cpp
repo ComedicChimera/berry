@@ -288,7 +288,7 @@ Method* Checker::tryLookupMethod(const TextSpan& span, Type* bind_type, std::str
                     } else {
                         fatal(span, "method {} of type {} is not exported", method_name, bind_type->ToString());
                     }
-                } else if (comptime_depth > 0) { // Do we even need this check?
+                } else if (!first_pass) { // Do we even need this check?
                     init_graph[curr_decl_number].push_back(method->decl_number);
                 }
 
