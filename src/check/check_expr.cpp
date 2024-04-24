@@ -276,24 +276,7 @@ HirExpr* Checker::checkCall(AstNode* node) {
         }
 
         if (symbol->flags & SYM_TYPE) { // Type()
-            auto* factory_func = symbol->type->ty_Named.factory;
-            if (factory_func == nullptr) {
-                fatal(node->span, "type {} has no factory function", symbol->type->ToString());
-            }
-
-            if (factory_func->parent_id != mod.id && !factory_func->exported) {
-                fatal(node->span, "factory function {}() is not exported", symbol->type->ToString());
-            }
-
-            auto hargs = checkArgs(node->span, factory_func->signature, node->an_Call.args);
-
-            auto* hfcall = allocExpr(HIR_CALL_FACTORY, node->span);
-            hfcall->type = factory_func->signature->ty_Func.return_type;
-            hfcall->ir_CallFactory.func = factory_func;
-            hfcall->ir_CallFactory.args = hargs;
-            // TODO: heap allocation
-            hfcall->ir_CallFactory.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
-            return hfcall;
+            return checkFactoryCall(node->span, symbol->type, node->an_Call.args);
         }
 
         hcallee = checkValueSymbol(symbol, callee->span);
@@ -301,16 +284,46 @@ HirExpr* Checker::checkCall(AstNode* node) {
         auto* root = callee->an_Sel.expr;
         HirExpr* hroot = nullptr;
         if (root->kind == AST_IDENT) { // name1.name2()
+            auto [symbol, dep] = mustLookup(root->an_Ident.name, root->span);
+            if (dep != nullptr) { // module.name()
+                symbol = mustFindSymbolInDep(*dep, callee->an_Sel.field_name, callee->span);
 
+                if (symbol->flags & SYM_TYPE) { // module.Type()
+                    return checkFactoryCall(node->span, symbol->type, node->an_Call.args);
+                }
+
+                hcallee = checkStaticGet(dep->id, symbol, dep->mod->name, callee->span);
+                goto normal_func;
+            } else if (symbol->flags & SYM_TYPE) { // Type.name()
+                hcallee = checkEnumLit(callee, symbol->type);
+                goto normal_func;
+            } else { // value.name()
+                hroot = checkValueSymbol(symbol, root->span);
+            }
         } else { // [expr].name()
             hroot = checkExpr(root);
         }
 
-        // TODO: try looking up method
+        auto [hexpr, method] = checkFieldOrMethod(hroot, callee->an_Sel.field_name, callee->span);
+        if (hexpr == nullptr) { // Method call
+            auto hargs = checkArgs(node->span, method->signature, node->an_Call.args);
+
+            auto* hmcall = allocExpr(HIR_CALL_METHOD, node->span);
+            hmcall->type = method->signature->ty_Func.return_type;
+            hmcall->ir_CallMethod.self = hroot;
+            hmcall->ir_CallMethod.method = method;
+            hmcall->ir_CallMethod.args = hargs;
+            // TODO: heap allocation
+            hmcall->ir_CallMethod.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+            return hmcall;
+        }
+
+        hcallee = hexpr;
     } else {
         hcallee = checkExpr(callee);
     }
     
+normal_func:
     auto* func_type = hcallee->type->Inner();
     if (func_type->kind != TYPE_FUNC) {
         fatal(hcallee->span, "{} is not callable", hcallee->type->ToString());
@@ -325,6 +338,27 @@ HirExpr* Checker::checkCall(AstNode* node) {
     // TODO: heap allocation
     hcall->ir_Call.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
     return hcall;
+}
+
+HirExpr* Checker::checkFactoryCall(const TextSpan& span, Type* type, std::span<AstNode*> args) {
+    auto* factory_func = type->ty_Named.factory;
+    if (factory_func == nullptr) {
+        fatal(span, "type {} has no factory function", type->ToString());
+    }
+
+    if (factory_func->parent_id != mod.id && !factory_func->exported) {
+        fatal(span, "factory function {}() is not exported", type->ToString());
+    }
+
+    auto hargs = checkArgs(span, factory_func->signature, args);
+
+    auto* hfcall = allocExpr(HIR_CALL_FACTORY, span);
+    hfcall->type = factory_func->signature->ty_Func.return_type;
+    hfcall->ir_CallFactory.func = factory_func;
+    hfcall->ir_CallFactory.args = hargs;
+    // TODO: heap allocation
+    hfcall->ir_CallFactory.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+    return hfcall;
 }
 
 std::span<HirExpr*> Checker::checkArgs(const TextSpan& span, Type* func_type, std::span<AstNode*>& args) {
@@ -403,10 +437,21 @@ HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {
         break;
     }
 
+
     return checkField(root_expr, node->an_Sel.field_name, node->span);
 }
 
 HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const TextSpan& span) {
+    auto [hexpr, method] = checkFieldOrMethod(root, field_name, span);
+    if (hexpr == nullptr) {
+        // TODO: method references
+        fatal(span, "cannot use method as a value");
+    }
+
+    return hexpr;
+}
+
+std::pair<HirExpr*, Method*> Checker::checkFieldOrMethod(HirExpr* root, std::string_view field_name, const TextSpan& span) {
     Type* display_type = root->type;
     auto* root_type = display_type->Inner();
 
@@ -465,7 +510,21 @@ HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const T
     }
 
     if (result_type == nullptr) {
-        fatal(span, "type {} has no field named {}", display_type->ToString());
+        if (display_type->kind == TYPE_NAMED || display_type->kind == TYPE_ALIAS) {
+            if (display_type->ty_Named.methods != nullptr) {
+                auto it = display_type->ty_Named.methods->find(field_name);
+                if (it != display_type->ty_Named.methods->end()) {
+                    auto* method = it->second;
+                    if (method->parent_id == mod.id || method->exported) {
+                        return { nullptr, it->second };
+                    } else {
+                        fatal(span, "method {} of type {} is not exported", field_name, display_type->ToString());
+                    }
+                }
+            }
+        }
+
+        fatal(span, "type {} has no field or method named {}", display_type->ToString(), field_name);
     }
 
     auto* hexpr = allocExpr(is_auto_deref ? HIR_DEREF_FIELD : HIR_FIELD, span);
@@ -473,7 +532,7 @@ HirExpr* Checker::checkField(HirExpr* root, std::string_view field_name, const T
     hexpr->assignable = assignable;
     hexpr->ir_Field.expr = root;
     hexpr->ir_Field.field_index = field_index;
-    return hexpr;
+    return { hexpr, nullptr };
 }
 
 HirExpr* Checker::checkEnumLit(AstNode* node, Type* type) {
