@@ -346,8 +346,19 @@ HirExpr* Checker::checkFactoryCall(const TextSpan& span, Type* type, std::span<A
         fatal(span, "type {} has no factory function", type->ToString());
     }
 
-    if (factory_func->parent_id != mod.id && !factory_func->exported) {
-        fatal(span, "factory function {}() is not exported", type->ToString());
+    if (factory_func->parent_id != mod.id) {
+        if (factory_func->exported) {
+            for (auto& dep : mod.deps) { // Add usage ID
+                if (dep.mod->id == factory_func->parent_id) {
+                    dep.usages.insert(factory_func->decl_number);
+                    break;
+                }
+            }
+        } else {
+            fatal(span, "factory function {}() is not exported", type->ToString());
+        }
+    } else if (comptime_depth > 0) { // Do we even need this check?
+        init_graph[curr_decl_number].push_back(factory_func->decl_number);
     }
 
     auto hargs = checkArgs(span, factory_func->signature, args);
@@ -509,19 +520,10 @@ std::pair<HirExpr*, Method*> Checker::checkFieldOrMethod(HirExpr* root, std::str
     } break;
     }
 
-    if (result_type == nullptr) {
-        if (display_type->kind == TYPE_NAMED || display_type->kind == TYPE_ALIAS) {
-            if (display_type->ty_Named.methods != nullptr) {
-                auto it = display_type->ty_Named.methods->find(field_name);
-                if (it != display_type->ty_Named.methods->end()) {
-                    auto* method = it->second;
-                    if (method->parent_id == mod.id || method->exported) {
-                        return { nullptr, it->second };
-                    } else {
-                        fatal(span, "method {} of type {} is not exported", field_name, display_type->ToString());
-                    }
-                }
-            }
+    if (result_type == nullptr) { // Try to do a method lookup.
+        auto* method = tryLookupMethod(span, display_type, field_name);
+        if (method != nullptr) {
+            return { nullptr, method };
         }
 
         fatal(span, "type {} has no field or method named {}", display_type->ToString(), field_name);
@@ -761,6 +763,7 @@ HirExpr* Checker::checkValueSymbol(Symbol* symbol, const TextSpan& span) {
         fatal(span, "value of {} cannot be determined at compile time", symbol->name);
     } else {
         is_comptime_expr = false;
+        init_graph[curr_decl_number].push_back(symbol->decl_number);
     }
 
     auto* hexpr = allocExpr(HIR_IDENT, span);

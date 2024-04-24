@@ -269,6 +269,39 @@ Symbol* Checker::mustFindSymbolInDep(Module::DepEntry& dep, std::string_view nam
 
 /* -------------------------------------------------------------------------- */
 
+Method* Checker::tryLookupMethod(const TextSpan& span, Type* bind_type, std::string_view method_name) {
+    if (bind_type->kind == TYPE_NAMED || bind_type->kind == TYPE_ALIAS) {
+        if (bind_type->ty_Named.methods != nullptr) {
+            auto it = bind_type->ty_Named.methods->find(method_name);
+            if (it != bind_type->ty_Named.methods->end()) {
+                auto* method = it->second;
+
+                if (method->parent_id != mod.id) {
+                    if (method->exported) {
+                        // Add the appropriate usage entry.
+                        for (auto& dep : mod.deps) {
+                            if (dep.mod->id == method->parent_id) {
+                                dep.usages.insert(method->decl_number);
+                                break;
+                            }
+                        }
+                    } else {
+                        fatal(span, "method {} of type {} is not exported", method_name, bind_type->ToString());
+                    }
+                } else if (comptime_depth > 0) { // Do we even need this check?
+                    init_graph[curr_decl_number].push_back(method->decl_number);
+                }
+
+                return method;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+/* -------------------------------------------------------------------------- */
+
 void Checker::declareLocal(Symbol* sym) {
     Assert(scope_stack.size() > 0, "declare local on empty scope stack");
 

@@ -238,6 +238,8 @@ private:
     Symbol* findSymbolInDep(Module::DepEntry& dep, std::string_view name);
     Symbol* mustFindSymbolInDep(Module::DepEntry& dep, std::string_view name, const TextSpan& span);
 
+    Method* tryLookupMethod(const TextSpan& span, Type* bind_type, std::string_view method_name);
+
     void declareLocal(Symbol* sym);
     void pushScope();
     void popScope();
