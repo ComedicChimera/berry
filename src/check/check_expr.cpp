@@ -763,7 +763,6 @@ HirExpr* Checker::checkValueSymbol(Symbol* symbol, const TextSpan& span) {
         fatal(span, "value of {} cannot be determined at compile time", symbol->name);
     } else {
         is_comptime_expr = false;
-        init_graph[curr_decl_number].push_back(symbol->decl_number);
     }
 
     auto* hexpr = allocExpr(HIR_IDENT, span);

@@ -225,7 +225,7 @@ std::pair<Symbol*, Module::DepEntry*> Checker::mustLookup(std::string_view name,
 
     auto it = mod.symbol_table.find(name);
     if (it != mod.symbol_table.end()) {
-        if (!first_pass) {
+        if (!first_pass && (it->second->flags & SYM_TYPE) == 0) {
             init_graph[curr_decl_number].push_back(it->second->decl_number);
         }
 
