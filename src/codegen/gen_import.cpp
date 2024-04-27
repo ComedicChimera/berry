@@ -11,6 +11,12 @@ void CodeGenerator::genImports() {
             case HIR_FUNC:
                 loaded_imports[i].emplace(decl_num, genImportFunc(*dep.mod, decl));
                 break;
+            case HIR_METHOD:
+                loaded_imports[i].emplace(decl_num, genImportMethod(*dep.mod, decl));
+                break;
+            case HIR_FACTORY:
+                loaded_imports[i].emplace(decl_num, genImportFactory(*dep.mod, decl));
+                break;
             case HIR_GLOBAL_VAR:
                 loaded_imports[i].emplace(decl_num, genImportGlobalVar(*dep.mod, decl));
                 break;
@@ -40,10 +46,7 @@ llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, Decl* decl) {
     auto* node = decl->hir_decl;
     auto* symbol = node->ir_Func.symbol;
 
-    auto* ll_type = genType(symbol->type);
-    Assert(ll_type->isFunctionTy(), "function signature is not a function type in codegen");
-
-    auto* ll_func_type = llvm::dyn_cast<llvm::FunctionType>(ll_type);
+    auto* ll_func_type = genFuncType(symbol->type);
 
     std::string ll_name {};
     llvm::CallingConv::ID cconv = llvm::CallingConv::C;
@@ -59,7 +62,7 @@ llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, Decl* decl) {
         ll_name = mangleName(imported_mod, symbol->name);
     }
 
-    llvm::Function* ll_func = llvm::Function::Create(
+    auto* ll_func = llvm::Function::Create(
         ll_func_type, 
         llvm::Function::ExternalLinkage,
         ll_name,
@@ -67,6 +70,44 @@ llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, Decl* decl) {
     );
 
     ll_func->setCallingConv(cconv);
+    return ll_func;
+}
+
+llvm::Value* CodeGenerator::genImportMethod(Module& imported_mod, Decl* decl) {
+    auto* node = decl->hir_decl;
+    auto* method = node->ir_Method.method;
+
+    auto* ll_func_type = genFuncType(method->signature, true);
+
+    auto ll_name = std::format("{}.{}", node->ir_Method.bind_type->ToString(), method->name);
+    ll_name = mangleName(imported_mod, ll_name);
+
+    auto* ll_func = llvm::Function::Create(
+        ll_func_type, 
+        llvm::Function::ExternalLinkage,
+        ll_name,
+        mod
+    );
+
+    return ll_func;
+}
+
+llvm::Value* CodeGenerator::genImportFactory(Module& imported_mod, Decl* decl) {
+    auto* node = decl->hir_decl;
+    auto* factory = node->ir_Factory.func;
+
+    auto* ll_func_type = genFuncType(factory->signature);
+
+    auto ll_name = std::format("{}._$ftry", node->ir_Factory.bind_type->ToString());
+    ll_name = mangleName(imported_mod, ll_name);
+
+    auto* ll_func = llvm::Function::Create(
+        ll_func_type, 
+        llvm::Function::ExternalLinkage,
+        ll_name,
+        mod
+    );
+
     return ll_func;
 }
 

@@ -213,25 +213,8 @@ llvm::Type* CodeGenerator::genType(Type* type, bool alloc_type) {
         }
     } break;
     case TYPE_PTR: 
+    case TYPE_FUNC: 
         return llvm::PointerType::get(ctx, 0);
-    case TYPE_FUNC: {
-        auto& func_type = type->ty_Func;
-
-        std::vector<llvm::Type*> ll_param_types;
-        llvm::Type* ll_return_type;
-        if (shouldPtrWrap(func_type.return_type)) {
-            ll_param_types.push_back(genType(func_type.return_type));
-            ll_return_type = llvm::Type::getVoidTy(ctx);
-        } else {
-            ll_return_type = genType(func_type.return_type);
-        }
-
-        for (auto* param_type : func_type.param_types) {
-            ll_param_types.push_back(genType(param_type));
-        }
-
-        return llvm::FunctionType::get(ll_return_type, ll_param_types, false);
-    } break;
     case TYPE_ARRAY:
         if (alloc_type) {
             return llvm::ArrayType::get(

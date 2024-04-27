@@ -54,12 +54,15 @@ struct Method {
     Type* signature;
     bool exported;
 
+    llvm::Value* llvm_value;
+
     Method(size_t parent_id_, std::string_view name_, Type* sig_, bool exported_)
     : parent_id(parent_id_)
     , decl_number(0)
     , name(name_)
     , signature(sig_)
     , exported(exported_)
+    , llvm_value(nullptr)
     {}
 };
 
@@ -73,11 +76,14 @@ struct FactoryFunc {
     Type* signature;
     bool exported;
 
+    llvm::Value* llvm_value;
+
     FactoryFunc(size_t parent_id_, Type* sig_, bool exported_)
     : parent_id(parent_id_)
     , decl_number(0)
     , signature(sig_)
     , exported(exported_)
+    , llvm_value(nullptr)
     {}
 };
 

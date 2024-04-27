@@ -5,14 +5,11 @@ llvm::Value* CodeGenerator::genCall(HirExpr* node, llvm::Value* alloc_loc) {
 
     // Handle global values.
     llvm::FunctionType* ll_func_type;
-    if (func_ptr->getType()->isPointerTy()) {
-        Assert(llvm::Function::classof(func_ptr), "call to a non-function type in codegen");
-
+    if (func_ptr->getType()->isPointerTy() && llvm::Function::classof(func_ptr)) {
         auto* ll_func = llvm::dyn_cast<llvm::Function>(func_ptr);
         ll_func_type = ll_func->getFunctionType();
     } else {
-        Assert(func_ptr->getType()->isFunctionTy(), "call to a non function type in codegen");
-        ll_func_type = llvm::dyn_cast<llvm::FunctionType>(func_ptr->getType());
+        ll_func_type = genFuncType(node->ir_Call.func->type);
     }
 
     std::vector<llvm::Value*> args;

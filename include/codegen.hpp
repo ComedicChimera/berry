@@ -226,13 +226,22 @@ private:
 
     void genImports();
     llvm::Value* genImportFunc(Module &imported_mod, Decl* decl);
-    llvm::Value* genImportGlobalVar(Module &imported_mod, Decl* decl);
+    llvm::Value* genImportMethod(Module& imported_mod, Decl* decl);
+    llvm::Value* genImportFactory(Module& imported_mod, Decl* decl);
+    llvm::Value* genImportGlobalVar(Module& imported_mod, Decl* decl);
 
     void genDeclProto(Decl* decl);
     void genDeclBody(Decl* decl);
 
     void genFuncProto(Decl* decl);
-    void genFuncBody(Decl* node);
+    void genMethodProto(Decl* decl);
+    void genFactoryProto(Decl* decl);
+    llvm::FunctionType* genFuncType(Type* type, bool has_self_ptr = false);
+
+    void genFuncBody(Decl* decl);
+    void genMethodBody(Decl* decl);
+    void genFactoryBody(Decl* decl);
+    void genInnerFuncBody(llvm::Function* ll_func, std::span<Symbol*> params, HirStmt* body);
 
     void genGlobalVarDecl(Decl* decl);
     void genGlobalVarInit(HirDecl* node);
