@@ -320,6 +320,8 @@ private:
     /* ---------------------------------------------------------------------- */
 
     llvm::Value* genCall(HirExpr* node, llvm::Value* alloc_loc);
+    llvm::Value* genMethodCall(HirExpr* node, llvm::Value* alloc_loc);
+
     llvm::Value* genIndexExpr(HirExpr* node, bool expect_addr);
     llvm::Value* genSliceExpr(HirExpr* node, llvm::Value* alloc_loc);
     llvm::Value* genFieldExpr(HirExpr* node, bool expect_addr);

@@ -3,7 +3,6 @@
 llvm::Value* CodeGenerator::genCall(HirExpr* node, llvm::Value* alloc_loc) {
     auto* func_ptr = genExpr(node->ir_Call.func);
 
-    // Handle global values.
     llvm::FunctionType* ll_func_type;
     if (func_ptr->getType()->isPointerTy() && llvm::Function::classof(func_ptr)) {
         auto* ll_func = llvm::dyn_cast<llvm::Function>(func_ptr);
@@ -32,6 +31,58 @@ llvm::Value* CodeGenerator::genCall(HirExpr* node, llvm::Value* alloc_loc) {
 
     return irb.CreateCall(ll_func_type, func_ptr, args);
 }
+
+llvm::Value* CodeGenerator::genMethodCall(HirExpr* node, llvm::Value* alloc_loc) {
+    auto& hmcall = node->ir_CallMethod;
+    
+    llvm::Value* self_ptr;
+    if (hmcall.self->assignable) {
+        self_ptr = genExpr(hmcall.self, true);
+    } else if (hmcall.self->type->Inner()->kind == TYPE_PTR) {
+        self_ptr = genExpr(hmcall.self);
+    } else {
+        // TODO: heap allocation
+        self_ptr = genAlloc(hmcall.self->type, HIRMEM_STACK);
+        genStoreExpr(hmcall.self, self_ptr);
+    }
+    
+    llvm::Value* ll_method = nullptr;
+    if (hmcall.method->parent_id == src_mod.id) {
+        ll_method = hmcall.method->llvm_value;
+    } else {
+        for (auto& dep : src_mod.deps) {
+            if (dep.mod->id == hmcall.method->parent_id) {
+                ll_method = loaded_imports[dep.id][hmcall.method->decl_number];
+                break;
+            }
+        }
+    }
+
+    llvm::FunctionType* ll_func_type = llvm::dyn_cast<llvm::Function>(ll_method)->getFunctionType();
+
+    std::vector<llvm::Value*> args;
+    args.push_back(self_ptr);
+    for (auto& arg : node->ir_CallMethod.args) {
+        args.push_back(genExpr(arg));
+    }
+
+    if (ll_func_type->getNumParams() > args.size()) {
+        if (alloc_loc) {
+            args.insert(args.begin(), alloc_loc);
+            irb.CreateCall(ll_func_type, ll_method, args);
+            return nullptr;
+        } else {
+            auto* ret_val = genAlloc(node->type, node->ir_CallMethod.alloc_mode);
+            args.insert(args.begin(), ret_val);
+            irb.CreateCall(ll_func_type, ll_method, args);
+            return ret_val;
+        }
+    }
+
+    return irb.CreateCall(ll_func_type, ll_method, args);
+}
+
+/* -------------------------------------------------------------------------- */
 
 llvm::Value* CodeGenerator::genIndexExpr(HirExpr* node, bool expect_addr) {
     auto& hindex = node->ir_Index;
