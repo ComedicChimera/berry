@@ -26,6 +26,10 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
     } break;
     case HIR_CALL:
         return genCall(node, alloc_loc);
+    case HIR_CALL_METHOD:
+        return genCallMethod(node, alloc_loc);
+    case HIR_CALL_FACTORY:
+        return genCallFactory(node, alloc_loc);
     case HIR_INDEX:
         return genIndexExpr(node, expect_addr);
     case HIR_SLICE:

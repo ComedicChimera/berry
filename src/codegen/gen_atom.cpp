@@ -32,7 +32,7 @@ llvm::Value* CodeGenerator::genCall(HirExpr* node, llvm::Value* alloc_loc) {
     return irb.CreateCall(ll_func_type, func_ptr, args);
 }
 
-llvm::Value* CodeGenerator::genMethodCall(HirExpr* node, llvm::Value* alloc_loc) {
+llvm::Value* CodeGenerator::genCallMethod(HirExpr* node, llvm::Value* alloc_loc) {
     auto& hmcall = node->ir_CallMethod;
     
     llvm::Value* self_ptr;
@@ -58,7 +58,7 @@ llvm::Value* CodeGenerator::genMethodCall(HirExpr* node, llvm::Value* alloc_loc)
         }
     }
 
-    llvm::FunctionType* ll_func_type = llvm::dyn_cast<llvm::Function>(ll_method)->getFunctionType();
+    auto* ll_func_type = llvm::dyn_cast<llvm::Function>(ll_method)->getFunctionType();
 
     std::vector<llvm::Value*> args;
     args.push_back(self_ptr);
@@ -80,6 +80,44 @@ llvm::Value* CodeGenerator::genMethodCall(HirExpr* node, llvm::Value* alloc_loc)
     }
 
     return irb.CreateCall(ll_func_type, ll_method, args);
+}
+
+llvm::Value* CodeGenerator::genCallFactory(HirExpr* node, llvm::Value* alloc_loc) {
+    auto& hfcall = node->ir_CallFactory;
+
+    llvm::Value* ll_factory = nullptr;
+    if (hfcall.func->parent_id == src_mod.id) {
+        ll_factory = hfcall.func->llvm_value;
+    } else {
+        for (auto& dep : src_mod.deps) {
+            if (dep.mod->id == hfcall.func->parent_id) {
+                ll_factory = loaded_imports[dep.id][hfcall.func->decl_number];
+                break;
+            }
+        }
+    }
+
+    auto* ll_func_type = llvm::dyn_cast<llvm::Function>(ll_factory)->getFunctionType();
+
+    std::vector<llvm::Value*> args;
+    for (auto& arg : node->ir_CallFactory.args) {
+        args.push_back(genExpr(arg));
+    }
+
+    if (ll_func_type->getNumParams() > args.size()) {
+        if (alloc_loc) {
+            args.insert(args.begin(), alloc_loc);
+            irb.CreateCall(ll_func_type, ll_factory, args);
+            return nullptr;
+        } else {
+            auto* ret_val = genAlloc(node->type, node->ir_CallFactory.alloc_mode);
+            args.insert(args.begin(), ret_val);
+            irb.CreateCall(ll_func_type, ll_factory, args);
+            return ret_val;
+        }
+    }
+
+    return irb.CreateCall(ll_func_type, ll_factory, args);
 }
 
 /* -------------------------------------------------------------------------- */
