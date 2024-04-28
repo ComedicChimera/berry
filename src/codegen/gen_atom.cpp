@@ -36,10 +36,10 @@ llvm::Value* CodeGenerator::genCallMethod(HirExpr* node, llvm::Value* alloc_loc)
     auto& hmcall = node->ir_CallMethod;
     
     llvm::Value* self_ptr;
-    if (hmcall.self->assignable) {
-        self_ptr = genExpr(hmcall.self, true);
-    } else if (hmcall.self->type->Inner()->kind == TYPE_PTR) {
+    if (hmcall.self->type->Inner()->kind == TYPE_PTR) {
         self_ptr = genExpr(hmcall.self);
+    } else if (hmcall.self->assignable) {
+        self_ptr = genExpr(hmcall.self, true);
     } else {
         // TODO: heap allocation
         self_ptr = genAlloc(hmcall.self->type, HIRMEM_STACK);

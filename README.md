@@ -105,7 +105,7 @@ don't always get time (or energy) to work on it.
         - Capture poison values as they occur
     * Use `llvm.expect` to speed up checks for optimizer
 
-- [ ] Target 13: Methods
+- [x] Target 13: Methods
     * Method Binding
         - For named types: `Name.method()`
         - For imported named types: `pkg.Name.method()`

@@ -379,7 +379,7 @@ void Checker::checkMethodBody(Decl* decl) {
         mod.id,
         "self",
         decl->ast_decl->an_Method.name_span,
-        SYM_FUNC,
+        SYM_VAR,
         0,
         self_ptr_type,
         false

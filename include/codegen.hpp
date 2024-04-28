@@ -241,7 +241,7 @@ private:
     void genFuncBody(Decl* decl);
     void genMethodBody(Decl* decl);
     void genFactoryBody(Decl* decl);
-    void genInnerFuncBody(llvm::Function* ll_func, std::span<Symbol*> params, HirStmt* body);
+    void genInnerFuncBody(Type* return_type, llvm::Function* ll_func, std::span<Symbol*> params, HirStmt* body);
 
     void genGlobalVarDecl(Decl* decl);
     void genGlobalVarInit(HirDecl* node);

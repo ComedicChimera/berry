@@ -7,8 +7,8 @@ import sys.windows;
 func _sys_init() {
     sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
 
-    _tls_rtstate_index = windows.TlsAlloc();
-    if _tls_rtstate_index == windows.TLS_OUT_OF_INDEXES {
+    _tls_rstate_index = windows.TlsAlloc();
+    if _tls_rstate_index == windows.TLS_OUT_OF_INDEXES {
         throw("bad tls alloc");
     }
 

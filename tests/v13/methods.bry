@@ -1,7 +1,7 @@
 import io.std;
 
 pub struct Vec2 {
-    x, y: int;
+    pub x, y: int;
 }
 
 pub func Vec2.print() {
@@ -76,7 +76,7 @@ func main() {
     u2.add(v2).print();
 
     let u3 = Vec3{1, 2, 3};
-    let v2 = Vec3{4, 5, 6};
+    let v3 = Vec3{4, 5, 6};
 
     std.puts("u3 = ");
     u3.print();
@@ -97,5 +97,5 @@ func main() {
     std.putr('\n');
 
     std.puts("u3 + v3 = ");
-    u2.add(v3).print();
+    u3.add(v3).print();
 }

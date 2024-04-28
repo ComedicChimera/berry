@@ -79,7 +79,7 @@ llvm::Value* CodeGenerator::genImportMethod(Module& imported_mod, Decl* decl) {
 
     auto* ll_func_type = genFuncType(method->signature, true);
 
-    auto ll_name = std::format("{}.{}", node->ir_Method.bind_type->ToString(), method->name);
+    auto ll_name = std::format("{}.{}", node->ir_Method.bind_type->ty_Named.name, method->name);
     ll_name = mangleName(imported_mod, ll_name);
 
     auto* ll_func = llvm::Function::Create(
@@ -98,7 +98,7 @@ llvm::Value* CodeGenerator::genImportFactory(Module& imported_mod, Decl* decl) {
 
     auto* ll_func_type = genFuncType(factory->signature);
 
-    auto ll_name = std::format("{}._$ftry", node->ir_Factory.bind_type->ToString());
+    auto ll_name = std::format("{}._$ftry", node->ir_Factory.bind_type->ty_Named.name);
     ll_name = mangleName(imported_mod, ll_name);
 
     auto* ll_func = llvm::Function::Create(

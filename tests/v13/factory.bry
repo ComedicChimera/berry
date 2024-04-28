@@ -15,7 +15,7 @@ func main() {
     std.puts(u.name);
     std.putr('\n');
 
-    std.puts("u.email = ")
+    std.puts("u.email = ");
     std.puts(u.email);
     std.putr('\n');
 }

@@ -130,7 +130,7 @@ void CodeGenerator::genMethodProto(Decl* decl) {
         }
     }
 
-    auto ll_name = std::format("{}.{}", node->ir_Method.bind_type->ToString(), method->name);
+    auto ll_name = std::format("{}.{}", node->ir_Method.bind_type->ty_Named.name, method->name);
     ll_name = mangleName(ll_name);
 
     auto* ll_func = llvm::Function::Create(
@@ -173,7 +173,7 @@ void CodeGenerator::genFactoryProto(Decl* decl) {
         }
     }
 
-    auto ll_name = std::format("{}._$ftry", node->ir_Factory.bind_type->ToString());
+    auto ll_name = std::format("{}._$ftry", node->ir_Factory.bind_type->ty_Named.name);
     ll_name = mangleName(ll_name);
 
     auto* ll_func = llvm::Function::Create(
@@ -237,7 +237,7 @@ void CodeGenerator::genFuncBody(Decl* decl) {
     auto* ll_func = llvm::dyn_cast<llvm::Function>(node->ir_Func.symbol->llvm_value);
     var_block = llvm::BasicBlock::Create(ctx, "entry", ll_func);
 
-    genInnerFuncBody(ll_func, node->ir_Func.params, node->ir_Func.body);
+    genInnerFuncBody(node->ir_Func.return_type, ll_func, node->ir_Func.params, node->ir_Func.body);
 
     debug.EndFuncBody();
 }
@@ -256,7 +256,7 @@ void CodeGenerator::genMethodBody(Decl* decl) {
     irb.CreateStore(node->ir_Method.self_ptr->llvm_value, ll_self_ptr);
     node->ir_Method.self_ptr->llvm_value = ll_self_ptr;
     
-    genInnerFuncBody(ll_func, node->ir_Method.params, node->ir_Method.body);
+    genInnerFuncBody(node->ir_Method.return_type, ll_func, node->ir_Method.params, node->ir_Method.body);
 
     // TODO: end method debug info
 }
@@ -270,12 +270,12 @@ void CodeGenerator::genFactoryBody(Decl* decl) {
     auto* ll_func = llvm::dyn_cast<llvm::Function>(node->ir_Factory.func->llvm_value);
     var_block = llvm::BasicBlock::Create(ctx, "entry", ll_func);
     
-    genInnerFuncBody(ll_func, node->ir_Factory.params, node->ir_Factory.body);
+    genInnerFuncBody(node->ir_Factory.return_type, ll_func, node->ir_Factory.params, node->ir_Factory.body);
 
     // TODO: end factory debug info
 }
 
-void CodeGenerator::genInnerFuncBody(llvm::Function* ll_func, std::span<Symbol*> params, HirStmt* body) {
+void CodeGenerator::genInnerFuncBody(Type* return_type, llvm::Function* ll_func, std::span<Symbol*> params, HirStmt* body) {
     setCurrentBlock(var_block);
 
     for (auto* param : params) {
@@ -291,7 +291,7 @@ void CodeGenerator::genInnerFuncBody(llvm::Function* ll_func, std::span<Symbol*>
         param->llvm_value = ll_param;
     }
 
-    if (ll_func->arg_size() > params.size()) {
+    if (shouldPtrWrap(return_type)) {
         return_param = &(*ll_func->arg_begin());
     } else {
         return_param = nullptr;

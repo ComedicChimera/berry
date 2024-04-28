@@ -102,13 +102,13 @@ AstNode* Parser::parseFuncOrMethodDecl(bool exported) {
         name_tok = wantAndGet(TOK_IDENT);
 
         if (has(TOK_DOT)) {
-            next();
-            name_tok = wantAndGet(TOK_IDENT);
-
             auto* sel_type = allocNode(AST_SELECTOR, SpanOver(bind_type->span, name_tok.span));
             sel_type->an_Sel.expr = bind_type;
             sel_type->an_Sel.field_name = ast_arena.MoveStr(std::move(name_tok.value));
             bind_type = sel_type;
+
+            next();
+            name_tok = wantAndGet(TOK_IDENT);
         }
     }
 
@@ -163,7 +163,7 @@ AstNode* Parser::parseFuncOrMethodDecl(bool exported) {
 
 AstNode* Parser::parseFactoryDecl(bool exported) {
     auto start_span = tok.span;
-    want(TOK_FUNC);
+    want(TOK_FACTORY);
 
     auto name_tok = wantAndGet(TOK_IDENT);
     auto* bind_type = allocNode(AST_IDENT, name_tok.span);
