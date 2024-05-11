@@ -1,5 +1,56 @@
 module runtime;
 
+// _thread_count is a global counter of all threads that are created by Berry
+// code (via `runtime.thr_create`).  Berry threads use this counter to check if
+// they are the last thread to exit and if so, attempt a graceful shutdown
+// (instead of relying on `sys_thr_exit` behavior).  This counter must always be
+// accessed atomically.
+let _thread_count: int = 0;
+
 struct Rstate {
-    panicking: bool;
+    panic_depth: int;
+    heap: MHeap;
+}
+
+func thr_init() {
+    // Allocate a backing segment for the rstate.
+    let page_kind = get_page_kind(@sizeof(Rstate));
+    let segment = msegment_sys_alloc(page_kind);
+
+    // Create the rstate object.
+    let rstate: *Rstate;
+    unsafe {
+        // Grab a free block.
+        let block = segment.pages[0].pop_free_block();
+
+        // Use it as the backing storage for the rstate.
+        rstate = block as *RState
+    }
+
+    // Initialize the heap in the backing segment.
+    rstate.heap.init(segment);
+
+    // Store rstate into TLS.
+    set_rstate(rstate);
+
+    // Ready to go!
+}
+
+func thr_exit(exit_code: int) {
+    // Decrement the global thread count.
+    @atomic_sub(&_thread_count, 1, RELAXED);
+
+    // If this reads zero, then we are the last thread still running, so we can
+    // attempt to do a graceful process shutdown.  We might be able to get away
+    // with ACQ_REL here rather than SEQ_CST, but since this code is called so
+    // rarely, it's performance doesn't really matter, and we can go with the
+    // safer option.
+    if @atomic_load(&_thread_count, SEQ_CST) == 0 {
+        // TODO: handle threads created by non-Berry code (ex: C libraries which
+        // create threads...)
+        exit(exit_code);
+    }
+
+    // Call the system thread exit handler.
+    sys_thr_exit(exit_code);
 }

@@ -121,25 +121,23 @@ don't always get time (or energy) to work on it.
     * Anonymous Importing
         - `import pkg as _` imports method table with polluting namespace
 
-- [ ] Target 14: Dynamic Memory, Mutexes, and TLS
+- [ ] Target 14: Dynamic Memory, TLS, and Threads
     * Thread Local Storage + TL Runtime State
         - Allocate runtime state on heap
-    * Simple Mutexes
-        - Just wrap the OS mutexes
+    * Atomics
+        - `@atomic_cas_weak`
+        - `@atomic_load`
+        - `@atomic_add`
     * Multithreaded Allocator
         - Doesn't need to be to advanced, but good enough to last for a while.
         - Should support multi-threading
-        - Base it off either glibc malloc or tcmalloc
+        - Based off mi-malloc
         - We can improve it later
-
-- [ ] Target 15: Multiple Threads
     * Runtime Thread Support
         - Creation of Rthreads
         - Management of Threads and TLS state
         - Thread shutdown on panic
     * Expose thread functionality through `threads` package.
-        - Wrap `Rmutex` into `Mutex`
-        - Mutex Methods: `lock`, `unlock`, `try_lock`, `locked`
         - Wrap `Rthread` into `Thread`
         - Thread methods: `get_id`, `suspend`, `wait`, etc.
         - Utility Method: `sleep`, `sleepms`, `get_current_thread`
@@ -152,35 +150,34 @@ don't always get time (or energy) to work on it.
     * Linking and compiling asm files
         - For now, just set the compiler to always compile the appropriate
           `asm/rt_[os]_[arch].asm` file.
-    * Test allocator against multithreaded system
 
-- [ ] Target 16: Garbage Collection
+- [ ] Target 15: Garbage Collection
     * Simple Mark-and-Sweep Garbage Collector
         - We can make it better letter on.
     * Automatic Heap Allocation
     * Escape Analysis
 
-- [ ] Target 17: Better Functions
+- [ ] Target 16: Better Functions
     * Variadic Arguments
-    * Named Arguments
+    * Named and Optional Arguments
     * Function Overloading
 
-- [ ] Target 18: Interfaces
+- [ ] Target 17: Interfaces
     * Interface Declarations 
     * Interface Inheritance
     * Virtual methods
     * The `any` type
     * `is` Assertions
 
-- [ ] Target 19: Formatted IO
+- [ ] Target 18: Formatted IO
     * Make `io.std` more usable `std.println`, etc...
 
-- [ ] Target 20: Pattern Matching
+- [ ] Target 19: Pattern Matching
     * Tuple Pattern Matching
     * Struct Pattern Matching
     * Tuple and Struct Bindings (variables, assignment, etc.)
 
-- [ ] Target 21: Tagged Unions
+- [ ] Target 20: Tagged Unions
     * Enum-like Variants
     * Tuple-like Variants
     * Struct-like Variants
@@ -189,26 +186,26 @@ don't always get time (or energy) to work on it.
         - Ex: `AstExpr.Call`, `Type.Named`, etc.
     * `is` Assertions for Variant Types
 
-- [ ] Target 22: Generics
+- [ ] Target 21: Generics
     * Generic Type Inference
     * Generic Types and Functions
     * Generic Method Binding
     * Interface Constraints  
 
-- [ ] Target 24: Iterators
+- [ ] Target 22: Iterators
     * The `Iter` and `Seq` interfaces
     * Builtin methods: `.len()` and `.iter()`.
     * For each loops
 
-- [ ] Target 25: Monadic Error Handling
+- [ ] Target 23: Monadic Error Handling
     * The `Chain` interface
     * The `?` and `<-` Operators
     * Conditional Binding
         - Ex: `if x <- fn()` 
 
-- [ ] Target 26: Operator Overloading
+- [ ] Target 24: Operator Overloading
 
-- [ ] Target 27: Builtin Collections
+- [ ] Target 25: Builtin Collections
     * `List[T]`
     * `Map[K, V]`
     * `Set[T]`
@@ -217,7 +214,7 @@ don't always get time (or energy) to work on it.
     * Builtin hashing: `.hash()`
     * The `Col` interface 
 
-- [ ] Target 28: Closures and Defer
+- [ ] Target 26: Closures and Defer
     * Lambda functions: `|x, y| => expr`
     * Lambda type inference
     * Block lambda functions: `|x, y| { ... }`
@@ -225,21 +222,21 @@ don't always get time (or energy) to work on it.
     * The `defer` statement
     * Method references (using `value.method` as a value)
 
-- [ ] Target 29: Sequences
+- [ ] Target 27: Sequences
     * Builtin sequence methods like `.map`, `.filter`, etc.
     * The `sequences` package
 
-- [ ] Target 30: Better Generics
+- [ ] Target 28: Better Generics
     * Generic control flow
     * Variadic generics
 
-- [ ] Target 31: Better Type Constraints
+- [ ] Target 29: Better Type Constraints
     * Or (`|`) and And (`&`) Constraints
     * Defined Constaints (Traits)
     * Operator Constraints
     * Builtin Numeric Constraints (`Int`, `Float`, `Num`)
 
-- [ ] Target 32: Debug Info
+- [ ] Target 30: Debug Info
     * Fix DIType generation
     * Add code for debug assignment
     * Get debugging working on Windows (enable stepping through the program)

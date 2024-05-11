@@ -2,7 +2,7 @@ module runtime;
 
 @abientry("__berry_strcmp")
 func strcmp(a, b: string) int {
-    // NOTE: This will be replaced with a more efficient implementation later.
+    // TODO: replace with fast implementation
     
     let size = min(a._len, b._len);
 
@@ -15,11 +15,20 @@ func strcmp(a, b: string) int {
     return a._len - b._len;
 }
 
+func memset(dst: *u8, value: u8, size: uint) {
+    // TODO: replace with fast implementation
+
+    for let i = 0; i < size; i++ {
+        unsafe {
+            *(dst + i) = value;
+        }
+    }
+}
+
 #if (ARCH_SIZE == "64")
 @abientry("__berry_strhash")
-func strhash(str: string) u64 {
-    // NOTE: This will be replaced with a better hash function later. 
-    // This is just the FNV1a hash right now.
+func strhash(str: string) u64 { // FNV1a hash
+    // TODO: replace with a better hash function.
 
     const FNV_OFFSET: u64 = 0xcbf29ce484222325;
     const FNV_PRIME: u64 = 0x100000001b3;

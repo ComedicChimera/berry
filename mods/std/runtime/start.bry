@@ -1,19 +1,33 @@
 module runtime;
 
+// _umain is a compiler-generated function which essentially represents the
+// transition from runtime code to user code.  It contains the code to call all
+// non-comptime global initializers and call the user's provided main function.
+// The runtime must be in a good state before this function is called.
+//
+// NOTE: Because `_umain` is responsible for calling non-comptime global
+// initializers, runtime code called before initialization must NOT use global
+// initializers which cannot be evaluated at compile-time: we are reliant on the
+// compiler putting comptime initializers in `.data` (or `.rodata`) and not
+// generating initialization code for them.  Otherwise, we could end up in a
+// situation where calling `_umain` overwrites runtime state in an undesirable
+// way.  All this is to say: don't use non-comptime global initializers in the
+// runtime, or bad things may happen.
 @extern("__berry_main")
 func _umain();
 
 @abientry("__berry_start")
 func _rtstartup() {
-    _sys_init();
+    // Initialize the system bindings (TLS, exception handlers, etc.).
+    sys_init();
 
-    // TODO: move this to heap?
-    let rstate = Rstate{panicking=false};
-    set_rstate(&rstate);
+    // Initialize the main thread.
+    thr_init();
 
+    // Transfer control to user code.
     _umain();
 
-    // TODO: should this be thread exit or...
-    exit(0);
+    // Exit the current thread gracefully when `main` returns.
+    thr_exit(0);
 }
 

@@ -4,8 +4,8 @@ module runtime;
 
 import sys.windows;
 
-func _sys_init() {
-    sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
+func sys_init() {
+    _sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
 
     _tls_rstate_index = windows.TlsAlloc();
     if _tls_rstate_index == windows.TLS_OUT_OF_INDEXES {
@@ -21,10 +21,10 @@ func sys_exit(exit_code: int) {
 
 /* -------------------------------------------------------------------------- */
 
-let sys_stderr: windows.HANDLE;
+let _sys_stderr: windows.HANDLE;
 
 func sys_eprint(b: []u8) {
-    windows.WriteConsoleA(sys_stderr, b._ptr, b._len as windows.DWORD, null, null);
+    windows.WriteConsoleA(_sys_stderr, b._ptr, b._len as windows.DWORD, null, null);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -129,6 +129,6 @@ func set_rstate(rstate: *Rstate) {
 //     );
 // }
 
-// func thr_exit(exit_code: int) {
-//     windows.ExitThread(exit_code as windows.DWORD);
-// }
+func sys_thr_exit(exit_code: int) {
+    windows.ExitThread(exit_code as windows.DWORD);
+}

@@ -82,11 +82,11 @@ func _panic_user(message: string) {
 func _dopanic() {
     let rstate = get_rstate();
 
-    if rstate.panicking {
-        throw("panic while panicking");
+    if rstate.panic_depth > 0 {
+        throw("panic in runtime");
     }
 
-    rstate.panicking = true;
+    rstate.panic_depth++;
 
     // TODO: stack tracing
 
