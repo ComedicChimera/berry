@@ -71,8 +71,8 @@ const MAX_ALLOC_SIZE: uint = 1 << (@sizeof(*u8) - 1);
 // Bin Counts
 const N_DIRECT_BINS: uint = KB / WORD_SIZE;
 const N_REGULAR_BINS: uint = 73;
-const BIN_FULL: uint = N_REGULAR_BINS;
-const BIN_HUGE: uint = N_REGULAR_BINS + 1;
+const BIN_HUGE: uint = N_REGULAR_BINS;
+const BIN_FULL: uint = N_REGULAR_BINS + 1;
 const N_TOTAL_BINS: uint = N_REGULAR_BINS + 2;
 
 // Page Flags
@@ -132,7 +132,8 @@ type MThreadFreeList = uint;
 
 enum MThreadFreeMode {
     Normal,
-    Delayed
+    Delayed,
+    Delaying
 }
 
 @inline
@@ -173,7 +174,7 @@ struct MPage {
     local_free: *MBlock;
     thread_free: MThreadFreeList;
 
-    page_start: *u8;
+    start_addr: *u8;
 
     flags: byte;
     retire_counter: byte;
@@ -225,9 +226,13 @@ func MHeap.mrealloc(data: *u8, new_size: uint) *u8 {
 }
 
 func MHeap.find_free_page(size: uint) {
+    // TODO: delayed freeing
+
+    // Get the page's associated page queue.
     let bin = get_page_bin(size);
     let pageq = &self.pages[bin];
 
+    // Search the page queue for pages with free space.
     let page = pageq.first;
     while page != null {
         // Try to collect the page's free lists.
@@ -247,10 +252,11 @@ func MHeap.find_free_page(size: uint) {
     return self.page_alloc(pageq, size);
 }
 
-func MHeap.page_alloc(pageq: *MPageQ) {
+func MHeap.page_alloc(pageq: *MPageQ, size: uint) {
     // Find a segment with a available pages.
     let page_kind = get_page_kind(pageq.block_size);
-    let segment = self.find_free_segment(page_kind);
+    // TODO: huge pages using `size`
+    let segment = self.find_free_segment(page_kind, SEGMENT_SIZE);
 
     // Grab a free page from the segment.
     let page: *MPage;
@@ -266,12 +272,12 @@ func MHeap.page_alloc(pageq: *MPageQ) {
 
     // Commit the page as necessary.
     if page.capacity == 0 {
-        sys_commit(page.page_start, page.reserved, 0);
+        sys_commit(page.start_addr, page.reserved, 0);
         page.capacity = page.reserved;
     }
 
     // Reinitialize the page.
-    page.zero_init();
+    page.clear();
     page.block_size = pageq.block_size;
     page.init_freelists();
 
@@ -330,16 +336,93 @@ func MPage.pop_free_block() *u8 {
     }
 }
 
-func MPage.zero_init() {
-    // TODO
+func MPage.zero_init(reserved: uint) {
+    self.clear();
+    self.cap = 0;
+    self.reserved = reserved;
+}
+
+func MPage.clear() {
+    self.next = null;
+    self.prev = null;
+
+    self.used = 0;
+
+    self.flags &= ~(PAGE_FULL | PAGE_RETIRED);
+    self.retire_counter = 0;
 }
 
 func MPage.init_freelists() {
-    // TODO
+    let n_blocks = self.cap / self.block_size;
+
+    // Initialize the free list starting from the end and chaining backward.
+    let head: *MBlock;
+    unsafe {
+        head = (self.start_addr as *MBlock) + (n_blocks - 1);
+        head.next = null;
+
+        let next = head;
+        for let i = 0; i < n_blocks - 1; i++ {
+            head--;
+            head.next = next;
+            next = head;
+        }
+    }
+    self.alloc_free = head;
+
+
+    // Local and thread free start empty.
+    self.local_free = null;
+    self.thread_free = null;
 }
 
 func MPage.collect_free() {
-    // TODO
+    // Collect the thread free list: this essentially just prepends the thread
+    // free list onto the front of the local free list.
+    self.collect_thread_free();
+
+    // We only want to do a collection if we can easily replace the alloc_free
+    // list. Otherwise, collection becomes a linear time operation.
+    if self.alloc_free == null {
+        // Collect the local free list.
+        self.alloc_free = self.local_free;
+        self.local_free = null;
+
+        // Freed blocks may not be zero now: clear the zeroed flag.
+        self.flags &= ~PAGE_ZEROED;
+    }
+}
+
+func MPage.collect_thread_free() {
+    // Swap out the thread free list using an atomic exchange.
+    let tfree_head: *MBlock;
+    let new_tfree: MThreadFreeList;
+
+    let old_tfree: MThreadFreeList = @atomic_load(&self.thread_free, RELAXED);
+    do {
+        head = old_tfree.block();
+        new_tfree = old_tfree.set_block(null);
+    } while @atomic_cas_weak(&self.thread_free, &old_tfree, new_tfree, ACQ_REL, RELAXED);
+
+    // If the thread free list is empty, then we're done.
+    if tfree_head == null {
+        return;
+    }
+
+    // Otherwise, find its tail and count number of elements.
+    let tail = head;
+    let count = 1;
+    while tail.next != null {
+        tail = tail.next;
+        count++;
+    }
+
+    // Chain the local free list onto the tail of thread free list.
+    tail.next = self.local_free;
+    self.local_free = tail;
+
+    // Update the usage count based on the collection.
+    self.used -= count;
 }
 
 func MPageQ.enqueue(page: *MPage) {
@@ -373,12 +456,133 @@ func MPageQ.dequeue(page: *MPage) {
 
 /* -------------------------------- Segments -------------------------------- */
 
-func MHeap.find_free_segment(page_kind: MPageKind) *MSegment {
-    // TODO
+func MHeap.find_free_segment(page_kind: MPageKind, seg_size: uint) *MSegment {
+    match page_kind {
+    case .Small:
+        let segment = self.search_segment_queue(&self.small_segments);
+        if segment == null {
+            segment = msegment_sys_alloc(page_kind, SEGMENT_SIZE);
+            self.small_segments.enqueue(segment);
+        }
+
+        return segment;
+    case .Med:
+        let segment = self.search_segment_queue(&self.med_segments);
+        if segment == null {
+            segment = msegment_sys_alloc(page_kind, SEGMENT_SIZE);
+            self.med_segments.enqueue(segment);
+        }
+
+        return segment;
+    case _:
+        return msegment_sys_alloc(page_kind, seg_size);
+    }
 }
 
-func msegment_sys_alloc(page_kind: MPageKind) *MSegment {
-    // TODO
+func MHeap.search_segment_queue(sq: *MSegmentQ) *MSegment {
+    for let segment = sq.first; segment != null; segment = segment.next {
+        if segment.n_used_pages < segment.n_total_pages {
+            return segment;
+        }
+    }
+
+    return null;
+}
+
+func MSegmentQ.enqueue(segment: *MSegment) {
+    segment.next = null;
+    segment.prev = self.last;
+    self.last = segment;
+
+    if self.first == null {
+        self.first = segment;
+    }
+}
+
+func msegment_sys_alloc(page_kind: MPageKind, seg_size: uint) *MSegment {
+    // Compute page information.
+    let page_shift: uint;
+    let n_pages: uint;
+
+    match page_kind {
+    case .Small:
+        page_shift = SMALL_PAGE_SHIFT;
+        n_pages = SMALL_PAGES_PER_SEGMENT;
+    case .Med:
+        page_shift = MED_PAGE_SHIFT;
+        n_pages = MED_PAGES_PER_SEGMENT;
+    case .Large:
+        page_shift = LARGE_PAGE_SHIFT;
+        n_pages = LARGE_PAGES_PER_SEGMENT;
+    case .Huge:
+        throw("huge pages not implemented");
+    }
+
+    let page_size = 1 << page_shift;
+
+    // Allocate the segment.
+    let segment: *MSegment;
+    let full_commit = false;
+    unsafe {
+        // Try to reserve the whole region.
+        segment = sys_reserve(seg_size, SEGMENT_ALIGN) as *MSegment;
+        if segment == null {
+            // Reserve may not be implemented on every system, so we fallback to
+            // sys_commit if it fails: on such systems, we commit the full
+            // segment at once.
+            segment = sys_commit(null, seg_size, SEGMENT_ALIGN) as *MSegment;
+            full_commit = true;
+        } else {
+            // Otherwise, we only commit the first page of the segment and leave
+            // the others as reserved.  That way, we can lazily allocate more
+            // pages as we need them.
+            segment = sys_commit(segment as *u8, page_size, 0) as *MSegment;
+        }
+    }
+
+    if segment == null {
+        panic("failed to allocate segment: out of memory");
+    }
+
+    // Initialize the segment info.
+    segment.thread_id = get_thread_id();
+    segment.size = seg_size;
+    segment.prev = null;
+    segment.next = null;
+
+    segment.page_kind = page_kind;
+    segment.page_shift = page_shift;
+
+    segment.n_used_pages = 0;
+    segment.n_total_pages = n_pages;
+
+    // Determine the size of the segment header.
+    let header_size = @sizeof(MSegment) - @sizeof([SMALL_PAGES_PER_SEGMENT]MPage);
+    header_size += n_pages * @sizeof(MPage);
+    segment.header_size = header_size;
+
+    // Part of the first page is used for the header.
+    let first_page_size = page_size - header_size;
+
+    // Initialize the first page.
+    let page = &segment.pages[0];
+    page.zero_init(first_page_size);
+    page.cap = first_page_size;
+    unsafe {
+        page.start_addr = (segment as *u8) + header_size;
+    }
+
+    // Initialize the remaining pages.
+    for let i = 1; i < n_pages; i++ {
+        page = &segment.pages[i];
+        page.zero_init(page_size);
+        
+        unsafe {
+            page.start_addr = (segment as *u8) + i * page_size;
+        }
+    }
+
+    return segment;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -398,7 +602,11 @@ func get_page_kind(size: uint) MPageKind {
 }
 
 func get_page_bin(size: uint) uint {
-    // TODO
+    let wsize = get_word_size(size);
+
+    if wsize <= 1 {
+        return 0;
+    }
 }
 
 @inline

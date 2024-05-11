@@ -15,7 +15,7 @@ struct Rstate {
 func thr_init() {
     // Allocate a backing segment for the rstate.
     let page_kind = get_page_kind(@sizeof(Rstate));
-    let segment = msegment_sys_alloc(page_kind);
+    let segment = msegment_sys_alloc(page_kind, SEGMENT_SIZE);
 
     // Create the rstate object.
     let rstate: *Rstate;
