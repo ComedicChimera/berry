@@ -6,7 +6,7 @@ pub func malloc(size: uint) *u8 {
     let rstate = get_rstate();
 
     rstate.panic_depth++;
-    let data = rstate.heap.malloc(size);
+    let data = rstate.heap.alloc(size);
     rstate.panic_depth--;
 
     return data;
@@ -26,7 +26,7 @@ pub func mfree(data: *u8) {
     let rstate = get_rstate();
 
     rstate.panic_depth++;
-    rstate.heap.mfree(data);
+    rstate.heap.free(data);
     rstate.panic_depth--;
 }
 
@@ -189,9 +189,9 @@ struct MBlock {
     next: *MBlock;
 }
 
-/* --------------------------- Malloc and Realloc --------------------------- */
+/* --------------------------- Alloc and Realloc ---------------------------- */
 
-func MHeap.malloc(size: uint) *u8 {
+func MHeap.alloc(size: uint) *u8 {
     // Find a free page to allocate in.
     if size <= KB { // Fast Path
         let direct_bin = get_word_size(size);
@@ -206,7 +206,7 @@ func MHeap.malloc(size: uint) *u8 {
                 // Mark direct bin as full and replace it.
                 let bin = get_page_bin(page.block_size);
                 self.make_full(&self.pages[bin], page);
-                self.replace_direct(direct_bin, new_page);
+                self.direct_bins[direct_bin] = new_page;
             }   
 
             page = new_page;
@@ -221,7 +221,7 @@ func MHeap.malloc(size: uint) *u8 {
     return page.pop_free_block();
 }
 
-func MHeap.mrealloc(data: *u8, new_size: uint) *u8 {
+func MHeap.realloc(data: *u8, new_size: uint) *u8 {
     // TODO
 }
 
@@ -249,7 +249,9 @@ func MHeap.find_free_page(size: uint) {
     }
 
     // Otherwise, allocate a fresh page.
-    return self.page_alloc(pageq, size);
+    let page = self.page_alloc(pageq, size);
+    pageq.enqueue(page);
+    return page;
 }
 
 func MHeap.page_alloc(pageq: *MPageQ, size: uint) {
@@ -286,7 +288,12 @@ func MHeap.page_alloc(pageq: *MPageQ, size: uint) {
 }
 
 func MHeap.mark_full(pageq: *MPageQ, page: *MPage) {
-    // TODO: set thread_free state (handle potential race conditions)
+    // Set the thread_free state.
+    let old_tfree = @atomic_load(&page.thread_free, RELAXED);
+    let new_tfree: MThreadFreeList;
+    do {
+        new_tfree = old_tfree.set_mode(.Delayed);
+    } while @atomic_cas_weak(&page.thread_free, &old_tfree, new_tfree, ACQ_REL, RELAXED);
 
     // Dequeue the page from its current page queue.
     pageq.dequeue(page);
@@ -298,13 +305,9 @@ func MHeap.mark_full(pageq: *MPageQ, page: *MPage) {
     page.flags |= PAGE_FULL;
 }
 
-func MHeap.replace_direct(direct_bin: uint, new_page: *MPage) {
-    // TODO
-}
-
 /* ---------------------------------- Free ---------------------------------- */
 
-func MHeap.mfree(data: *u8) {
+func MHeap.free(data: *u8) {
     // TODO
 }
 
@@ -603,6 +606,8 @@ func get_page_kind(size: uint) MPageKind {
 
 func get_page_bin(size: uint) uint {
     let wsize = get_word_size(size);
+
+    // TODO
 
     if wsize <= 1 {
         return 0;
