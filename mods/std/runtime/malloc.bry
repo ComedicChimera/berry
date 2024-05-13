@@ -1,5 +1,7 @@
 module runtime;
 
+// TODO: document malloc
+
 /* ------------------------------ Allocator API ----------------------------- */
 
 pub func malloc(size: uint) *u8 {
@@ -199,17 +201,7 @@ func MHeap.alloc(size: uint) *u8 {
 
         if page.alloc_free == null { // Fast Path failed
             // Fallback to generic malloc.
-            let new_page = self.find_free_page(size);
-
-            // Collection didn't free up current page.
-            if page.alloc_free == null {
-                // Mark direct bin as full and replace it.
-                let bin = get_page_bin(page.block_size);
-                self.make_full(&self.pages[bin], page);
-                self.direct_bins[direct_bin] = new_page;
-            }   
-
-            page = new_page;
+            page = self.find_free_page(size);
         }
     } else { // Slow Path
         page = self.find_free_page(size);
@@ -225,8 +217,8 @@ func MHeap.realloc(data: *u8, new_size: uint) *u8 {
     // TODO
 }
 
-func MHeap.find_free_page(size: uint) {
-    // TODO: delayed freeing
+func MHeap.find_free_page(size: uint, retry: bool) {
+    self.collect_delayed_free();
 
     // Get the page's associated page queue.
     let bin = get_page_bin(size);
@@ -244,14 +236,28 @@ func MHeap.find_free_page(size: uint) {
 
         // Mark the page as full and move on.
         let next = page.next;
-        self.make_full(pageq, page);
+        self.move_to_full(pageq, page);
         page = next;
     }
 
-    // Otherwise, allocate a fresh page.
+    // Try to collect retired pages to make a fresh pages available: calling
+    // this here avoids unnecessary reallocation.
+    self.collect_retired();
+
+    // TODO: reclaim abandoned pages before trying to allocate
+
+    // Otherwise, try to allocate a fresh page.
     let page = self.page_alloc(pageq, size);
-    pageq.enqueue(page);
+    self.enqueue_page(pageq, page);
     return page;
+}
+
+func MHeap.collect_delayed_free() {
+    // TODO: collect blocks freed to delayed list
+}
+
+func MHeap.collect_retired() {
+    // TODO: free retired pages
 }
 
 func MHeap.page_alloc(pageq: *MPageQ, size: uint) {
@@ -287,7 +293,7 @@ func MHeap.page_alloc(pageq: *MPageQ, size: uint) {
     return page;
 }
 
-func MHeap.mark_full(pageq: *MPageQ, page: *MPage) {
+func MHeap.move_to_full(pageq: *MPageQ, page: *MPage) {
     // Set the thread_free state.
     let old_tfree = @atomic_load(&page.thread_free, RELAXED);
     let new_tfree: MThreadFreeList;
@@ -296,25 +302,59 @@ func MHeap.mark_full(pageq: *MPageQ, page: *MPage) {
     } while @atomic_cas_weak(&page.thread_free, &old_tfree, new_tfree, ACQ_REL, RELAXED);
 
     // Dequeue the page from its current page queue.
-    pageq.dequeue(page);
+    self.dequeue_page(pageq, page);
 
     // Add it to the full queue.
-    self.pages[BIN_FULL].enqueue(page);
+    self.enqueue_page(&self.pages[BIN_FULL], page);
 
     // Update its flags.
     page.flags |= PAGE_FULL;
+}
+
+func MHeap.enqueue_page(q: *MPageQ, page: *MPage) {
+    page.next = null;
+
+    page.prev = q.last;
+    q.last = page;
+
+    if q.first == null {
+        q.first = page;
+    }
+}
+
+func MHeap.dequeue_page(q: *MPageQ, page: *MPage) {
+    if page.next != null {
+        page.next.prev = page.prev;
+    }
+
+    if page.prev != null {
+        page.prev.next = page.next;
+    }
+
+    if q.first == page {
+        q.first = page.next;
+        self.update_direct(q);
+    }
+
+    if q.last == page {
+        q.last = page.prev;
+    }
+}
+
+func MHeap.update_direct(pageq: *MPageQ) {
+    // No direct bins, nothing to update
+    if pageq.block_size == 0 || pageq.block_size > MAX_SMALL_SIZE {
+        return;
+    }
+
+    // TODO: update direct bins when pageq head has changed.
+    let first = pageq.first;
 }
 
 /* ---------------------------------- Free ---------------------------------- */
 
 func MHeap.free(data: *u8) {
     // TODO
-}
-
-/* ----------------------------- Initialization ----------------------------- */
-
-func MHeap.init(segment: *MSegment) {
-    // TODO   
 }
 
 /* ----------------------------- Page Management ---------------------------- */
@@ -426,35 +466,6 @@ func MPage.collect_thread_free() {
 
     // Update the usage count based on the collection.
     self.used -= count;
-}
-
-func MPageQ.enqueue(page: *MPage) {
-    page.next = null;
-
-    page.prev = self.last;
-    self.last = page;
-
-    if self.first == null {
-        self.first = page;
-    }
-}
-
-func MPageQ.dequeue(page: *MPage) {
-    if page.next != null {
-        page.next.prev = page.prev;
-    }
-
-    if page.prev != null {
-        page.prev.next = page.next;
-    }
-
-    if self.first == page {
-        self.first = page.next;
-    }
-
-    if self.last == page {
-        self.last = page.prev;
-    }
 }
 
 /* -------------------------------- Segments -------------------------------- */
@@ -586,6 +597,16 @@ func msegment_sys_alloc(page_kind: MPageKind, seg_size: uint) *MSegment {
     }
 
     return segment;
+}
+
+/* ----------------------------- Initialization ----------------------------- */
+
+func MHeap.init(segment: *MSegment) {
+    // TODO   
+}
+
+func MHeap.cleanup() {
+
 }
 
 /* -------------------------------------------------------------------------- */

@@ -37,14 +37,15 @@ func thr_init() {
 }
 
 func thr_exit(exit_code: int) {
+    // Clean up the thread's local heap.
+    get_rstate().heap.cleanup();
+
     // Decrement the global thread count.
     @atomic_sub(&_thread_count, 1, RELAXED);
 
     // If this reads zero, then we are the last thread still running, so we can
-    // attempt to do a graceful process shutdown.  We might be able to get away
-    // with ACQ_REL here rather than SEQ_CST, but since this code is called so
-    // rarely, it's performance doesn't really matter, and we can go with the
-    // safer option.
+    // attempt to do a graceful process shutdown. 
+    // NOTE: Do we need SEQ_CST here or is ACQ_REL sufficient?
     if @atomic_load(&_thread_count, SEQ_CST) == 0 {
         // TODO: handle threads created by non-Berry code (ex: C libraries which
         // create threads...)
