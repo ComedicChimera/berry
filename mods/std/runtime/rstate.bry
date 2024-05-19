@@ -1,18 +1,14 @@
 module runtime;
 
-// _thread_count is a global counter of all threads that are created by Berry
-// code (via `runtime.thr_create`).  Berry threads use this counter to check if
-// they are the last thread to exit and if so, attempt a graceful shutdown
-// (instead of relying on `sys_thr_exit` behavior).  This counter must always be
-// accessed atomically.
-let _thread_count: int = 0;
+const RS_FLAG_MAIN: uint = 1;
+const RS_FLAG_THROW: uint = 2;
 
 struct Rstate {
-    panic_depth: int;
+    flags: uint;
     heap: MHeap;
 }
 
-func thr_init() {
+func thr_init(flags: uint) {
     // Allocate a backing segment for the rstate.
     let page_kind = get_page_kind(@sizeof(Rstate));
     let segment = msegment_sys_alloc(page_kind, SEGMENT_SIZE);
@@ -26,6 +22,7 @@ func thr_init() {
         // Use it as the backing storage for the rstate.
         rstate = block as *RState
     }
+    rstate.flags = flags;
 
     // Initialize the heap in the backing segment.
     rstate.heap.init(segment);
@@ -37,18 +34,12 @@ func thr_init() {
 }
 
 func thr_exit(exit_code: int) {
+    let rstate = get_rstate();
+
     // Clean up the thread's local heap.
-    get_rstate().heap.cleanup();
+    rstate.heap.cleanup();
 
-    // Decrement the global thread count.
-    @atomic_sub(&_thread_count, 1, RELAXED);
-
-    // If this reads zero, then we are the last thread still running, so we can
-    // attempt to do a graceful process shutdown. 
-    // NOTE: Do we need SEQ_CST here or is ACQ_REL sufficient?
-    if @atomic_load(&_thread_count, SEQ_CST) == 0 {
-        // TODO: handle threads created by non-Berry code (ex: C libraries which
-        // create threads...)
+    if (rstate.flags & RS_FLAG_MAIN) > 0 {
         exit(exit_code);
     }
 

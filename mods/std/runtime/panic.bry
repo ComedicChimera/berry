@@ -82,16 +82,15 @@ func _panic_user(message: string) {
 func _dopanic() {
     let rstate = get_rstate();
 
-    if rstate.panic_depth > 0 {
+    if (rstate.flags & RS_FLAG_THROW) > 0 {
         throw("panic in runtime");
     }
 
-    rstate.panic_depth++;
+    rstate.flags |= RS_FLAG_THROW;
 
     // TODO: stack tracing
 
-    // thr_exit(1);
-    exit(1);
+    thr_exit(1);
 }
 
 /* -------------------------------------------------------------------------- */

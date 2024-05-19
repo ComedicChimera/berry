@@ -22,7 +22,7 @@ func _rtstartup() {
     sys_init();
 
     // Initialize the main thread.
-    thr_init();
+    thr_init(RS_FLAG_MAIN);
 
     // Transfer control to user code.
     _umain();
