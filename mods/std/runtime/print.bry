@@ -1,6 +1,6 @@
 module runtime;
 
-func rputs(s: string) {
+func dputs(s: string) {
     // TODO: synchronize writing here?  
     sysWriteErr(s as []u8);
 }

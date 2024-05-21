@@ -1,6 +1,20 @@
 module windows;
 
 @[extern, callconv("win64")]
+pub func GetLastError() DWORD;
+
+@[extern, callconv("win64")]
+pub func FormatMessageA(
+    dwFlags: DWORD,
+    lpSource: *u8,
+    dwMessageId: DWORD,
+    dwLanguageId: DWORD,
+    lpBuffer: *u8,
+    nSize: DWORD,
+    _Arguments: *u8
+) DWORD;
+
+@[extern, callconv("win64")]
 pub func ExitProcess(uExitCode: UINT);
 
 @[extern, callconv("win64")]

@@ -127,6 +127,7 @@ don't always get time (or energy) to work on it.
         - Subtraction: pointer - integer (backward offset), pointer - pointer (pointer diff)
         - Ordinal Comparison: pointer (cmp) pointer
         - No other extra operations are legal
+    * Unsafe Expressions: `unsafe(expr)`
     * Atomics
         - `@atomic_cas_weak`
         - `@atomic_cas_strong`

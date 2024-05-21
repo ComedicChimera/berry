@@ -4,75 +4,75 @@ module runtime;
 // signal handler implemented in the appropriate os_*.bry source file.
 
 func _panicStack() {
-    rputs("panic: stack overflow\n\n");
+    dputs("panic: stack overflow\n\n");
 
     _dopanic();
 }
 
 func _panicMem(addr: uint) {
     if addr == 0 {
-        rputs("panic: null pointer dereference\n\n");
+        dputs("panic: null pointer dereference\n\n");
     } else {
         // TODO: print address
-        rputs("panic: invalid memory access\n\n");
+        dputs("panic: invalid memory access\n\n");
     }
 
     _dopanic();
 }
 
 func _panicFloat() {
-    rputs("panic: floating point error");
+    dputs("panic: floating point error");
 
     _dopanic();
 }
 
 @abientry("__berry_panicOverflow")
 func _panicOverflow() {
-    rputs("panic: integer overflow\n\n");
+    dputs("panic: integer overflow\n\n");
 
     _dopanic();
 }
 
 @abientry("__berry_panicDivide")
 func _panicDivide() {
-    rputs("panic: integer divide by zero\n\n");
+    dputs("panic: integer divide by zero\n\n");
 
     _dopanic();
 }
 
 @abientry("__berry_panicShift")
 func _panicShift() {
-    rputs("panic: shift overflow\n\n");
+    dputs("panic: shift overflow\n\n");
 
     _dopanic();
 }
 
 @abientry("__berry_panicOOB")
 func _panicOOB() {
-    rputs("panic: index out of bounds\n\n");
+    dputs("panic: index out of bounds\n\n");
 
     _dopanic();
 }
 
 @abientry("__berry_panicBadSlice")
 func _panicBadSlice() {
-    rputs("panic: bad slice range\n\n");
+    dputs("panic: bad slice range\n\n");
 
     _dopanic();
 }
 
 @abientry("__berry_panicUnreachable")
 func _panicUnreachable() {
-    rputs("panic: unreachable\n\n");
+    dputs("panic: unreachable\n\n");
 
     _dopanic();
 }
 
 @abientry("__berry_panicUser")
 func _panicUser(message: string) {
-    rputs("panic: ");
-    rputs(message);
-    rputs("\n\n");
+    dputs("panic: ");
+    dputs(message);
+    dputs("\n\n");
 
     _dopanic();
 }
@@ -96,9 +96,9 @@ func _dopanic() {
 /* -------------------------------------------------------------------------- */
 
 func throw(message: string) {
-    rputs("throw: ");
-    rputs(message);
-    rputs("\n\n");
+    dputs("throw: ");
+    dputs(message);
+    dputs("\n\n");
 
     abort();
 }

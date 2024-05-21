@@ -293,10 +293,7 @@ func mAlignUp(size, align: uint) uint {
 /* --------------------------------- Freeing -------------------------------- */
 
 func MHeap.free(data: *u8) {
-    let block: *MBlock;
-    unsafe {
-        block = data as *MBlock;
-    }
+    let block = unsafe(data as *MBlock);
 
     // Get the parent segment and page.
     let segment = mGetParentSegment(block);
@@ -417,10 +414,7 @@ func MHeap.freePage(pq: *MPageQ, page: *MPage) {
     page.revival_chances = 0;
 
     // Update the parent segment's usage count.
-    let segment: *MSegment;
-    unsafe {
-        segment = mGetParentSegment(page as *MBlock);
-    } 
+    let segment = mGetParentSegment(unsafe(page as *MBlock));
 
     if segment.n_used_pages == segment.n_total_pages { // Segment was full.
         self.enqueueFreeSegment(segment);
@@ -681,10 +675,7 @@ func MPage.popFreeBlock() *u8 {
     self.alloc_free = block.next;
     self.n_used_blocks++;
 
-    let data: *u8;
-    unsafe {
-        data = block as *u8;
-    }
+    let data = unsafe(block as *u8);
 
     // Zero the block.
     if (self.flags & M_PAGE_ZEROED) > 0 {
