@@ -82,8 +82,8 @@ const M_PAGE_FULL: uint = 4;
 const M_PAGE_RETIRED: uint = 8;
 
 // Retirement and Revival
-const M_REVIVAL_CHANGES_SMALL: uint = 16;
-const M_REVIVAL_CHANGES: uint = M_REVIVAL_CHANGES_SMALL / 4;
+const M_REVIVAL_CHANCES_SMALL: uint = 16;
+const M_REVIVAL_CHANCES: uint = M_REVIVAL_CHANCES_SMALL / 4;
 
 /* ------------------------------- Allocation ------------------------------- */
 
@@ -110,7 +110,7 @@ func MHeap.malloc(size: uint) *u8 {
             page = self.findFreePage(size);
         }
     } elif size > M_MAX_ALLOC_SIZE { // Huge Allocation
-        page = self.hugeAlloc(size);
+        page = self.allocHugePage(size);
     } else { // Regular (slow) Path
         page = self.findFreePage(size);
     }
@@ -151,8 +151,7 @@ func MHeap.findFreePage(size: uint) *MPage {
         page = next;
     }
 
-    // Collect expired (no more revival chances) pages to free up space for
-    // allocation.
+    // Collect retired pages to free up space.
     self.collectRetired(false /* no force */);
 
     page = self.allocPage(pq);
@@ -161,7 +160,7 @@ func MHeap.findFreePage(size: uint) *MPage {
         self.collectDelayed(true /* force */);
         
         // Force collect all retired pages (including pages with remaining
-        // revival chances).
+        // revival chances: free them early).
         self.collectRetired(true /* force */);
 
         // Try to allocate again.
@@ -232,7 +231,63 @@ func MHeap.collectRetired(force: bool) {
 }
 
 func MHeap.allocPage(pq: *MPageQ) *MPage {
-    // TODO
+    // Try to find a segment with free pages for allocation.
+    let segment = self.findOrAllocFreeSegment(pq.block_size);
+    if segment == null {
+        return null;
+    }
+
+    // Find the first free page in the segment.
+    let page: *MPage = null;
+    for let i = 0; i < segment.n_total_pages; i++ {
+        page = &segment.pages[i];
+
+        if page.n_used_blocks == 0 {
+            break;
+        }
+    } else { // Should not happen.
+        throw("allocator: free segment with no free pages");
+    }
+
+    segment.n_used_pages++;
+    if segment.n_used_pages == segment.n_total_pages { // Segment is full.
+        self.dequeueFreeSegment(segment);
+    }
+
+    // Prepare the page for allocation.
+    page.block_size = block_size;
+    page.makeReady();
+
+    self.enqueuePage(pq, page);
+    return page;
+}
+
+func MHeap.allocHugePage(size: uint) *MPage {
+    // Compute the actual size needed for allocation.
+    let segment_size = @sizeof(MSegment) - (M_SMALL_PAGES_PER_SEGMENT - 1) * @sizeof(MPage);
+    let full_size = sysAlignHugePageSize(size + segment_size);
+    if full_size > M_MAX_ALLOC_SIZE {
+        panic("requested allocation size is too large");
+    }
+
+    // Allocate the backing segment.
+    let segment = mSegmentAlloc(self.thr_id, full_size, .Huge);
+
+    // Allocate the first (and only) page of the segment.
+    let page = &segment.pages[0];
+    segment.n_used_pages++;
+
+    page.block_size = mAlignUp(size, M_MIN_ALIGN);
+    page.makeReady();
+
+    self.enqueuePage(&self.pages[M_BIN_HUGE], page);
+    return page;
+}
+
+@inline
+func mAlignUp(size, align: uint) uint {
+    // NOTE: Align must be a power of 2.
+    return (size + align - 1) & ~(align - 1);
 }
 
 /* --------------------------------- Freeing -------------------------------- */
@@ -248,10 +303,10 @@ func MHeap.free(data: *u8) {
     let page = segment.getParentPage(block);
 
     // Check if this a local or cross-thread free.
-    if @atomic_load(segment.xthr_id, AMO_RELAXED) == self.thr_id {
+    if @atomic_load(segment.xthr_id, AMO_RELAXED) == self.thr_id || self.tryReclaim(segment) {
         self.freeLocal(page, block);
     } else {
-        // TODO
+        self.freeCross(page, block);
     }
 }
 
@@ -261,11 +316,49 @@ func MHeap.freeLocal(page: *MPage, block: *MBlock) {
     page.local_free = block;
     page.n_used_blocks--;
 
+    // Page is no longer zeroed.
+    page.flags &= ~M_PAGE_ZEROED;
+
     if page.n_used_blocks == 0 { // Page is empty.
         self.freeOrRetirePage(page);
     } elif (page.flags & M_PAGE_FULL) > 0 { // Page is now unfull.
         self.removeFromFull(page);
     }
+}
+
+func MHeap.freeCross(page: *MPage, block: *MBlock) {
+    let no_delay: bool;
+
+    let tfree = @atomic_load(&page.xthr_free, AMO_RELAXED);
+    let new_tfree: MThrFreeList;
+    do {
+        no_delay = tfree.getDelay() != .Delayed;
+        if no_delay { // Fast Path
+            // Push onto thread free list.
+            block.next = tfree.getBlock();
+            new_tfree = tfree.setBlock(block);
+        } else { // Slow Path
+            // Take ownership of delayed list.
+            new_tfree = tfree.setDelay(.Delaying);
+        }
+    } while !@atomic_cas_weak(&page.xthr_free, &tfree, new_tfree, AMO_RELEASE, AMO_RELAXED);
+
+    if no_delay { // Fast Path
+        // Already pushed onto thread free list: done!
+        return;
+    }
+
+    // Push onto delayed free list.
+    let dfree = @atomic_load(&self.xdelayed_free, AMO_RELAXED);
+    do {
+        block.next = dfree;
+    } while !@atomic_cas_weak(&self.xdelayed_free, &dfree, block, AMO_RELEASE, AMO_RELAXED);
+
+    // Clear the delayed status on the thread free list.
+    tfree = @atomic_load(&page.xthr_free, AMO_RELAXED);
+    do {
+        new_tfree = tfree.setDelay(.NoDelay);
+    } while !@atomic_cas_weak(&page.xthr_free, &tfree, new_tfree, AMO_RELEASE, AMO_RELAXED);
 }
 
 func MHeap.tryFreeDelayed(block: *MBlock, force: bool) bool {
@@ -301,6 +394,82 @@ func MHeap.tryFreeDelayed(block: *MBlock, force: bool) bool {
     return true;
 }
 
+func MHeap.freeOrRetirePage(page: *MPage) {
+    // Get the page's associate page queue.
+    let pq = self.getPageQueue(page);
+
+    if pq.block_size == 0 { // Special page queue
+        self.freePage(pq, page);
+    } elif pq.first == page && pq.last == page { // Page queue contains only 1 page
+        self.retirePage(pq, page);
+    } else { // Page queue contains more than 1 page
+        self.freePage(pq, page);
+    }
+}
+
+func MHeap.freePage(pq: *MPageQ, page: *MPage) {
+    // Remove the page from its parent page queue.
+    self.dequeuePage(pq, page);
+
+    // Make sure the page is properly cleared.
+    page.flags = 0;
+    page.n_used_blocks = 0;
+    page.revival_chances = 0;
+
+    // Update the parent segment's usage count.
+    let segment: *MSegment;
+    unsafe {
+        segment = mGetParentSegment(page as *MBlock);
+    } 
+
+    if segment.n_used_pages == segment.n_total_pages { // Segment was full.
+        self.enqueueFreeSegment(segment);
+    }
+    segment.n_used_pages--;
+
+    if segment.n_used_pages == 0 { // Segment is empty.
+        self.freeSegment(segment);
+    } else { // Segment is still in use.
+        // Reset the page.
+        sysReset(page.start, page.capacity);
+        page.flags = M_PAGE_RESET;
+    }
+}
+
+func MHeap.retirePage(pq: *MPageQ, page: *MPage) {
+    // Mark the page as retired.
+    page.flags |= M_PAGE_RETIRED;
+
+    // Set its number of revival chances.
+    if page.block_size > M_MAX_SMALL_OBJ_SIZE {
+        page.revival_chances = M_REVIVAL_CHANCES;
+    } else {
+        page.revival_chances = M_REVIVAL_CHANCES_SMALL;
+    }
+
+    // Update the retirement indices.
+    let ndx = self.getQueueIndex(pq);
+    if ndx < self.retire_ndx_min {
+        self.retire_ndx_min = ndx;
+    }
+
+    if ndx > self.retire_ndx_max {
+        self.retire_ndx_max = ndx;
+    }
+}
+
+/* ----------------------- Initialization and Cleanup ----------------------- */
+
+let _mpage_empty: MPage = null;
+
+func MHeap.init() {
+    // TODO
+}
+
+func MHeap.cleanup() {
+    // TODO
+}
+
 /* ------------------------------ Page Queuing ------------------------------ */
 
 struct MPageQ {
@@ -308,12 +477,148 @@ struct MPageQ {
     block_size: uint;
 }
 
+func MHeap.moveToFull(src_pq: *MPageQ, page: *MPage) {
+    // Remove the page from its old page queue.
+    dequeuePage(src_pq, page);
+
+    // Mark it as full.
+    page.flags |= M_PAGE_FULL;
+
+    // Add it to the full list.
+    enqueuePage(&self.pages[M_BIN_FULL], page);
+}
+
+func MHeap.removeFromFull(page: *MPage) {
+    // Remove the page from the full list.
+    dequeuePage(&self.pages[M_BIN_FULL], page);
+
+    // Remove its full flag.
+    page.flags &= ~M_PAGE_FULL;
+
+    // Add it to its destination queue.
+    let dest_pq = self.getPageQueue(page);
+    enqueuePage(dest_pq, page);
+}
+
+func MHeap.enqueuePage(pq: *MPageQ, page: *MPage) {
+    // Link the page into the queue.
+    page.next = null;
+    page.prev = pq.last;
+    pq.last = page;
+
+    if pq.first == null { // Queue was empty
+        // page is now also front of queue.
+        pq.first = page;
+        self.updateQueueFirst(pq);
+    }
+}
+
+func MHeap.dequeuePage(pq: *MPageQ, page: *MPage) {
+    // Remove page from the chain by updating prev and next.
+    if page.next != null {
+        page.next.prev = page.prev;
+    }
+
+    if page.prev != null {
+        page.prev.next = page.next;
+    }
+
+    if pq.first == page { // page was the first element
+        // First element is now page's next element.
+        pq.first = page.next;
+        self.updateQueueFirst(pq);
+    }
+
+    if pq.last == page { // page was the last element.
+        // Last element is now page's previous element.
+        pq.last = page.prev;
+    }
+
+    // Reset page's prev and next pointers.
+    page.next = null;
+    page.prev = null;
+}
+
+func MHeap.updateQueueFirst(pq: *MPageQ) {
+    if pq.block_size == 0 || pq.block_size > M_MAX_DIRECT_SIZE { // Special or bigger than direct
+        // No update needed.
+        return;
+    }
+
+    // Get the new first page.
+    let page = pq.first;
+    if page == null {
+        // If the first is empty, then we want the direct bins to point to the
+        // empty page instead of just being a null pointer.  This avoids an
+        // extra comparison on the fast path during allocation.
+        page = &_mpage_empty;
+    }
+
+    // Check whether the direct bin has already been updated.
+    let end = mGetWordSize(pq.block_size);
+    if page == direct_pages[end] {
+        return;
+    }
+
+    // Determine the start index of the range of bins that should be updated.
+    let start = 0;
+    if end > 1 { // Not first bin
+        // Work out the size of the previous valid bin.  On a some platforms,
+        // certain bins are unused due to alignment considerations.  Hence, we
+        // want to skip until we find the first page queue whose block size
+        // corresponds to an actually usable bin.
+        let bin = mGetPageBin(bin);
+
+        let prev = pq;
+        unsafe {
+            prev--;
+
+            while prev > &self.pages[0] && bin == mGetPageBin(prev.block_size) {
+                prev--;
+            }
+        }
+
+        // The start index for pq's direct bins will be the word size of the
+        // previous usable bin + 1 because the previous bin will be used for
+        // direct bins with size <= prev.block_size.
+        start = 1 + mGetWordSize(prev.block_size);
+
+        // If the start index is too large (due to rounding), just set it equal
+        // to the end index: we will be replacing only one direct bin.
+        if start > end {
+            start = end;
+        }
+    }
+
+    // Replace all associated direct bins with the new page.
+    for let i = start; i <= end; i++ {
+        self.direct_pages[i] = page;
+    }
+}
+
+func MHeap.getPageQueue(page: *MPage) *MPageQ {
+    if (page.flags & M_PAGE_FULL) > 0 { // Full list
+        return &self.pages[M_BIN_FULL];
+    }
+
+    let bin = mGetPageBin(page.block_size);
+    return &self.pages[bin];
+}
+
+@inline
+func MHeap.getQueueIndex(pq: *MPageQ) uint {
+    unsafe {
+        return pq - &self.pages[0] as uint;
+    }
+}
+
 func mGetPageBin(size: uint) uint {
     // TODO
 }
 
+@inline
 func mGetWordSize(size: uint) uint {
-    // TODO
+    return (size + M_WORD_SIZE - 1) / M_WORD_SIZE;
 }
 
 /* ---------------------------------- Pages --------------------------------- */
@@ -442,7 +747,7 @@ func MPage.waitAndSetDelay(delay: MThrDelay, force: bool) bool {
         tfree = @atomic_load(&self.xthr_free, AMO_ACQUIRE);
         old_delay = tfree.getDelay();
 
-        if old_delay == .Delaying { // Other thread is working on list: can't change mode.
+        if old_delay == .Delaying { // Other thread is working on list: can't change delay.
             // If not forced, give up after 4 tries.
             if !force && attempts > 4 { // Too much contention.
                 return false;
@@ -456,7 +761,7 @@ func MPage.waitAndSetDelay(delay: MThrDelay, force: bool) bool {
             // Never delay can't be overwritten.
             return false;
         } elif old_delay == delay {
-            // No more work to be done: mode is already correct.
+            // No more work to be done: delay is already correct.
             return true;
         }
         
@@ -505,14 +810,12 @@ struct MSegment {
     header_size: uint;
 }
 
-func MSegment.getParentPage(block: *MBlock) {
-    // TODO
-}
-
-/* ---------------------------- Utility Functions --------------------------- */
-
 func mGetParentSegment(block: *MBlock) *MSegment {
     unsafe {
         return (block as uint) & ~SEGMENT_MASK as *MSegment;
     }
+}
+
+func MSegment.getParentPage(block: *MBlock) {
+    // TODO
 }

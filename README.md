@@ -121,63 +121,66 @@ don't always get time (or energy) to work on it.
     * Anonymous Importing
         - `import pkg as _` imports method table with polluting namespace
 
-- [ ] Target 14: Dynamic Memory, TLS, and Threads
-    * Thread Local Storage + TL Runtime State
-        - Allocate runtime state on heap
+- [ ] Target 14: Dynamic Memory and TLS
+    * Fix pointer arithmetic
+        - Addition: Only allow pointer + integer (forward offset)
+        - Subtraction: pointer - integer (backward offset), pointer - pointer (pointer diff)
+        - Ordinal Comparison: pointer (cmp) pointer
+        - No other extra operations are legal
     * Atomics
         - `@atomic_cas_weak`
+        - `@atomic_cas_strong`
         - `@atomic_load`
-        - `@atomic_add`
+    * Thread Local Storage + TL Runtime State
+        - Allocate runtime state on heap
     * Multithreaded Allocator
-        - Doesn't need to be to advanced, but good enough to last for a while.
+        - Good enough to last a while
         - Should support multi-threading
         - Based off mi-malloc
-        - We can improve it later
-    * Runtime Thread Support
-        - Creation of Rthreads
-        - Management of Threads and TLS state
-        - Thread shutdown on panic
-    * Expose thread functionality through `threads` package.
-        - Wrap `Rthread` into `Thread`
-        - Thread methods: `get_id`, `suspend`, `wait`, etc.
-        - Utility Method: `sleep`, `sleepms`, `get_current_thread`
-    * To allocate thread objects, just use `runtime.malloc` and then later
-      switch it to use `new ...`
-        - We can replace raw `malloc` calls with implicit calls to `gcmalloc`
-          later on.
+
+- [ ] Target 15: Threads
     * Function Type labels
         - No closures yet, just regular old functions
     * Linking and compiling asm files
         - For now, just set the compiler to always compile the appropriate
           `asm/rt_[os]_[arch].asm` file.
+    * Runtime Thread Support
+        - Creation of Rthreads
+        - Management of Threads and TLS state
+        - Thread shutdown on panic
+    * Expose thread functionality through `threads` package
+        - Wrap `Rthread` into `Thread`
+        - Thread methods: `get_id`, `suspend`, `wait`, etc.
+        - Utility Method: `sleep`, `sleepms`, `get_current_thread`
+    * Test compatibility with dynamic memory
 
-- [ ] Target 15: Garbage Collection
+- [ ] Target 16: Garbage Collection
     * Simple Mark-and-Sweep Garbage Collector
         - We can make it better letter on.
     * Automatic Heap Allocation
     * Escape Analysis
 
-- [ ] Target 16: Better Functions
+- [ ] Target 17: Better Functions
     * Variadic Arguments
     * Named and Optional Arguments
     * Function Overloading
 
-- [ ] Target 17: Interfaces
+- [ ] Target 18: Interfaces
     * Interface Declarations 
     * Interface Inheritance
     * Virtual methods
     * The `any` type
     * `is` Assertions
 
-- [ ] Target 18: Formatted IO
+- [ ] Target 19: Formatted IO
     * Make `io.std` more usable `std.println`, etc...
 
-- [ ] Target 19: Pattern Matching
+- [ ] Target 20: Pattern Matching
     * Tuple Pattern Matching
     * Struct Pattern Matching
     * Tuple and Struct Bindings (variables, assignment, etc.)
 
-- [ ] Target 20: Tagged Unions
+- [ ] Target 21: Tagged Unions
     * Enum-like Variants
     * Tuple-like Variants
     * Struct-like Variants
@@ -186,26 +189,26 @@ don't always get time (or energy) to work on it.
         - Ex: `AstExpr.Call`, `Type.Named`, etc.
     * `is` Assertions for Variant Types
 
-- [ ] Target 21: Generics
+- [ ] Target 22: Generics
     * Generic Type Inference
     * Generic Types and Functions
     * Generic Method Binding
     * Interface Constraints  
 
-- [ ] Target 22: Iterators
+- [ ] Target 23: Iterators
     * The `Iter` and `Seq` interfaces
     * Builtin methods: `.len()` and `.iter()`.
     * For each loops
 
-- [ ] Target 23: Monadic Error Handling
+- [ ] Target 24: Monadic Error Handling
     * The `Chain` interface
     * The `?` and `<-` Operators
     * Conditional Binding
         - Ex: `if x <- fn()` 
 
-- [ ] Target 24: Operator Overloading
+- [ ] Target 25: Operator Overloading
 
-- [ ] Target 25: Builtin Collections
+- [ ] Target 26: Builtin Collections
     * `List[T]`
     * `Map[K, V]`
     * `Set[T]`
@@ -214,7 +217,7 @@ don't always get time (or energy) to work on it.
     * Builtin hashing: `.hash()`
     * The `Col` interface 
 
-- [ ] Target 26: Closures and Defer
+- [ ] Target 27: Closures and Defer
     * Lambda functions: `|x, y| => expr`
     * Lambda type inference
     * Block lambda functions: `|x, y| { ... }`
@@ -222,21 +225,21 @@ don't always get time (or energy) to work on it.
     * The `defer` statement
     * Method references (using `value.method` as a value)
 
-- [ ] Target 27: Sequences
+- [ ] Target 28: Sequences
     * Builtin sequence methods like `.map`, `.filter`, etc.
     * The `sequences` package
 
-- [ ] Target 28: Better Generics
+- [ ] Target 29: Better Generics
     * Generic control flow
     * Variadic generics
 
-- [ ] Target 29: Better Type Constraints
+- [ ] Target 30: Better Type Constraints
     * Or (`|`) and And (`&`) Constraints
     * Defined Constaints (Traits)
     * Operator Constraints
     * Builtin Numeric Constraints (`Int`, `Float`, `Num`)
 
-- [ ] Target 30: Debug Info
+- [ ] Target 31: Debug Info
     * Fix DIType generation
     * Add code for debug assignment
     * Get debugging working on Windows (enable stepping through the program)
