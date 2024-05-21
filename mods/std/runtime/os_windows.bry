@@ -4,6 +4,8 @@ module runtime;
 
 import sys.windows;
 
+/* ----------------------- Initialization and Exit -------------------------- */
+
 func sysInit() {
     // Get the standard error handle for sys_ewrite.
     _sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
@@ -22,7 +24,7 @@ func sysExit(exit_code: int) {
     windows.ExitProcess(exit_code as windows.UINT);
 }
 
-/* -------------------------------------------------------------------------- */
+/* --------------------------- Printing to Stderr --------------------------- */
 
 let _sys_stderr: windows.HANDLE;
 
@@ -30,7 +32,7 @@ func sysWriteErr(b: []u8) {
     windows.WriteConsoleA(_sys_stderr, b._ptr, b._len as windows.DWORD, null, null);
 }
 
-/* -------------------------------------------------------------------------- */
+/* --------------------------- Exception Handling --------------------------- */
 
 enum _WinExcCode {
     AccessViolation = windows.EXCEPTION_ACCESS_VIOLATION;
@@ -87,33 +89,33 @@ func _winExcHandler(exc_info: *windows.EXCEPTION_POINTERS) windows.DWORD {
     return windows.EXCEPTION_CONTINUE_SEARCH;
 }
 
-/* -------------------------------------------------------------------------- */
+/* ----------------------- Thread-Local Storage (TLS) ----------------------- */
 
 let _tls_rstate_index: windows.DWORD = windows.TLS_OUT_OF_INDEXES;
 
 func rtGetState() *Rstate {
-    let rstate: *Rstate;
+    let rs: *Rstate;
 
     unsafe {
-        rstate = windows.TlsGetValue(_tls_rstate_index) as *Rstate;
+        rs = windows.TlsGetValue(_tls_rstate_index) as *Rstate;
     }
 
-    if rstate == null {
-        throw("rstate is null");
+    if rs == null {
+        throw("runtime state is null");
     }
 
-    return rstate;
+    return rs;
 }
 
 func rtSetState(rstate: *Rstate) {
     unsafe {
         if windows.TlsSetValue(_tls_rstate_index, rstate as *u8) == 0 {
-            throw("bad tls set value");
+            throw("bad TLS set value");
         }
     }
 }
 
-/* -------------------------------------------------------------------------- */
+/* --------------------------------- Threads -------------------------------- */
 
 // type Rthread = windows.HANDLE;
 
@@ -137,3 +139,7 @@ func rtSetState(rstate: *Rstate) {
 func sysThrExit(exit_code: int) {
     windows.ExitThread(exit_code as windows.DWORD);
 }
+
+/* --------------------------------- Atomics -------------------------------- */
+
+// TODO

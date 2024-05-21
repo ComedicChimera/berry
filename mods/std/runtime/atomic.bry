@@ -1,0 +1,8 @@
+module runtime;
+
+// Atomic Memory Orderings
+pub const AMO_RELAXED: byte = 0;
+pub const AMO_ACQUIRE: byte = 1;
+pub const AMO_RELEASE: byte = 2;
+pub const AMO_ACQ_REL: byte = 3;
+pub const AMO_SEQ_CST: byte = 4;

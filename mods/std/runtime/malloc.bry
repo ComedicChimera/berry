@@ -12,7 +12,7 @@ func _malloc(size: uint) *u8 {
     return data;
 }
 
-func _realloc(data: *u8, new_size: uint) *u8 {
+func _mrealloc(data: *u8, new_size: uint) *u8 {
     let rs = rtGetState();
     let flags = rs.swapFlags(RS_FLAG_THROW);
 
@@ -22,7 +22,7 @@ func _realloc(data: *u8, new_size: uint) *u8 {
     return data;
 }
 
-func _free(data: *u8) {
+func _mfree(data: *u8) {
     let rs = rtGetState();
     let flags = rs.swapFlags(RS_FLAG_THROW);
 
@@ -33,14 +33,248 @@ func _free(data: *u8) {
 
 /* -------------------------------- Constants ------------------------------- */
 
-const MEM_WORD_SHIFT: uint = #if (ARCH_BITS == 64) 3 #else 2 #endif;
-const MEM_WORD_SIZE: uint = 1 << MEM_WORD_SHIFT;
+// Machine Word Sizes
+const M_WORD_SHIFT: uint = #if (ARCH_BITS == 64) 3 #else 2 #endif;
+const M_WORD_SIZE: uint = 1 << M_WORD_SHIFT;
 
-const MEM_MIN_ALIGN: uint = 16
-const MEM_MIN_WORD_ALIGN: uint = MEM_MIN_ALIGN / MEM_WORD_SIZE; 
+const M_MIN_ALIGN: uint = 16;                              // Minimum Allocation Alignment (16-bit on most platforms)
+const M_MIN_WORD_ALIGN: uint = M_MIN_ALIGN / M_WORD_SIZE;  // 2 (on 64-bit)
 
-// TODO: remaining constants
+// Page Sizes
+const M_SMALL_PAGE_SHIFT: uint = 3 + M_WORD_SHIFT;
+const M_MED_PAGE_SHIFT: uint = 3 + M_SMALL_PAGE_SHIFT;
+const M_LARGE_PAGE_SHIFT: uint = 3 + M_MED_PAGE_SHIFT;
+
+const M_SMALL_PAGE_SIZE: uint = 1 << M_SMALL_PAGE_SHIFT;  // 64 KiB (on 64-bit)
+const M_MED_PAGE_SIZE: uint = 1 << M_MED_PAGE_SHIFT;      // 512 KiB 
+const M_LARGE_PAGE_SIZE: uint = 1 << M_LARGE_PAGE_SHIFT;  // 4 MiB
+
+// Segment Sizes
+// TODO
+
+// Allocation Size Limits
+const M_MAX_SMALL_OBJ_SIZE: uint = M_SMALL_PAGE_SIZE / 4;   // 16 KiB (on 64-bit)
+const M_MAX_MED_OBJ_SIZE: uint = M_MED_PAGE_SIZE / 4;       // 128 KiB
+const M_MAX_LARGE_OBJ_SIZE: uint = M_LARGE_PAGE_SIZE / 2;   // 2 MiB
+
+const M_MAX_ALLOC_SIZE: uint = #if (ARCH_BITS == 64) (1 << 48) - 1 #else (1 << 31) - 1 #end;
+
+// Bin Counts
+const M_N_REG_BINS: uint = 73;                  // 73 regular size classes
+const M_BIN_HUGE: uint = M_N_REG_BINS;          // Bin 72 = Huge Bin
+const M_BIN_FULL: uint = M_BIN_HUGE + 1;        // Bin 73 = Full List
+const M_N_TOTAL_BINS: uint = M_N_REG_BINS + 2;  // Total Bins = 73 + 1 (huge bin) + 1 (full list)
+
+const M_N_DIRECT_BINS: uint = 128;                              // Number of Bins in `direct_pages`
+const M_MAX_DIRECT_SIZE: uint = M_WORD_SIZE * M_N_DIRECT_BINS;  // = 1 KiB on 64-bit systems
+
+// Page Flags
+const M_PAGE_ZEROED: uint = 1;
+const M_PAGE_RESET: uint = 2;
+const M_PAGE_FULL: uint = 4;
+const M_PAGE_RETIRED: uint = 8;
+
+// Retirement and Revival
+const M_REVIVAL_CHANGES_SMALL: uint = 16;
+const M_REVIVAL_CHANGES: uint = M_REVIVAL_CHANGES_SMALL / 4;
 
 /* ------------------------------- Allocation ------------------------------- */
 
-// TODO
+struct MHeap {
+    id: uint;
+
+    direct_pages: [M_N_DIRECT_BINS]*MPage;
+    pages: [M_N_TOTAL_BINS]MPageQ;
+
+    xdelayed_free: *MBlock;
+}
+
+func MHeap.malloc(size: uint) *u8 {
+    // Find a page with free space.
+    let page: *MPage = null;
+    if size <= M_MAX_DIRECT_SIZE { // Fast Path
+        let wsize = mGetWordSize(size);
+        page = self.direct_pages[wsize];
+
+        if page.alloc_free == null { // Fast Path failed
+            // Fallback to generic malloc
+            page = self.findFreePage(size);
+        }
+    } elif size > M_MAX_ALLOC_SIZE { // Huge Allocation
+        page = self.hugeAlloc(size);
+    } else { // Regular (slow) Path
+        page = self.findFreePage(size);
+    }
+
+    // NOTE: page is never null here.
+
+    // Allocate in the free page.
+    return page.popFreeBlock();
+}
+
+func MHeap.realloc(data: *u8, new_size: uint) *u8 {
+    // TODO
+    return null;
+}
+
+func MHeap.findFreePage(size: uint) *MPage {
+    // Collect all delayed frees to free up space.
+    self.collectDelayed(false /* no force*/);
+
+    // Get the page queue associated with size.
+    let bin = mGetPageBin(size);
+    let pq = &self.pages[bin];
+
+    // Search the page queue for a free page.
+    let page = pq.first;
+    while page != null {
+        // Collect page's free lists.
+        page.collectFree();
+
+        if page.alloc_free != null { // Page has free space?
+            // Done: reuse page with free space.
+            return page;
+        }
+
+        // Pass is full: move to full list.
+        let next = page.next;
+        self.moveToFull(pq, page);
+        page = next;
+    }
+
+    // Collect expired (no more revival chances) pages to free up space for
+    // allocation.
+    self.collectRetired(false /* no force */);
+
+    page = self.allocPage(pq);
+    if page == null { // Allocation failed
+        // Collect all delayed frees (including page's with high contention).
+        self.collectDelayed(true /* force */);
+        
+        // Force collect all retired pages (including pages with remaining
+        // revival chances).
+        self.collectRetired(true /* force */);
+
+        // Try to allocate again.
+        page = self.allocPage(pq);  
+        if page == null { // Out of memory.
+            panic("out of memory");
+        }
+    }
+
+    return page;
+}
+
+func MHeap.collectDelayed(force: bool) {
+    // TODO
+}
+
+func MHeap.collectRetired(force: bool) {
+    // TODO
+}
+
+func MHeap.allocPage(pq: *MPageQ) *MPage {
+    // TODO
+}
+
+/* --------------------------------- Freeing -------------------------------- */
+
+
+
+/* ---------------------------------- Pages --------------------------------- */
+
+type MThrFreeList = uint;
+
+enum MThrDelay {
+    Delayed = 0;
+    Delaying = 1;
+    NoDelay = 2;
+    NeverDelay = 3;
+}
+
+func MThrFreeList.getBlock() *MBlock {
+    unsafe {
+        return (*self & ~3) as *MBlock;
+    }
+}
+
+func MThrFreeList.setBlock(block: *MBlock) MThrFreeList {
+    unsafe {
+        return (*self & 3) | (block as uint);
+    }
+}
+
+func MThrFreeList.getDelay() MThrDelay {
+    unsafe {
+        return (*self & 3) as MThrDelay;
+    }
+}
+
+func MThrFreeList.setDelay(delay: MThrDelay) MThrFreeList {
+    return (*self & ~3) | (delay as uint);
+}
+
+struct MPage {
+    flags: u8;
+    revival_chances: u8;
+
+    block_size: uint;
+
+    prev, next: *MPage;
+
+    n_used_blocks: uint;
+    capacity, reserved: uint;
+
+    alloc_free, local_free: *MBlock;
+    xthr_free: MThrFreeList;
+
+    start: *u8;
+}
+
+struct MPageQ {
+    first, last: *MPage;
+    block_size: uint;
+}
+
+struct MBlock {
+    next: *MBlock;
+}
+
+func MPage.collectFree() {
+    // Collect thread free list.
+    self.collectThreadFree();
+
+    // Collect local free list.
+    if self.alloc_free == null {
+        self.alloc_free = self.local_free;
+        self.local_free = null;
+    }
+}
+
+func MPage.collectThreadFree() {
+    // Atomically acquire the thread list.
+    let tfree = @atomic_load(self.xthr_free, AMO_RELAXED);
+    let new_tfree: MThrFreeList = 0;
+    let head: *MBlock = null;
+    do {
+        head = tfree.getBlock();
+        new_tfree = tfree.setBlock(null);
+    } while @atomic_cas_weak(&self.xthr_free, &tfree, new_tfree, AMO_ACQ_REL, AMO_RELAXED);
+
+    // Thread free list is empty: nothing to do.
+    if head == null {
+        return;
+    }
+
+    // Find the tail of the thread free list and update the usage count.
+    let tail = head;
+    self.n_used_blocks--;
+    while tail.next != null {
+        tail = tail.next;
+        self.n_used_blocks--;
+    }
+
+    // Concatenate the thread free list onto the front of the local list.
+    tail.next = self.local_free;
+    self.local_free = head;
+}
