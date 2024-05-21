@@ -191,7 +191,7 @@ llvm::Value* CodeGenerator::genSliceExpr(HirExpr* node, llvm::Value* alloc_loc) 
         setCurrentBlock(bb_is_bad_slice);
 
         if (rtstub_panic_badslice)
-            rtstub_panic_badslice = genPanicStub("__berry_panic_badslice");
+            rtstub_panic_badslice = genPanicStub("__berry_panicBadSlice");
 
         irb.CreateCall(rtstub_panic_badslice);
         irb.CreateUnreachable();
@@ -628,7 +628,7 @@ void CodeGenerator::genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool 
     setCurrentBlock(bb_oob);
 
     if (rtstub_panic_oob == nullptr)
-        rtstub_panic_oob = genPanicStub("__berry_panic_oob");
+        rtstub_panic_oob = genPanicStub("__berry_panicOOB");
 
     irb.CreateCall(rtstub_panic_oob);
     irb.CreateUnreachable();

@@ -8,7 +8,13 @@ struct Rstate {
     heap: MHeap;
 }
 
-func thr_init(flags: uint) {
+func Rstate.swapFlags(flags: uint) uint {
+    let old_flags = self.flags;
+    self.flags |= flags;
+    return old_flags;
+}
+
+func thrInit(flags: uint) {
     // Allocate a backing segment for the rstate.
     let page_kind = get_page_kind(@sizeof(Rstate));
     let segment = msegment_sys_alloc(page_kind, SEGMENT_SIZE);
@@ -28,21 +34,21 @@ func thr_init(flags: uint) {
     rstate.heap.init(segment);
 
     // Store rstate into TLS.
-    set_rstate(rstate);
+    rtSetState(rstate);
 
     // Ready to go!
 }
 
-func thr_exit(exit_code: int) {
-    let rstate = get_rstate();
+func thrExit(exit_code: int) {
+    let rs = rtGetState();
 
     // Clean up the thread's local heap.
-    rstate.heap.cleanup();
+    rs.heap.cleanup();
 
-    if (rstate.flags & RS_FLAG_MAIN) > 0 {
+    if (rs.flags & RS_FLAG_MAIN) > 0 { // Main thread exits process.
         exit(exit_code);
     }
 
     // Call the system thread exit handler.
-    sys_thr_exit(exit_code);
+    sysThrExit(exit_code);
 }

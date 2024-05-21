@@ -6,7 +6,7 @@ import sys.windows;
 
 let sys_stdout: windows.HANDLE = windows.GetStdHandle(-11 as windows.DWORD);
 
-func sys_print(b: []u8) {
+func sysPrint(b: []u8) {
     windows.WriteConsoleA(sys_stdout, b._ptr, b._len as windows.DWORD, null, null);
 }
 

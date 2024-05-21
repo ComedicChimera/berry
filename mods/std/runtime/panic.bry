@@ -3,13 +3,13 @@ module runtime;
 // NOTE: The panic functions not tagged @abientry are directly called by the
 // signal handler implemented in the appropriate os_*.bry source file.
 
-func _panic_stack() {
+func _panicStack() {
     rputs("panic: stack overflow\n\n");
 
     _dopanic();
 }
 
-func _panic_mem(addr: uint) {
+func _panicMem(addr: uint) {
     if addr == 0 {
         rputs("panic: null pointer dereference\n\n");
     } else {
@@ -20,56 +20,56 @@ func _panic_mem(addr: uint) {
     _dopanic();
 }
 
-func _panic_float() {
+func _panicFloat() {
     rputs("panic: floating point error");
 
     _dopanic();
 }
 
-@abientry("__berry_panic_overflow")
-func _panic_overflow() {
+@abientry("__berry_panicOverflow")
+func _panicOverflow() {
     rputs("panic: integer overflow\n\n");
 
     _dopanic();
 }
 
-@abientry("__berry_panic_divide")
-func _panic_divide() {
+@abientry("__berry_panicDivide")
+func _panicDivide() {
     rputs("panic: integer divide by zero\n\n");
 
     _dopanic();
 }
 
-@abientry("__berry_panic_shift")
-func _panic_shift() {
+@abientry("__berry_panicShift")
+func _panicShift() {
     rputs("panic: shift overflow\n\n");
 
     _dopanic();
 }
 
-@abientry("__berry_panic_oob")
-func _panic_oob() {
+@abientry("__berry_panicOOB")
+func _panicOOB() {
     rputs("panic: index out of bounds\n\n");
 
     _dopanic();
 }
 
-@abientry("__berry_panic_badslice")
-func _panic_badslice() {
+@abientry("__berry_panicBadSlice")
+func _panicBadSlice() {
     rputs("panic: bad slice range\n\n");
 
     _dopanic();
 }
 
-@abientry("__berry_panic_unreachable")
-func _panic_unreachable() {
+@abientry("__berry_panicUnreachable")
+func _panicUnreachable() {
     rputs("panic: unreachable\n\n");
 
     _dopanic();
 }
 
-@abientry("__berry_panic_user")
-func _panic_user(message: string) {
+@abientry("__berry_panicUser")
+func _panicUser(message: string) {
     rputs("panic: ");
     rputs(message);
     rputs("\n\n");
@@ -80,17 +80,17 @@ func _panic_user(message: string) {
 /* -------------------------------------------------------------------------- */
 
 func _dopanic() {
-    let rstate = get_rstate();
+    let rs = rtGetState();
 
-    if (rstate.flags & RS_FLAG_THROW) > 0 {
+    if (rs.flags & RS_FLAG_THROW) > 0 {
         throw("panic in runtime");
     }
 
-    rstate.flags |= RS_FLAG_THROW;
+    rs.flags |= RS_FLAG_THROW;
 
     // TODO: stack tracing
 
-    thr_exit(1);
+    thrExit(1);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -104,5 +104,5 @@ func throw(message: string) {
 }
 
 func abort() {
-    sys_exit(1);
+    sysExit(1);
 }

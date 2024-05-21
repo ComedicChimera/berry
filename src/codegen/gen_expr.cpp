@@ -543,7 +543,7 @@ void CodeGenerator::genDivideByZeroCheck(llvm::Value* divisor, Type* int_type) {
     setCurrentBlock(bb_zero);
     
     if (rtstub_panic_divide == nullptr)
-        rtstub_panic_divide = genPanicStub("__berry_panic_divide");
+        rtstub_panic_divide = genPanicStub("__berry_panicDivide");
 
     irb.CreateCall(rtstub_panic_divide);
     irb.CreateUnreachable();
@@ -566,7 +566,7 @@ void CodeGenerator::genDivideOverflowCheck(llvm::Value* dividend, llvm::Value* d
     setCurrentBlock(bb_overflow);
 
     if (rtstub_panic_overflow == nullptr)
-        rtstub_panic_overflow = genPanicStub("__berry_panic_overflow");
+        rtstub_panic_overflow = genPanicStub("__berry_panicOverflow");
 
     irb.CreateCall(rtstub_panic_overflow);
     irb.CreateUnreachable();
@@ -585,7 +585,7 @@ void CodeGenerator::genShiftOverflowCheck(llvm::Value* rhs, Type* int_type) {
     setCurrentBlock(bb_bad_shift);
 
     if (rtstub_panic_overflow == nullptr)
-        rtstub_panic_overflow = genPanicStub("__berry_panic_overflow");
+        rtstub_panic_overflow = genPanicStub("__berry_panicOverflow");
 
     irb.CreateCall(rtstub_panic_overflow);
     irb.CreateUnreachable();

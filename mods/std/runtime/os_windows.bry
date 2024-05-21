@@ -4,7 +4,7 @@ module runtime;
 
 import sys.windows;
 
-func sys_init() {
+func sysInit() {
     // Get the standard error handle for sys_ewrite.
     _sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
 
@@ -15,10 +15,10 @@ func sys_init() {
     }
 
     // Setup the exception handler.
-    windows.AddVectoredExceptionHandler(0, _win_veh_handler._addr);
+    windows.AddVectoredExceptionHandler(0, _winExcHandler._addr);
 }
 
-func sys_exit(exit_code: int) {
+func sysExit(exit_code: int) {
     windows.ExitProcess(exit_code as windows.UINT);
 }
 
@@ -26,7 +26,7 @@ func sys_exit(exit_code: int) {
 
 let _sys_stderr: windows.HANDLE;
 
-func sys_ewrite(b: []u8) {
+func sysWriteErr(b: []u8) {
     windows.WriteConsoleA(_sys_stderr, b._ptr, b._len as windows.DWORD, null, null);
 }
 
@@ -44,7 +44,7 @@ enum _WinExcCode {
     FltUnderflow = windows.EXCEPTION_FLT_UNDERFLOW;
 }
 
-func _win_veh_handler(exc_info: *windows.EXCEPTION_POINTERS) windows.DWORD {
+func _winExcHandler(exc_info: *windows.EXCEPTION_POINTERS) windows.DWORD {
     let code: _WinExcCode;
     unsafe {
         code = exc_info.ExceptionRecord.ExceptionCode as _WinExcCode;
@@ -55,15 +55,15 @@ func _win_veh_handler(exc_info: *windows.EXCEPTION_POINTERS) windows.DWORD {
     // but adding in these additional handlers provides redundancy.
     match code {
     case .AccessViolation:
-        _panic_mem(exc_info.ExceptionRecord._info2 as uint);
+        _panicMem(exc_info.ExceptionRecord._info2 as uint);
     case .IntDivideByZero:
-        _panic_divide();
+        _panicDivide();
     case .StackOverflow:
-        _panic_stack();
+        _panicStack();
     case .IntOverflow:
-        _panic_overflow();
+        _panicOverflow();
     case .FltDenormalOperand | .FltDivideByZero | .FltInexactResult | .FltOverflow | .FltUnderflow:
-        _panic_float();
+        _panicFloat();
     case _:
         return windows.EXCEPTION_CONTINUE_SEARCH;
     }
@@ -91,7 +91,7 @@ func _win_veh_handler(exc_info: *windows.EXCEPTION_POINTERS) windows.DWORD {
 
 let _tls_rstate_index: windows.DWORD = windows.TLS_OUT_OF_INDEXES;
 
-func get_rstate() *Rstate {
+func rtGetState() *Rstate {
     let rstate: *Rstate;
 
     unsafe {
@@ -105,7 +105,7 @@ func get_rstate() *Rstate {
     return rstate;
 }
 
-func set_rstate(rstate: *Rstate) {
+func rtSetState(rstate: *Rstate) {
     unsafe {
         if windows.TlsSetValue(_tls_rstate_index, rstate as *u8) == 0 {
             throw("bad tls set value");
@@ -134,6 +134,6 @@ func set_rstate(rstate: *Rstate) {
 //     );
 // }
 
-func sys_thr_exit(exit_code: int) {
+func sysThrExit(exit_code: int) {
     windows.ExitThread(exit_code as windows.DWORD);
 }

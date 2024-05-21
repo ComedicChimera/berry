@@ -22,7 +22,7 @@ func write(b: []u8) {
 }
 
 func flush() {
-    sys_print(out_buff[:out_cursor]);
+    sysPrint(out_buff[:out_cursor]);
     out_cursor = 0;
 }
 

@@ -17,17 +17,17 @@ module runtime;
 func _umain();
 
 @abientry("__berry_start")
-func _rtstartup() {
+func _rtStart() {
     // Initialize the system bindings (TLS, exception handlers, etc.).
-    sys_init();
+    _sysInit();
 
     // Initialize the main thread.
-    thr_init(RS_FLAG_MAIN);
+    thrInit(RS_FLAG_MAIN);
 
     // Transfer control to user code.
     _umain();
 
     // Exit the current thread gracefully when `main` returns.
-    thr_exit(0);
+    thrExit(0);
 }
 

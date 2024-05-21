@@ -55,7 +55,7 @@ void CodeGenerator::genBuiltinFuncs() {
     ll_init_func = llvm::Function::Create(
         ll_rtstub_void_type, 
         llvm::Function::ExternalLinkage, 
-        std::format("__berry_init_mod${}", src_mod.id), 
+        std::format("__berry_initmod${}", src_mod.id), 
         mod
     );
     ll_init_block = llvm::BasicBlock::Create(ctx, "entry", ll_init_func);

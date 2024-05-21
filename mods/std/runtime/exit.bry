@@ -4,5 +4,5 @@ pub func exit(exit_code: int) {
     // TODO: exit handlers
     
     // Call the system exit handler to shutdown the current process.
-    sys_exit(exit_code);
+    sysExit(exit_code);
 }
