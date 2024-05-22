@@ -90,6 +90,9 @@ const M_REVIVAL_CHANCES: uint = M_REVIVAL_CHANCES_SMALL / 4;
 struct MHeap {
     thr_id: uint;
 
+    small_free_segments: MSegmentQ;
+    med_free_segments: MSegmentQ;
+
     direct_pages: [M_N_DIRECT_BINS]*MPage;
     pages: [M_N_TOTAL_BINS]MPageQ;
 
@@ -772,7 +775,7 @@ func MPage.enableDelayedFree() {
     } while @atomic_cas_weak(&self.xthr_free, &tfree, new_tfree, AMO_RELEASE, AMO_RELAXED);
 }
 
-/* -------------------------------- Segments -------------------------------- */
+/* ---------------------------- Segment Queueing ---------------------------- */
 
 enum MPageKind {
     Small,
@@ -801,12 +804,230 @@ struct MSegment {
     header_size: uint;
 }
 
+struct MSegmentQ {
+    first, last: *MSegment;
+}
+
+func MHeap.findOrAllocFreeSegment(block_size: uint) *MSegment {
+    let page_kind = mGetPageKind(block_size);
+
+    // Try to find a segment with free pages.
+    let segment: *MSegment;
+    match page_kind {
+    case .Small:
+        segment = self.small_free_segments.findFreeSegment();
+        if segment != null {
+            return segment;
+        }
+    case .Med:
+        segment = self.med_free_segments.findFreeSegment();
+        if segment != null {
+            return segment;
+        }
+    }
+
+    // No free segments: allocate from OS.
+    return self.allocRegularSegment(page_kind);
+}
+
+func MHeap.allocRegularSegment(page_kind: MPageKind) *MSegment {
+    // Allocate a segment from the OS.
+    let segment = mSegmentAlloc(self.thr_id, M_SEGMENT_SIZE, page_kind);
+    if segment == null { // Segment allocation failed.
+        return null;
+    }
+
+    // Add the segment to the appropriate free queue.
+    self.enqueueFreeSegment(segment);
+    return segment;
+}
+
+func MHeap.freeSegment(segment: *MSegment) {
+    // Remove the segment from its free queue.
+    self.dequeueFreeSegment(segment);
+
+    // Return the segment to the OS.
+    mSegmentFree(segment);
+}
+
+func MHeap.enqueueFreeSegment(segment: *MSegment) {
+    match segment.page_kind {
+    case .Small:
+        self.small_free_segments.enqueue(segment);
+    case .Med:
+        self.med_free_segments.enqueue(segment);
+    }
+}
+
+func MHeap.dequeueFreeSegment(segment: *MSegment) {
+    match segment.page_kind {
+    case .Small:
+        self.small_free_segments.dequeue(segment);
+    case .Med:
+        self.med_free_segments.dequeue(segment);
+    }
+}
+
+func MSegmentQ.enqueue(segment: *MSegment) {
+    // Link the segment into the segment queue.
+    segment.next = null;
+    segment.prev = self.last;
+    self.last = segment;
+
+    if self.first == null { // Queue is empty.
+        // segment becomes the front of the queue.
+        self.first = segment;
+    }
+}
+
+func MSegmentQ.dequeue(segment: *MSegment) {
+    // Update the prev and next segments in the queue.
+    if segment.next != null {
+        segment.next.prev = segment.prev;
+    }
+
+    if segment.prev != null {
+        segment.prev.next = segment.next;
+    }
+
+    // Remove the segment from the first and last of the queue.
+    if self.first == segment {
+        self.first = segment.next;
+    }
+
+    if self.last == segment {
+        self.last = segment.prev;
+    }
+
+    // Reset segment next and prev pointers.
+    segment.next = null;
+    segment.prev = null;
+}
+
+func MSegmentQ.findFreeSegment() *MSegment {
+    for let segment = self.first; segment != null; segment = segment.next {
+        if segment.n_used_pages < segment.n_total_pages {
+            return segment;
+        }
+    }
+}
+
+/* -------------------------------- Segments -------------------------------- */
+
+func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSegment {
+    // Determine page information.
+    let n_pages = 1;
+    let page_shift = 0;
+
+    match page_kind {
+    case .Small:
+        n_pages = M_SMALL_PAGES_PER_SEGMENT;
+        page_shift = M_SMALL_PAGE_SHIFT;
+    case .Med:
+        n_pages = M_MED_PAGES_PER_SEGMENT;
+        page_shift = M_MED_PAGE_SHIFT;
+    case .Large:
+        n_pages = M_LARGE_PAGES_PER_SEGMENT;
+        page_shift = M_LARGE_PAGE_SHIFT;
+    }
+
+    let page_size = 1 << page_shift;
+    if page_kind == .Huge {
+        page_size = segment_size;
+    }
+
+    // Reserve (or allocate) the space for the segment.
+    let segment: *MSegment;
+    let full_commit = false;
+    unsafe {
+        segment = sysReserve(segment_size, M_SEGMENT_ALIGN) as *MSegment;
+        if segment == null { /// Unable to reserve space
+            // Fallback to commit.
+            segment = sysCommit(null, segment_size, M_SEGMENT_ALIGN) as *MSegment;
+
+            if segment == null { // Can't commit either
+                // Out of memory.
+                return null;
+            } else {
+                full_commit = true;
+            }
+        } else {
+            // Commit just the first page's worth of space.
+            sysCommit(segment as *u8, page_size, 0);
+        }
+    }
+
+    // Initialize the segment info.
+    segment.xthr_id = self.thr_id;
+    segment.full_size = segment_size;
+    segment.page_kind = page_kind;
+    segment.page_shift = page_shift;
+    segment.n_used_pages = 0;
+    segment.n_total_pages = n_pages;
+    segment.n_abandoned_pages = 0;
+    segment.header_size = @sizeof(MSegment) - (M_SMALL_PAGES_PER_SEGMENT - n_pages) * @sizeof(MPage);
+
+    // Initialize the first page.
+    let page = &segment.pages[0];
+
+    let first_page_start = unsafe((segment as *u8) + segment.header_size);
+    page.zeroInit(first_page_start);
+    page.reserved = page_size - segment.header_size;
+    page.capacity = page.reserved;
+
+    // Initialize the remaining pages.
+    for let i = 1; i < n_pages; i++ {
+        let page_start = unsafe((segment as *u8) + i * page_size);
+
+        page = &segment.pages[i];
+        page.zeroInit(page_start);
+        page.reserved = page_size;
+
+        if full_commit {
+            page.capacity = page.reserved;
+        }
+    }
+
+    return segment.
+}
+
+func mSegmentFree(segment: *MSegment) {
+    unsafe {
+        sysRelease(segment as *u8, segment.full_size);
+    }
+}
+
+func MSegment.getParentPage(block: *MBlock) {
+    if self.page_kind == .Huge {
+        return &self.pages[0];
+    }
+
+    unsafe {
+        let seg_offset = (block as *u8) - (self as *u8);
+        let page_ndx = seg_offset >> self.page_shift;
+
+        if page_ndx >= self.n_total_pages {
+            throw("allocator: page lookup in segment is out of bounds");
+        }
+
+        return &pages[page_ndx];
+    }
+}
+
 func mGetParentSegment(block: *MBlock) *MSegment {
     unsafe {
         return (block as uint) & ~SEGMENT_MASK as *MSegment;
     }
 }
 
-func MSegment.getParentPage(block: *MBlock) {
-    // TODO
+func mGetPageKind(block_size: uint) MPageKind {
+    if block_size <= M_SMALL_PAGE_SIZE {
+        return .Small;
+    } elif block_size <= M_MED_PAGE_SIZE {
+        return .Med;
+    } elif block_size <= M_LARGE_PAGE_SIZE {
+        return .Large;
+    } 
+
+    return .Huge;
 }
