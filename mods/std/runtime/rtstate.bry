@@ -15,26 +15,26 @@ func RtState.swapFlags(flags: uint) uint {
 }
 
 func thrInit(flags: uint) {
-    // // Allocate a backing segment for the rstate.
-    // let page_kind = get_page_kind(@sizeof(Rstate));
-    // let segment = msegment_sys_alloc(page_kind, SEGMENT_SIZE);
+    // Allocate a backing segment for the runtime state.
+    let page_kind = mGetPageKind(@sizeof(RtState));
+    let segment = mSegmentAlloc(sysGetThrID(), M_SEGMENT_SIZE, page_kind);
 
-    // // Create the rstate object.
-    // let rstate: *Rstate;
-    // unsafe {
-    //     // Grab a free block.
-    //     let block = segment.pages[0].pop_free_block();
+    // Grab an initial page from the segment for allocation.
+    let page = &segment.pages[0];
+    segment.n_used_pages++;
+    page.block_size = mRoundToSizeClass(@sizeof(RtState));
+    page.makeReady();
 
-    //     // Use it as the backing storage for the rstate.
-    //     rstate = block as *RState
-    // }
-    // rstate.flags = flags;
+    // Allocate space for the runtime state.
+    let block = page.popFreeBlock();
+    let rs = unsafe(block as *RtState);
 
-    // // Initialize the heap in the backing segment.
-    // rstate.heap.init(segment);
+    // Initialize the runtime state.
+    rs.flags = flags;
+    rs.heap.init(segment, page);
 
-    // // Store rstate into TLS.
-    // rtSetState(rstate);
+    // Store runtime state into TLS.
+    rtSetState(rs);
 
     // Ready to go!
 }
