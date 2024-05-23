@@ -991,7 +991,7 @@ func MPage.collectThreadFree() {
     do {
         head = tfree.getBlock();
         new_tfree = tfree.setBlock(null);
-    } while @atomic_cas_weak(&self.xthr_free, &tfree, new_tfree, AMO_ACQ_REL, AMO_RELAXED);
+    } while !@atomic_cas_weak(&self.xthr_free, &tfree, new_tfree, AMO_ACQ_REL, AMO_RELAXED);
 
     // Thread free list is empty: nothing to do.
     if head == null {
@@ -1054,7 +1054,7 @@ func MPage.enableDelayedFree() {
 
     do {
         new_tfree = tfree.setDelay(.Delayed);
-    } while @atomic_cas_weak(&self.xthr_free, &tfree, new_tfree, AMO_RELEASE, AMO_RELAXED);
+    } while !@atomic_cas_weak(&self.xthr_free, &tfree, new_tfree, AMO_RELEASE, AMO_RELAXED);
 }
 
 func MPage.abandon() {

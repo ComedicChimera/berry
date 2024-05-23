@@ -130,8 +130,8 @@ don't always get time (or energy) to work on it.
     * Unsafe Expressions: `unsafe(expr)`
     * Atomics
         - `@atomic_cas_weak`
-        - `@atomic_cas_strong`
         - `@atomic_load`
+        - `@atomic_store`
     * Thread Local Storage + TL Runtime State
         - Allocate runtime state on heap
     * Multithreaded Allocator
