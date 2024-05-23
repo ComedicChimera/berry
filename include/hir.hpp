@@ -51,6 +51,7 @@ enum HirKind {
     HIR_STRUCT_LIT,
     HIR_ENUM_LIT,
     HIR_STATIC_GET,
+    HIR_UNSAFE_EXPR,
     HIR_IDENT,
     HIR_NUM_LIT,
     HIR_FLOAT_LIT,
@@ -265,6 +266,9 @@ struct HirExpr : public HirNode {
             Symbol* imported_symbol;
             size_t dep_id;
         } ir_StaticGet;
+        struct {
+            HirExpr* expr;
+        } ir_UnsafeExpr;
         struct {
             Symbol* symbol;
         } ir_Ident;

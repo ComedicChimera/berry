@@ -41,7 +41,8 @@ enum AstKind {
     AST_NEW_ARRAY,
     AST_NEW_STRUCT,     // uses an_StructLit
     AST_ARRAY_LIT,      // uses an_ExprList
-    AST_STRUCT_LIT,     
+    AST_STRUCT_LIT,    
+    AST_UNSAFE_EXPR, 
     AST_IDENT,
     AST_NUM_LIT,
     AST_FLOAT_LIT,
@@ -215,6 +216,9 @@ struct AstNode {
             AstNode* type;
             std::span<AstNode*> field_inits;
         } an_StructLit;
+        struct {
+            AstNode* expr;
+        } an_UnsafeExpr;
         struct {
             std::string_view name;
             Symbol* symbol; // bound late

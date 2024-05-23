@@ -217,10 +217,9 @@ private:
 
     Type* mustApplyBinaryOp(const TextSpan& span, HirOpKind op, Type* lhs_type, Type* rhs_type);
     Type* maybeApplyPtrArithOp(Type* lhs_type, Type* rhs_type);
+    Type* maybeApplyPtrCompareOp(Type* lhs_type, Type* rhs_type);
 
     Type* mustApplyUnaryOp(const TextSpan &span, HirOpKind op, Type* operand_type);
-
-    void mustBeAssignable(HirExpr* expr);
 
     // newUntyped creates a new untyped of kind kind.
     Type* newUntyped(UntypedKind kind);

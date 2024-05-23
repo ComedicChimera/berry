@@ -59,6 +59,8 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
         return genStructLit(node, alloc_loc);
     case HIR_ENUM_LIT: 
         return getPlatformIntConst(node->ir_EnumLit.tag_value);
+    case HIR_UNSAFE_EXPR:
+        return genExpr(node->ir_UnsafeExpr.expr, expect_addr, alloc_loc);
     case HIR_IDENT: 
         return genIdent(node, expect_addr);
     case HIR_NUM_LIT: {
@@ -270,14 +272,7 @@ llvm::Value* CodeGenerator::genBinop(HirExpr* node) {
     switch (node->ir_Binop.op) {
     case HIROP_ADD:
         if (lhs_type->kind == TYPE_PTR) {
-            if (rhs_type->kind == TYPE_PTR) {
-                lhs_val = irb.CreatePtrToInt(lhs_val, ll_platform_int_type);
-                rhs_val = irb.CreatePtrToInt(rhs_val, ll_platform_int_type);
-                auto* sum = irb.CreateAdd(lhs_val, rhs_val);
-                return irb.CreateIntToPtr(sum, llvm::PointerType::get(ctx, 0));
-            } else {
-                return irb.CreateGEP(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, { rhs_val });
-            }
+            return irb.CreateGEP(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, { rhs_val });
         } else if (lhs_type->kind == TYPE_INT) {
             if (rhs_type->kind == TYPE_PTR) {
                 return irb.CreateGEP(genType(rhs_type->ty_Ptr.elem_type, true), rhs_val, { lhs_val });
@@ -292,10 +287,7 @@ llvm::Value* CodeGenerator::genBinop(HirExpr* node) {
     case HIROP_SUB:
         if (lhs_type->kind == TYPE_PTR) {
             if (rhs_type->kind == TYPE_PTR) {
-                lhs_val = irb.CreatePtrToInt(lhs_val, ll_platform_int_type);
-                rhs_val = irb.CreatePtrToInt(rhs_val, ll_platform_int_type);
-                auto* diff = irb.CreateSub(lhs_val, rhs_val);
-                return irb.CreateIntToPtr(diff, llvm::PointerType::get(ctx, 0));
+                return irb.CreatePtrDiff(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, rhs_val);
             } else {
                 rhs_val = irb.CreateNeg(rhs_val);
                 return irb.CreateGEP(genType(lhs_type->ty_Ptr.elem_type, true), lhs_val, { rhs_val });
@@ -350,19 +342,38 @@ llvm::Value* CodeGenerator::genBinop(HirExpr* node) {
         }
         break;
     case HIROP_SHL:
-        Assert(lhs_type->kind == TYPE_INT, "invalid types for SHL op in codegen");
-        genShiftOverflowCheck(rhs_val, lhs_type);
-        return irb.CreateShl(lhs_val, rhs_val);
-    case HIROP_SHR:
-        Assert(lhs_type->kind == TYPE_INT, "invalid types for SHR op in codegen");
+        if (lhs_type->kind == TYPE_PTR) {
+            lhs_val = irb.CreatePtrToInt(lhs_val, ll_platform_int_type);
+            rhs_val = irb.CreateIntCast(rhs_val, ll_platform_int_type, false);
 
-        genShiftOverflowCheck(rhs_val, lhs_type);
-        if (lhs_type->ty_Int.is_signed) {
-            return irb.CreateAShr(lhs_val, rhs_val);
+            genShiftOverflowCheck(rhs_val, platform_int_type);
+            auto* result = irb.CreateShl(lhs_val, rhs_val);
+            return irb.CreatePtrToInt(result, llvm::PointerType::get(ctx, 0));
         } else {
-            return irb.CreateLShr(lhs_val, rhs_val);
+            Assert(lhs_type->kind == TYPE_INT, "invalid types for SHL op in codegen");
+            genShiftOverflowCheck(rhs_val, lhs_type);
+            return irb.CreateShl(lhs_val, rhs_val);
         }
-    break;
+        break;
+    case HIROP_SHR:
+        if (lhs_type->kind == TYPE_PTR) {
+            lhs_val = irb.CreatePtrToInt(lhs_val, ll_platform_int_type);
+            rhs_val = irb.CreateIntCast(rhs_val, ll_platform_int_type, false);
+
+            genShiftOverflowCheck(rhs_val, platform_int_type);
+            auto* result = irb.CreateLShr(lhs_val, rhs_val);
+            return irb.CreatePtrToInt(result, llvm::PointerType::get(ctx, 0));
+        } else {
+            Assert(lhs_type->kind == TYPE_INT, "invalid types for SHR op in codegen");
+
+            genShiftOverflowCheck(rhs_val, lhs_type);
+            if (lhs_type->ty_Int.is_signed) {
+                return irb.CreateAShr(lhs_val, rhs_val);
+            } else {
+                return irb.CreateLShr(lhs_val, rhs_val);
+            }
+        } 
+        break;
     case HIROP_EQ:
         lhs_type = lhs_type->FullUnwrap();
         switch (lhs_type->kind) {
@@ -486,14 +497,59 @@ llvm::Value* CodeGenerator::genBinop(HirExpr* node) {
         }
         break;
     case HIROP_BWAND:
-        Assert(lhs_type->kind == TYPE_INT, "invalid types for BWAND op in codegen");
-        return irb.CreateAnd(lhs_val, rhs_val);
+        if (lhs_type->kind == TYPE_PTR) {
+            lhs_val = irb.CreatePtrToInt(lhs_val, ll_platform_int_type);
+            rhs_val = irb.CreateIntCast(rhs_val, ll_platform_int_type, rhs_type->ty_Int.is_signed);
+
+            auto* result = irb.CreateAnd(lhs_val, rhs_val);
+            return irb.CreateIntToPtr(result, llvm::PointerType::get(ctx, 0));
+        } else if (rhs_type->kind == TYPE_PTR) {
+            lhs_val = irb.CreateIntCast(lhs_val, ll_platform_int_type, lhs_type->ty_Int.is_signed);
+            rhs_val = irb.CreatePtrToInt(rhs_val, ll_platform_int_type);
+
+            auto* result = irb.CreateAnd(lhs_val, rhs_val);
+            return irb.CreateIntToPtr(result, llvm::PointerType::get(ctx, 0));
+        } else {
+            Assert(lhs_type->kind == TYPE_INT, "invalid types for BWAND op in codegen");
+            return irb.CreateAnd(lhs_val, rhs_val);
+        }
+        break;
     case HIROP_BWOR:
-        Assert(lhs_type->kind == TYPE_INT, "invalid types for BWOR op in codegen");
-        return irb.CreateOr(lhs_val, rhs_val);
+        if (lhs_type->kind == TYPE_PTR) {
+            lhs_val = irb.CreatePtrToInt(lhs_val, ll_platform_int_type);
+            rhs_val = irb.CreateIntCast(rhs_val, ll_platform_int_type, rhs_type->ty_Int.is_signed);
+
+            auto* result = irb.CreateOr(lhs_val, rhs_val);
+            return irb.CreateIntToPtr(result, llvm::PointerType::get(ctx, 0));
+        } else if (rhs_type->kind == TYPE_PTR) {
+            lhs_val = irb.CreateIntCast(lhs_val, ll_platform_int_type, lhs_type->ty_Int.is_signed);
+            rhs_val = irb.CreatePtrToInt(rhs_val, ll_platform_int_type);
+
+            auto* result = irb.CreateOr(lhs_val, rhs_val);
+            return irb.CreateIntToPtr(result, llvm::PointerType::get(ctx, 0));
+        } else {
+            Assert(lhs_type->kind == TYPE_INT, "invalid types for BWOR op in codegen");
+            return irb.CreateOr(lhs_val, rhs_val);
+        }
+        break;
     case HIROP_BWXOR:
-        Assert(lhs_type->kind == TYPE_INT, "invalid types for BWXOR op in codegen");
-        return irb.CreateXor(lhs_val, rhs_val);   
+        if (lhs_type->kind == TYPE_PTR) {
+            lhs_val = irb.CreatePtrToInt(lhs_val, ll_platform_int_type);
+            rhs_val = irb.CreateIntCast(rhs_val, ll_platform_int_type, rhs_type->ty_Int.is_signed);
+
+            auto* result = irb.CreateXor(lhs_val, rhs_val);
+            return irb.CreateIntToPtr(result, llvm::PointerType::get(ctx, 0));
+        } else if (rhs_type->kind == TYPE_PTR) {
+            lhs_val = irb.CreateIntCast(lhs_val, ll_platform_int_type, lhs_type->ty_Int.is_signed);
+            rhs_val = irb.CreatePtrToInt(rhs_val, ll_platform_int_type);
+
+            auto* result = irb.CreateXor(lhs_val, rhs_val);
+            return irb.CreateIntToPtr(result, llvm::PointerType::get(ctx, 0));
+        } else {
+            Assert(lhs_type->kind == TYPE_INT, "invalid types for BWXOR op in codegen");
+            return irb.CreateXor(lhs_val, rhs_val);
+        }
+        break;
     }
 
     Panic("unsupported binary operator in codegen: {}", (int)node->ir_Binop.op);

@@ -447,6 +447,18 @@ AstNode* Parser::parseAtom() {
         astr->an_String.value = global_arena.MoveStr(std::move(prev.value));
         return astr;
     } break;
+    case TOK_UNSAFE: {
+        auto start_span = tok.span;
+        next();
+
+        want(TOK_LPAREN);
+        auto* aexpr = parseExpr();
+        want(TOK_RPAREN);
+
+        auto* aunsafe = allocNode(AST_UNSAFE_EXPR, SpanOver(start_span, prev.span));
+        aunsafe->an_UnsafeExpr.expr = aexpr;
+        return aunsafe;
+    } break;
     case TOK_IDENT: {
         next();
 
