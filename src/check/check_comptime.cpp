@@ -164,7 +164,7 @@ ConstValue* Checker::evalComptime(HirExpr* node) {
         value = getComptimeNull(node->type);
         break;
     case HIR_MACRO_SIZEOF: {
-        auto size = GetTargetPlatform().GetComptimeSizeOf(node->ir_TypeMacro.arg);
+        auto size = GetTargetPlatform().GetComptimeSizeOf(node->ir_MacroType.arg);
 
         if (platform_int_type->ty_Int.bit_size == 64) {
             value = allocComptime(CONST_I64);
@@ -175,7 +175,7 @@ ConstValue* Checker::evalComptime(HirExpr* node) {
         }
     } break;
     case HIR_MACRO_ALIGNOF: {
-        auto align = GetTargetPlatform().GetComptimeAlignOf(node->ir_TypeMacro.arg);
+        auto align = GetTargetPlatform().GetComptimeAlignOf(node->ir_MacroType.arg);
 
         if (platform_int_type->ty_Int.bit_size == 64) {
             value = allocComptime(CONST_I64);

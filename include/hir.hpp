@@ -58,8 +58,12 @@ enum HirKind {
     HIR_BOOL_LIT,
     HIR_STRING_LIT,
     HIR_NULL,
-    HIR_MACRO_SIZEOF,
-    HIR_MACRO_ALIGNOF,
+
+    HIR_MACRO_SIZEOF,           // uses ir_MacroType
+    HIR_MACRO_ALIGNOF,          // uses ir_MacroType
+    HIR_MACRO_ATOMIC_CAS_WEAK,  // uses ir_MacroAtomicCas
+    HIR_MACRO_ATOMIC_LOAD,
+    HIR_MACRO_ATOMIC_STORE,
 
     HIRS_COUNT
 };
@@ -167,6 +171,14 @@ enum HirAllocMode {
     HIRMEM_STACK,
     HIRMEM_HEAP,
     HIRMEM_GLOBAL
+};
+
+enum HirMemoryOrder {
+    HIRAMO_RELAXED,
+    HIRAMO_ACQUIRE,
+    HIRAMO_RELEASE,
+    HIRAMO_ACQ_REL,
+    HIRAMO_SEQ_CST
 };
 
 struct HirExpr;
@@ -287,7 +299,24 @@ struct HirExpr : public HirNode {
 
         struct {
             Type* arg;
-        } ir_TypeMacro;
+        } ir_MacroType;
+        struct {
+            HirExpr* expr;
+            HirExpr* expected;
+            HirExpr* desired;
+            HirMemoryOrder mo_succ;
+            HirMemoryOrder mo_fail;
+            bool weak;
+        } ir_MacroAtomicCas;
+        struct {
+            HirExpr* expr;
+            HirMemoryOrder mo;
+        } ir_MacroAtomicLoad;
+        struct {
+            HirExpr* expr;
+            HirExpr* value;
+            HirMemoryOrder mo;
+        } ir_MacroAtomicStore;
     };
 
     HirExpr() {}

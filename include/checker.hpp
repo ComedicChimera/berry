@@ -183,6 +183,9 @@ private:
 
     HirExpr* checkExpr(AstNode* node, Type* infer_type = nullptr);
 
+    HirExpr* checkAtomicPrimExpr(AstNode* node);
+    HirMemoryOrder checkAtomicMemoryOrder(AstNode* node);
+
     HirExpr* checkCall(AstNode* node);
     HirExpr* checkFactoryCall(const TextSpan& span, Type* type, std::span<AstNode*> args);
     std::span<HirExpr*> checkArgs(const TextSpan& span, Type* func_type, std::span<AstNode*>& args);

@@ -1,5 +1,13 @@
 #include "codegen.hpp"
 
+static std::unordered_map<HirMemoryOrder, llvm::AtomicOrdering> hir_amo_to_llvm_amo {
+    { HIRAMO_RELAXED, llvm::AtomicOrdering::Monotonic },
+    { HIRAMO_ACQUIRE, llvm::AtomicOrdering::Acquire },
+    { HIRAMO_RELEASE, llvm::AtomicOrdering::Release },
+    { HIRAMO_ACQ_REL, llvm::AtomicOrdering::AcquireRelease },
+    { HIRAMO_SEQ_CST, llvm::AtomicOrdering::SequentiallyConsistent }
+};
+
 llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value* alloc_loc) {
     debug.SetDebugLocation(node->span);
 
@@ -92,9 +100,56 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
     case HIR_STRING_LIT:
         return genStringLit(node, alloc_loc);
     case HIR_MACRO_SIZEOF:
-        return makeLLVMIntLit(platform_uint_type, getLLVMByteSize(genType(node->ir_TypeMacro.arg, true)));
+        return makeLLVMIntLit(platform_uint_type, getLLVMByteSize(genType(node->ir_MacroType.arg, true)));
     case HIR_MACRO_ALIGNOF:
-        return makeLLVMIntLit(platform_uint_type, getLLVMByteAlign(genType(node->ir_TypeMacro.arg, true)));
+        return makeLLVMIntLit(platform_uint_type, getLLVMByteAlign(genType(node->ir_MacroType.arg, true)));
+    case HIR_MACRO_ATOMIC_CAS_WEAK: {
+        auto* ll_atomic_val = genExpr(node->ir_MacroAtomicCas.expr);
+        auto* ll_expected = genExpr(node->ir_MacroAtomicCas.expected);
+        auto* ll_desired = genExpr(node->ir_MacroAtomicCas.desired);
+
+        auto ll_succ_mo = hir_amo_to_llvm_amo[node->ir_MacroAtomicCas.mo_succ];
+        auto ll_fail_mo = hir_amo_to_llvm_amo[node->ir_MacroAtomicCas.mo_fail];
+
+        return irb.CreateAtomicCmpXchg(
+            ll_atomic_val,
+            ll_expected,
+            ll_desired,
+            llvm::MaybeAlign(),
+            ll_succ_mo,
+            ll_fail_mo
+        );
+    } break;
+    case HIR_MACRO_ATOMIC_LOAD: {
+        auto* elem_type = node->ir_MacroAtomicLoad.expr->type->Inner()->ty_Ptr.elem_type;
+        auto* ll_elem_type = genType(elem_type);
+
+        auto* ll_value = genExpr(node->ir_MacroAtomicLoad.expr);
+
+        return irb.Insert(new llvm::LoadInst(
+            ll_elem_type,
+            ll_value,
+            "",
+            false,
+            layout.getABITypeAlign(ll_elem_type),
+            hir_amo_to_llvm_amo[node->ir_MacroAtomicLoad.mo]
+        ));
+    } break;
+    case HIR_MACRO_ATOMIC_STORE: {
+        auto* elem_type = node->ir_MacroAtomicStore.expr->type->Inner()->ty_Ptr.elem_type;
+        auto* ll_elem_type = genType(elem_type);
+
+        auto* ll_dest = genExpr(node->ir_MacroAtomicStore.expr);
+        auto* ll_value = genExpr(node->ir_MacroAtomicStore.value);
+
+        return irb.Insert(new llvm::StoreInst(
+            ll_value,
+            ll_dest,
+            false,
+            layout.getABITypeAlign(ll_elem_type),
+            hir_amo_to_llvm_amo[node->ir_MacroAtomicStore.mo]
+        ));
+    } break;
     default:
         Panic("expr codegen not implemented for {}", (int)node->kind);
         break;

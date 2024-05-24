@@ -58,13 +58,17 @@ static size_t hir_variant_sizes[HIRS_COUNT] = {
     sizeof(size_ref_expr.ir_Bool),
     sizeof(size_ref_expr.ir_String),
     0,
-    sizeof(size_ref_expr.ir_TypeMacro),
-    sizeof(size_ref_expr.ir_TypeMacro)
+
+    sizeof(size_ref_expr.ir_MacroType),
+    sizeof(size_ref_expr.ir_MacroType),
+    sizeof(size_ref_expr.ir_MacroAtomicCas),
+    sizeof(size_ref_expr.ir_MacroAtomicLoad),
+    sizeof(size_ref_expr.ir_MacroAtomicStore)
 };
 
 #define LARGEST_DECL_VARIANT_SIZE ((sizeof(size_ref_decl.ir_Method)))
 #define LARGEST_STMT_VARIANT_SIZE ((sizeof(size_ref_stmt.ir_For)))
-#define LARGEST_EXPR_VARIANT_SIZE ((sizeof(size_ref_expr.ir_CallMethod)))
+#define LARGEST_EXPR_VARIANT_SIZE ((sizeof(size_ref_expr.ir_MacroAtomicCas)))
 
 HirDecl* Checker::allocDecl(HirKind kind, const TextSpan& span) {
     Assert(kind < HIR_BLOCK, "invalid kind for HIR decl");

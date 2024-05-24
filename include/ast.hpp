@@ -51,8 +51,11 @@ enum AstKind {
     AST_STRING_LIT,
     AST_NULL,
 
-    AST_MACRO_SIZEOF,   // uses an_Macro
-    AST_MACRO_ALIGNOF,  // uses an_Macro
+    AST_MACRO_SIZEOF,           // uses an_Macro
+    AST_MACRO_ALIGNOF,          // uses an_Macro
+    AST_MACRO_ATOMIC_CAS_WEAK,  // uses an_Macro
+    AST_MACRO_ATOMIC_LOAD,      // uses an_Macro
+    AST_MACRO_ATOMIC_STORE,     // uses an_Macro
 
     AST_TYPE_PRIM,
     AST_TYPE_ARRAY,
@@ -240,7 +243,7 @@ struct AstNode {
         } an_String;
         
         struct {
-            AstNode* arg;
+            std::span<AstNode*> args;
         } an_Macro;
 
         struct {

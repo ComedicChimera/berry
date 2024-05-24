@@ -570,36 +570,86 @@ AstNode* Parser::parseArrayLit() {
     return aarray;
 }
 
+std::unordered_map<std::string, AstKind> macro_name_to_kind {
+    { "defined", (AstKind)0 },
+    { "sizeof", AST_MACRO_SIZEOF },
+    { "alignof", AST_MACRO_ALIGNOF },
+    { "atomic_cas_weak", AST_MACRO_ATOMIC_CAS_WEAK },
+    { "atomic_load", AST_MACRO_ATOMIC_LOAD },
+    { "atomic_store", AST_MACRO_ATOMIC_STORE }
+};
+
 AstNode* Parser::parseMacroCall() {
     auto start_span = tok.span;
     next();
-
     auto macro_ident = wantAndGet(TOK_IDENT);
 
     want(TOK_LPAREN);
+    pushAllowStructLit(true);
 
+    auto it = macro_name_to_kind.find(macro_ident.value);
+    if (it == macro_name_to_kind.end()) {
+        fatal(macro_ident.span, "unknown macro: {}", macro_ident.value);
+        return nullptr;
+    }
+
+    auto macro_kind = it->second;
     AstNode* expr;
-    if (macro_ident.value == "defined") {
+    if (macro_kind == 0) {
         auto var_ident = wantAndGet(TOK_IDENT);
         want(TOK_RPAREN);
 
         expr = allocNode(AST_STRING_LIT, SpanOver(start_span, prev.span));
         expr->an_String.value = lookupMetaVar(var_ident.value);
-    } else if (macro_ident.value == "sizeof") {
-        auto* type = parseTypeLabel();
-        want(TOK_RPAREN);
-
-        expr = allocNode(AST_MACRO_SIZEOF, SpanOver(start_span, prev.span));
-        expr->an_Macro.arg = type;
-    } else if (macro_ident.value == "alignof") {
-        auto* type = parseTypeLabel();
-        want(TOK_RPAREN);
-
-        expr = allocNode(AST_MACRO_ALIGNOF, SpanOver(start_span, prev.span));
-        expr->an_Macro.arg = type;
-    } else {
-        fatal(macro_ident.span, "unknown macro: {}", macro_ident.value);
+        return expr;
     }
 
+    std::vector<AstNode*> macro_args;
+
+    switch (macro_kind) {
+    case AST_MACRO_SIZEOF:
+    case AST_MACRO_ALIGNOF:
+        macro_args.push_back(parseTypeLabel());
+        break;
+    case AST_MACRO_ATOMIC_CAS_WEAK:
+        for (size_t i = 0; i < 5; i++) {
+            if (i > 2 && !has(TOK_COMMA)) {
+                break;   
+            }
+
+            if (i > 0) {
+                want(TOK_COMMA);
+            }   
+
+            macro_args.push_back(parseExpr());
+        }
+        break;
+    case AST_MACRO_ATOMIC_LOAD:
+        macro_args.push_back(parseExpr());
+
+        if (has(TOK_COMMA)) {
+            next();
+
+            macro_args.push_back(parseExpr());
+        }
+        break;
+    case AST_MACRO_ATOMIC_STORE:
+        macro_args.push_back(parseExpr());
+        want(TOK_COMMA);
+        macro_args.push_back(parseExpr());
+
+        if (has(TOK_COMMA)) {
+            next();
+
+            macro_args.push_back(parseExpr());
+        }
+        break;
+    }
+
+    want(TOK_RPAREN);
+    popAllowStructLit();
+
+    expr = allocNode(macro_kind, SpanOver(start_span, prev.span));
+    expr->an_Macro.args = ast_arena.MoveVec(std::move(macro_args));
     return expr;
 }

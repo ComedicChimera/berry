@@ -249,18 +249,80 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
         }
         break;
     case AST_MACRO_SIZEOF: {
-        auto* type = checkTypeLabel(node->an_Macro.arg, true);
+        auto* type = checkTypeLabel(node->an_Macro.args[0], true);
         
         hexpr = allocExpr(HIR_MACRO_SIZEOF, node->span);
         hexpr->type = platform_int_type;
-        hexpr->ir_TypeMacro.arg = type;
+        hexpr->ir_MacroType.arg = type;
     } break;
     case AST_MACRO_ALIGNOF: {
-        auto* type = checkTypeLabel(node->an_Macro.arg, true);
+        auto* type = checkTypeLabel(node->an_Macro.args[0], true);
         
         hexpr = allocExpr(HIR_MACRO_ALIGNOF, node->span);
         hexpr->type = platform_int_type;
-        hexpr->ir_TypeMacro.arg = type;
+        hexpr->ir_MacroType.arg = type;
+    } break;
+    case AST_MACRO_ATOMIC_CAS_WEAK: {
+        markNonComptime(node->span);
+
+        auto* hatomic = checkAtomicPrimExpr(node->an_Macro.args[0]);
+        auto* hexpect = checkExpr(node->an_Macro.args[1], hatomic->type);
+        mustEqual(node->span, hatomic->type, hexpect->type);
+
+        auto* elem_type = hatomic->type->Inner()->ty_Ptr.elem_type;
+        auto* hdesired = checkExpr(node->an_Macro.args[2], elem_type);
+        mustEqual(node->span, hdesired->type, elem_type);
+
+        auto succ_mo = HIRAMO_SEQ_CST;
+        if (node->an_Macro.args.size() > 3) {
+            succ_mo = checkAtomicMemoryOrder(node->an_Macro.args[3]);
+        }
+
+        auto fail_mo = succ_mo;
+        if (node->an_Macro.args.size() == 5) {
+            fail_mo = checkAtomicMemoryOrder(node->an_Macro.args[4]);
+        }
+
+        hexpr = allocExpr(HIR_MACRO_ATOMIC_CAS_WEAK, node->span);
+        hexpr->type = &prim_bool_type;
+        hexpr->ir_MacroAtomicCas.expr = hatomic;
+        hexpr->ir_MacroAtomicCas.expected = hexpect;
+        hexpr->ir_MacroAtomicCas.desired = hdesired;
+        hexpr->ir_MacroAtomicCas.mo_succ = succ_mo;
+        hexpr->ir_MacroAtomicCas.mo_fail = fail_mo;
+    } break;
+    case AST_MACRO_ATOMIC_LOAD: {
+        markNonComptime(node->span);
+
+        auto* hatomic = checkAtomicPrimExpr(node->an_Macro.args[0]);
+        auto mo = HIRAMO_SEQ_CST;
+        if (node->an_Macro.args.size() == 2) {
+            mo = checkAtomicMemoryOrder(node->an_Macro.args[1]);
+        }
+
+        hexpr = allocExpr(HIR_MACRO_ATOMIC_LOAD, node->span);
+        hexpr->type = hatomic->type->Inner()->ty_Ptr.elem_type;
+        hexpr->ir_MacroAtomicLoad.expr = hatomic;
+        hexpr->ir_MacroAtomicLoad.mo = mo;
+    } break;
+    case AST_MACRO_ATOMIC_STORE: {
+        markNonComptime(node->span);
+
+        auto* hatomic = checkAtomicPrimExpr(node->an_Macro.args[0]);
+        auto* elem_type = hatomic->type->Inner()->ty_Ptr.elem_type;
+        auto* hval = checkExpr(node->an_Macro.args[1], elem_type);
+        mustEqual(node->span, elem_type, hval->type);
+
+        auto mo = HIRAMO_SEQ_CST;
+        if (node->an_Macro.args.size() == 3) {
+            mo = checkAtomicMemoryOrder(node->an_Macro.args[2]);
+        }
+
+        hexpr = allocExpr(HIR_MACRO_ATOMIC_STORE, node->span);
+        hexpr->type = &prim_unit_type;
+        hexpr->ir_MacroAtomicStore.expr = hatomic;
+        hexpr->ir_MacroAtomicStore.value = hval;
+        hexpr->ir_MacroAtomicStore.mo = mo;
     } break;
     default:
         Panic("expr checking is not implemented for {}", (int)node->kind);
@@ -269,6 +331,51 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
 
     return hexpr;
 }
+
+/* -------------------------------------------------------------------------- */
+
+HirExpr* Checker::checkAtomicPrimExpr(AstNode* node) {
+    auto* hexpr = checkExpr(node);
+
+    auto* type = hexpr->type->Inner();
+    if (type->kind == TYPE_PTR) {
+        auto* atomic_type = type->ty_Ptr.elem_type;
+
+        switch (atomic_type->kind) {
+        case TYPE_INT:
+        case TYPE_FLOAT:
+        case TYPE_BOOL:
+        case TYPE_PTR:
+        case TYPE_ENUM:
+            break;
+        case TYPE_UNTYP:
+            mustIntType(hexpr->span, atomic_type);
+            break;
+        default:
+            error(hexpr->span, "atomic intrinsics can only be used on atomic primitive types");
+            break;
+        }
+    } else {
+        fatal(hexpr->span, "expected pointer to atomic value but got {}", hexpr->type->ToString());
+    }
+
+    return hexpr;
+}
+
+HirMemoryOrder Checker::checkAtomicMemoryOrder(AstNode* node) {
+    comptime_depth++;
+    auto* hmo = checkExpr(node, platform_uint_type);
+    comptime_depth--;
+
+    uint64_t amo_value;
+    if (!evalComptimeSizeValue(hmo, &amo_value) || amo_value > HIRAMO_SEQ_CST) {
+        fatal(hmo->span, "atomic memory order value must be between 0 to 4");
+    }
+
+    return (HirMemoryOrder)amo_value;
+}
+
+/* -------------------------------------------------------------------------- */
 
 HirExpr* Checker::checkCall(AstNode* node) {
     markNonComptime(node->span);
