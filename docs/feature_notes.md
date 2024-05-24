@@ -3,44 +3,6 @@
 This file lists some of the *planned* features for Berry.  These are mostly just
 design ideas I have had as I have been working on it.
 
-## Constructors
-
-Constructors are special functions that can be defined for any type using an
-interface binding. They use the syntax:
-
-```
-constructor() Type {
-
-}
-```
-
-where `Type` can either be the type being constructed or a pointer to it.  For
-example, the constructor for a `List[T]` returns `*List[T]`.  Note that unlike
-most OOP languages, constructors in Berry are just special functions: they are
-responsible for creating the instance of the type.  Using the `List[T]` example,
-the constructor for a list would look like:
-
-```
-constructor() *List[T] {
-    return new List{
-        .arr = new T[LIST_INIT_SIZE],
-        ._len = 0
-    };
-}
-```
-
-Constructors are invoked by directly calling the type you want to construct:
-
-```
-let list = List[int]();  // Calls the List constructor
-```
-
-Constructors can be overloaded like regular functions: a type can have multiple
-constructors with different signatures.
-
-Note that because we are now supporting constructors, static methods are no
-longer "necessary" or idiomatic.  They will be removed as a planned feature.
-
 ## Conditional Binding
 
 Create chaining contexts using specialized `if` statements and `while` loops.
@@ -82,25 +44,6 @@ let x <- safe_sqrt(y) in x + 2
 
 These can also be non-monadic for doing variable binding in expressions.
 
-## Multi-Case Matching
-
-To make over multiple possibilities in a case clause, match expression or
-test-match expression, we use pipes `|` in the patterns rather than `,` (to
-allow for implicit, ergonomic tuple unpacking).
-
-```
-// Match Case
-match peek()? {
-case '\r' | '\t' | '\v' | '\f' | ' ' | '\n':
-    skip()?;
-}
-
-// Test-Match (really good for checking multiple values quickly)
-if x match A | B | C {
-    // -- snip --
-}
-```
-
 ## Struct Enums
 
 Example from Compiler Code (very ergonomic):
@@ -137,41 +80,6 @@ func checkDef(AstDef def) {
 }
 ```
 
-## Heap Allocation
-
-Remove `&` for r-value references (no implicit heap allocation).
-
-Instead, use `new` which explicitly has the possibility to allocate on the heap.
-
-```
-new Struct{x=10}   // New *Struct
-new int[10]        // New integer array of 10 elements
-new List[int]{}    // New generic type
-```
-
-## Implement Intrinsics as "Macros"
-
-These are typically compiler intrinsics and cannot be treated as first class
-functions.  Later, we can give uses support to create their own.
-
-Syntax: `@func = macro`.
-
-Example:
-
-```
-func hash(f: f64) u64 = @bitcast(f, u64);
-
-struct LLNode {
-    value: int;
-    next: Option[LLNode];
-}
-
-func main() {
-    let root = @bitcast(runtime.MemAlloc(@sizeof(LLNode)), *LLNode);
-    // Equiv to: let root = &LLNode{}
-}
-```
-
 ## Use Language as Build Tool
 
 Provide a standard library module called `make`.  Add the command `berry make`
@@ -202,71 +110,6 @@ func main() {
 
     build.Run();
 }
-```
-
-## Alternative Method Syntax
-
-Try to figure out which syntax works the best.
-
-Option A: "Group/Go Style":
-
-```
-func List[T].Foo() {
-    // Regular method
-
-    // Members are accessible w/o need for explicit self-reference.
-}
-
-func List[T = int].Foo() {
-    // Generic Specialization
-}
-```
-
-Option B: "Interface/Java Style":
-
-```
-interf for List[T] {
-    // Regular Method
-    func Foo();
-}
-
-interf for List[T = int] {
-    // Specialization
-    func Foo();
-}
-```
-
-## Conditional Compilation
-
-Example:
-
-```
-#if OS == "windows" {
-    // Windows only
-} else { 
-    // Unix, etc.
-}
-
-```
-
-It can also be applied at the file-level: 
-
-```
-#require OS == "windows";
-```
-
-For fancy stuff with braces, you can use `#begin` and `#end` instead of `{}`:
-
-```
-#if MY_VAR #begin
-{
-#end
-
-// -- snip --
-
-#if MY_VAR #begin
-}
-#end
 ```
 
 ## Chaining Interface

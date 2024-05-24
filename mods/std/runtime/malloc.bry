@@ -1,8 +1,15 @@
 module runtime;
 
+/* ------------------------ Berry's Memory Allocator ------------------------ */
+
+// Berry's memory allocator (berry-malloc) is a simplified implementation of
+// Microsoft's mi-malloc (https://github.com/microsoft/mimalloc).  It is
+// specifically designed to support only the use cases which occur in Berry.  A
+// design overview of berry-malloc can be found in docs/malloc.md.   
+
 /* ------------------------------ External API ------------------------------ */
 
-func _malloc(size: uint) *u8 {
+pub func _malloc(size: uint) *u8 {
     let rs = rtGetState();
     let flags = rs.swapFlags(RS_FLAG_THROW);
 
@@ -12,7 +19,7 @@ func _malloc(size: uint) *u8 {
     return data;
 }
 
-func _mrealloc(data: *u8, new_size: uint) *u8 {
+pub func _mrealloc(data: *u8, new_size: uint) *u8 {
     let rs = rtGetState();
     let flags = rs.swapFlags(RS_FLAG_THROW);
 
@@ -22,7 +29,7 @@ func _mrealloc(data: *u8, new_size: uint) *u8 {
     return data;
 }
 
-func _mfree(data: *u8) {
+pub func _mfree(data: *u8) {
     let rs = rtGetState();
     let flags = rs.swapFlags(RS_FLAG_THROW);
 
@@ -87,17 +94,28 @@ const M_REVIVAL_CHANCES: uint = M_REVIVAL_CHANCES_SMALL / 4;
 
 /* ------------------------------- Allocation ------------------------------- */
 
+// MHeap represents the thread-local state of the allocator.  All allocations
+// and deallocations in a specific thread are done through MHeap.
 struct MHeap {
+    // The id of the parent thread.
     thr_id: uint;
 
+    // Free segment queues.
     small_free_segments: MSegmentQ;
     med_free_segments: MSegmentQ;
 
-    direct_pages: [M_N_DIRECT_BINS]*MPage;
+    // Page queues organized by size-class.
     pages: [M_N_TOTAL_BINS]MPageQ;
 
+    // Direct pages array organized in increments of the machine word-size for
+    // fast small allocation.  The pages used in this array correspond to pages
+    // allocated in the the page queues.
+    direct_pages: [M_N_DIRECT_BINS]*MPage;
+
+    // The heap's delayed free list.
     xdelayed_free: *MBlock;
 
+    // Min and max indices of queue's containing retired pages.
     retire_ndx_min, retire_ndx_max: uint;
 }
 
@@ -496,8 +514,11 @@ func MHeap.retirePage(pq: *MPageQ, page: *MPage) {
 
 /* ----------------------- Initialization and Cleanup ----------------------- */
 
+// The empty page: used as a placeholder to avoid an extra conditional check
+// when allocation from direct bins.
 let _mpage_empty: MPage = null;
 
+// The 72 size-classes represented in multiples of the machine word size.
 const _mbin_word_sizes: []uint = [
     1,      2,      3,      4,      5,      6,      7,      8,       // Bins 0-7
     10,     12,     14,     16,     20,     24,     28,     32,      // Bins 8-15
@@ -643,6 +664,7 @@ func MHeap.cleanup() {
 
 /* ------------------------------ Page Queuing ------------------------------ */
 
+// MPageQ is a queue of ready pages.
 struct MPageQ {
     first, last: *MPage;
     block_size: uint;
@@ -846,8 +868,13 @@ func mGetWordSize(size: uint) uint {
 
 /* ---------------------------------- Pages --------------------------------- */
 
+// MThrFreeList is the page-local cross-thread free list (thread-free).  This is
+// used as an optimization to reduce contention in the delayed free list.  The
+// lower 2 bits of the uint are used to store the delay state and the remaining
+// bits are a pointer to the front of the list.
 type MThrFreeList = uint;
 
+// MThrDelay enumerates the possible delay states of the thread-free list.
 enum MThrDelay {
     Delayed = 0;
     Delaying = 1;
@@ -877,23 +904,48 @@ func MThrFreeList.setDelay(delay: MThrDelay) MThrFreeList {
     return (*self & ~3) | (delay as uint);
 }
 
+// MPage is a collection of memory blocks which are all of the same size and
+// belong to the same thread.  Pages are used to realize the sharded free-list
+// design of the allocation.
 struct MPage {
+    // Page specific flags (uses the M_PAGE_* values).
     flags: u8;
-    revival_chances: u8;
 
-    block_size: uint;
-
+    // Pages are organized into doubly-linked lists called page queues.  The
+    // entries in the page queues are pages.  These pointers point to the
+    // previous and next pages in the page's parent page queue.
     prev, next: *MPage;
 
-    n_used_blocks: uint;
+    // The number of committed and reserved bytes backing the page.
     capacity, reserved: uint;
 
+    // The byte size of blocks (size class) that can be allocated in the page.
+    block_size: uint;
+    
+    // The number of block currently allocated.
+    n_used_blocks: uint;
+
+    // The allocation and local free lists.
     alloc_free, local_free: *MBlock;
+
+    // The thread free list.  Must be accessed atomically.
     xthr_free: MThrFreeList;
 
+    // The number of revival chances the page has left during retirement.  If
+    // the page is not retired, this field is unused (should be 0).
+    revival_chances: u8;
+
+    // The start address of the page's memory.
     start: *u8;
 }
 
+// MBlock represents a free block of memory in a page's free list.
+// Conceptually, the block is to be viewed as a chunk of memory of size
+// block_size (stored in its parent page) where the first word-size bytes are
+// used to store the pointer to the next block in the list:
+//
+//    | next, ... | --> | next, ... | --> ...
+// 
 struct MBlock {
     next: *MBlock;
 }
@@ -1068,6 +1120,9 @@ func MPage.abandon() {
 
 /* ---------------------------- Segment Queueing ---------------------------- */
 
+// MPageKind enumerates the different kinds of pages berry-malloc supports.
+// Each generic category of page accomodates many different size classes, so
+// freed pages can be reused for blocks of a different size class.
 enum MPageKind {
     Small,
     Med,
@@ -1075,26 +1130,44 @@ enum MPageKind {
     Huge
 }
 
+// MSegment is a backing-slab of memory which stores pages of a specific kind.
+// Segments are always aligned on 4MiB boundaries (on 64-bit systems). For
+// small, medium, and large pages, segments are 4MiB.  For huge pages (block
+// size >= 2 MiB) segments are large enough to accomodate the full size of the
+// allocation.  Conceptually, this struct represents the segment header after
+// which the main content of the segment (data stored in pages) is placed.
 struct MSegment {
+    // The parent thread ID.  Must be accessed atomically (to support reclamation).
     xthr_id: uint;
+    
+    // The full size of the segment in bytes.
     full_size: uint;
 
+    // The pointers the previous and next segment in the segment's free queue.
     prev, next: *MSegment;
 
-    page_shift: uint;
+    // The kind of pages stored in the segment.
     page_kind: MPageKind;
 
+    // The page shift (size = 1 << shift) of the page's stored in the segment.
+    page_shift: uint;
+
+    // The number of allocated (used) and total pages in the segment.
     n_used_pages, n_total_pages: uint;
+
+    // The number of abandoned pages in the segment.
     n_abandoned_pages: uint;
 
-    // Maximum # of pages = 64; could be less.  We only actually allocate the
-    // space we need, so bounds-checking on this array is really more of a
-    // sanity check than anything else.
+    // The pages stored in the segment.  Maximum # of pages = 64, but could be
+    // less.  We only actually allocate the space we need, so bounds-checking on
+    // this array is really more of a sanity check than anything else.
     pages: [M_SMALL_PAGES_PER_SEGMENT]MPage;
 
+    // The size of the segment header.
     header_size: uint;
 }
 
+// MSegmentQ is a queue of free segments.
 struct MSegmentQ {
     first, last: *MSegment;
 }
