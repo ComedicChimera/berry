@@ -103,37 +103,18 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
         return makeLLVMIntLit(platform_uint_type, getLLVMByteSize(genType(node->ir_MacroType.arg, true)));
     case HIR_MACRO_ALIGNOF:
         return makeLLVMIntLit(platform_uint_type, getLLVMByteAlign(genType(node->ir_MacroType.arg, true)));
-    case HIR_MACRO_ATOMIC_CAS_WEAK: {
-        auto* ll_atomic_val = genExpr(node->ir_MacroAtomicCas.expr);
-        auto* ll_expected = genExpr(node->ir_MacroAtomicCas.expected);
-        auto* ll_desired = genExpr(node->ir_MacroAtomicCas.desired);
-
-        auto ll_succ_mo = hir_amo_to_llvm_amo[node->ir_MacroAtomicCas.mo_succ];
-        auto ll_fail_mo = hir_amo_to_llvm_amo[node->ir_MacroAtomicCas.mo_fail];
-
-        return irb.CreateAtomicCmpXchg(
-            ll_atomic_val,
-            ll_expected,
-            ll_desired,
-            llvm::MaybeAlign(),
-            ll_succ_mo,
-            ll_fail_mo
-        );
-    } break;
+    case HIR_MACRO_ATOMIC_CAS_WEAK: 
+        return genAtomicCas(node);
     case HIR_MACRO_ATOMIC_LOAD: {
         auto* elem_type = node->ir_MacroAtomicLoad.expr->type->Inner()->ty_Ptr.elem_type;
         auto* ll_elem_type = genType(elem_type);
 
         auto* ll_value = genExpr(node->ir_MacroAtomicLoad.expr);
 
-        return irb.Insert(new llvm::LoadInst(
-            ll_elem_type,
-            ll_value,
-            "",
-            false,
-            layout.getABITypeAlign(ll_elem_type),
-            hir_amo_to_llvm_amo[node->ir_MacroAtomicLoad.mo]
-        ));
+        auto* ll_load_inst = irb.CreateLoad(ll_elem_type, ll_value);
+        ll_load_inst->setAtomic(hir_amo_to_llvm_amo[node->ir_MacroAtomicLoad.mo]);
+
+        return ll_load_inst;
     } break;
     case HIR_MACRO_ATOMIC_STORE: {
         auto* elem_type = node->ir_MacroAtomicStore.expr->type->Inner()->ty_Ptr.elem_type;
@@ -142,13 +123,10 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
         auto* ll_dest = genExpr(node->ir_MacroAtomicStore.expr);
         auto* ll_value = genExpr(node->ir_MacroAtomicStore.value);
 
-        return irb.Insert(new llvm::StoreInst(
-            ll_value,
-            ll_dest,
-            false,
-            layout.getABITypeAlign(ll_elem_type),
-            hir_amo_to_llvm_amo[node->ir_MacroAtomicStore.mo]
-        ));
+        auto* ll_store_inst = irb.CreateStore(ll_value, ll_dest);
+        ll_store_inst->setAtomic(hir_amo_to_llvm_amo[node->ir_MacroAtomicStore.mo]);
+
+        return ll_store_inst;
     } break;
     default:
         Panic("expr codegen not implemented for {}", (int)node->kind);
@@ -156,6 +134,44 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
     }
 
     return nullptr;
+}
+
+/* -------------------------------------------------------------------------- */
+
+llvm::Value* CodeGenerator::genAtomicCas(HirExpr* node) {
+    auto* ll_atomic_val = genExpr(node->ir_MacroAtomicCas.expr);
+    auto* ll_desired = genExpr(node->ir_MacroAtomicCas.desired);
+
+    auto* ll_expected_addr = genExpr(node->ir_MacroAtomicCas.expected);
+    auto* ll_expected = irb.CreateLoad(ll_desired->getType(), ll_expected_addr);
+
+    auto ll_succ_mo = hir_amo_to_llvm_amo[node->ir_MacroAtomicCas.mo_succ];
+    auto ll_fail_mo = hir_amo_to_llvm_amo[node->ir_MacroAtomicCas.mo_fail];
+
+    auto* ll_cas_result = irb.CreateAtomicCmpXchg(
+        ll_atomic_val,
+        ll_expected,
+        ll_desired,
+        llvm::MaybeAlign(),
+        ll_succ_mo,
+        ll_fail_mo
+    );
+    ll_cas_result->setWeak(true);
+
+    auto* ll_cas_old = irb.CreateExtractValue(ll_cas_result, 0);
+    auto* ll_cas_succ = irb.CreateExtractValue(ll_cas_result, 1);
+
+    auto* fail_block = appendBlock();
+    auto* cas_end_block = appendBlock();
+
+    irb.CreateCondBr(ll_cas_succ, cas_end_block, fail_block);
+
+    setCurrentBlock(fail_block);
+    irb.CreateStore(ll_cas_old, ll_expected);
+    irb.CreateBr(cas_end_block);
+
+    setCurrentBlock(cas_end_block);
+    return ll_cas_succ;
 }
 
 /* -------------------------------------------------------------------------- */

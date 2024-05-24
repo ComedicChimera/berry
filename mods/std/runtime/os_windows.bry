@@ -6,17 +6,17 @@ import sys.windows;
 
 func _winError(func_name: string) {
     let buff: [512]u8;
-    let i = 0
+    let i  = 0;
     for ; i < func_name._len; i++ {
         buff[i] = func_name[i];
     }
-    buff[i] = ':';
-    buff[i+1] = ' ';
+    buff[i] = ':' as u8;
+    buff[i+1] = ' ' as u8;
 
     let buff_offset = i + 2;
 
     let err = windows.GetLastError();
-    let n_written: uint;
+    let n_written: int;
     unsafe {
         n_written = windows.FormatMessageA(
             windows.FORMAT_MESSAGE_FROM_SYSTEM,
@@ -24,8 +24,9 @@ func _winError(func_name: string) {
             err,
             0,
             buff._ptr + buff_offset,
-            buff._len - buff_offset
-        ) as uint;
+            (buff._len - buff_offset) as windows.DWORD,
+            null
+        ) as int;
     }
 
     throw(buff[:buff_offset + n_written] as string);
@@ -34,6 +35,9 @@ func _winError(func_name: string) {
 /* ----------------------- Initialization and Exit -------------------------- */
 
 func sysInit() {
+    // Get necessary system information for runtime.
+    _sysGetInfo();
+
     // Get the standard error handle for sys_ewrite.
     _sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
     if _sys_stderr == windows.INVALID_HANDLE_VALUE {
@@ -146,7 +150,121 @@ func _rtSetState(rs: *RtState) {
     }
 }
 
+/* ----------------------------- Virtual Memory ----------------------------- */
+
+let _sys_page_size: uint = 0;
+let _sys_alloc_gran: uint = 0;
+let _sys_large_page_align: uint = 0;
+
+func _sysGetInfo() {
+    let info: windows.SYSTEM_INFO;
+    windows.GetSystemInfo(&info);
+
+    _sys_page_size = info.dwPageSize as uint;
+    _sys_alloc_gran = info.dwAllocationGranularity as uint;
+    
+    // NOT IMPLEMENTED
+    _sys_large_page_align = 0;
+}
+
+func sysAlignHugePageSize(size: uint) uint {
+    if _sys_large_page_align == 0 || size > _sys_large_page_align {
+        return mAlignUp(size, _sys_large_page_align);
+    } else {
+        return mAlignUp(size, _sys_page_size);
+    }
+}
+
+func sysReserve(size, align: uint) *u8 {
+    let data: *u8;
+
+    if align == 0 {
+        data = windows.VirtualAlloc(null, size, windows.MEM_RESERVE, windows.PAGE_READWRITE);
+    } else {
+        size = mAlignUp(size, _sys_page_size);
+
+        let addr_reqs = windows.MEM_ADDRESS_REQUIREMENTS{ null, null, align };
+        let param = windows.MEM_EXTENDED_PARAMETER{ 
+            windows.MemExtendedParameterAddressRequirements, 
+            unsafe(&addr_reqs as uint)
+        };
+
+        data = windows.VirtualAlloc2(
+            null, null,
+            size, windows.MEM_RESERVE, windows.PAGE_READWRITE,
+            &param, 1
+        );
+    }
+
+    if data == null {
+        if windows.GetLastError() == windows.ERROR_OUTOFMEMORY {
+            return null;
+        }
+
+        _winError("VirtualAlloc");
+    }
+
+    return data;
+}
+
+func sysCommit(addr: *u8, size, align: uint) *u8 {
+    let data: *u8;
+
+    if addr != null {
+        data = windows.VirtualAlloc(addr, size, windows.MEM_COMMIT, windows.PAGE_READWRITE);
+    } elif align > 0 {
+        size = mAlignUp(size, _sys_page_size);
+
+        let addr_reqs = windows.MEM_ADDRESS_REQUIREMENTS{ null, null, align };
+        let param = windows.MEM_EXTENDED_PARAMETER{ 
+            windows.MemExtendedParameterAddressRequirements, 
+            unsafe(&addr_reqs as uint)
+        };
+
+        data = windows.VirtualAlloc2(
+            null, null,
+            size, windows.MEM_COMMIT, windows.PAGE_READWRITE,
+            &param, 1
+        );
+    } else {
+        data = windows.VirtualAlloc(null, size, windows.MEM_COMMIT, windows.PAGE_READWRITE);
+    }
+
+    if data == null {
+        if windows.GetLastError() == windows.ERROR_OUTOFMEMORY {
+            return null;
+        }
+
+        _winError("VirtualAlloc");
+    }
+
+    return data;
+}
+
+func sysReset(addr: *u8, size: uint) {
+    if windows.VirtualAlloc(addr, size, windows.MEM_RESET, windows.PAGE_NOACCESS) == null {
+        _winError("VirtualAlloc");
+    }
+}
+
+func sysUnreset(addr: *u8, size: uint) {
+    if windows.VirtualAlloc(addr, size, windows.MEM_RESET_UNDO, windows.PAGE_READWRITE) == null {
+        _winError("VirtualAlloc");
+    }   
+}
+
+func sysRelease(addr: *u8, size: uint) {
+    if windows.VirtualFree(addr, size, windows.MEM_RELEASE) == 0 {
+        _winError("VirtualFree");
+    }
+}
+
 /* --------------------------------- Threads -------------------------------- */
+
+@inline
+func sysGetThrID() uint {
+    return windows.GetCurrentThreadId() as uint;
+}
 
 // type Rthread = windows.HANDLE;
 
@@ -167,10 +285,10 @@ func _rtSetState(rs: *RtState) {
 //     );
 // }
 
+func thrYield() {
+    windows.SwitchToThread();
+}
+
 func sysThrExit(exit_code: int) {
     windows.ExitThread(exit_code as windows.DWORD);
 }
-
-/* --------------------------------- Atomics -------------------------------- */
-
-// TODO

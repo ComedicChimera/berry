@@ -34,7 +34,7 @@ func thrInit(flags: uint) {
     rs.heap.init(segment, page);
 
     // Store runtime state into TLS.
-    rtSetState(rs);
+    _rtSetState(rs);
 
     // Ready to go!
 }

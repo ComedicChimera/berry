@@ -316,10 +316,12 @@ void CodeGenerator::genInnerFuncBody(Type* return_type, llvm::Function* ll_func,
     std::string err_msg;
     llvm::raw_string_ostream oss(err_msg);
     if (llvm::verifyFunction(*ll_func, &oss)) {
-        std::cerr << "error: verifying LLVM function:\n\n";
+        std::cerr << "error: verifying LLVM function: ";
+        std::cerr << ll_func->getName().str() << "\n\n";
         std::cerr << err_msg << "\n\n";
-        std::cerr << "printing module:\n\n";
-        mod.print(llvm::errs(), nullptr);
+        std::cerr << "printing function:\n\n";
+        ll_func->print(llvm::errs(), nullptr);
+        // mod.print(llvm::errs(), nullptr);
         exit(1);
     }
 }

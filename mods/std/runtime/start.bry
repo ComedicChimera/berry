@@ -19,7 +19,7 @@ func _umain();
 @abientry("__berry_start")
 func _rtStart() {
     // Initialize the system bindings (TLS, exception handlers, etc.).
-    _sysInit();
+    sysInit();
 
     // Initialize the main thread.
     thrInit(RS_FLAG_MAIN);

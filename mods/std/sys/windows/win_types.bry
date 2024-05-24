@@ -2,6 +2,7 @@ module windows;
 
 pub type HANDLE = *u8;
 
+pub type WORD = u16;
 pub type BOOL = i32;
 pub type UINT = u32;
 pub type ULONG = u32;
@@ -9,7 +10,23 @@ pub type DWORD = u32;
 pub type DWORD64 = u64;
 pub type SIZE_T = uint;
 
-/* -------------------------------------------------------------------------- */
+/* ------------------------------ sysinfoapi.h ------------------------------ */
+
+pub struct SYSTEM_INFO {
+    pub wProcessorArchitecture: WORD;
+    __reserved: WORD;
+    pub dwPageSize: DWORD;
+    pub lpMinimumApplicationAddress: *u8;
+    pub lpMaximumApplicationAddress: *u8;
+    pub dwActiveProcessorMask: *DWORD;
+    pub dwNumberOfProcessors: DWORD;
+    pub dwProcessorType: DWORD;
+    pub dwAllocationGranularity: DWORD;
+    pub wProcessorLevel: WORD;
+    pub wProcessorRevision: WORD;
+}
+
+/* --------------------------------- winnt.h -------------------------------- */
 
 pub struct EXCEPTION_POINTERS {
     pub ExceptionRecord: *EXCEPTION_RECORD;
@@ -40,3 +57,25 @@ pub struct EXCEPTION_RECORD {
     pub _info2: DWORD;
 }
 #end
+
+pub type MEM_EXTENDED_PARAMETER_TYPE = DWORD64;
+
+pub const MemExtendedParameterInvalidType: MEM_EXTENDED_PARAMETER_TYPE = 0;
+pub const MemExtendedParameterAddressRequirements: MEM_EXTENDED_PARAMETER_TYPE = 1;
+pub const MemExtendedParameterNumaNode: MEM_EXTENDED_PARAMETER_TYPE = 2;
+pub const MemExtendedParameterPartitionHandle: MEM_EXTENDED_PARAMETER_TYPE = 3;
+pub const MemExtendedParameterUserPhysicalHandle: MEM_EXTENDED_PARAMETER_TYPE = 4;
+pub const MemExtendedParameterAttributeFlags: MEM_EXTENDED_PARAMETER_TYPE = 5;
+pub const MemExtendedParameterImageMachine: MEM_EXTENDED_PARAMETER_TYPE = 6;
+pub const MemExtendedParameterMax: MEM_EXTENDED_PARAMETER_TYPE = 7;
+
+pub struct MEM_EXTENDED_PARAMETER {
+    pub Type: MEM_EXTENDED_PARAMETER_TYPE;
+    pub _value: DWORD64;
+}
+
+pub struct MEM_ADDRESS_REQUIREMENTS {
+    pub LowestStartingAddress: *u8;
+    pub HighestEndingAddress: *u8;
+    pub Alignment: SIZE_T;
+}

@@ -41,7 +41,7 @@ pub func _mfree(data: *u8) {
 /* -------------------------------- Constants ------------------------------- */
 
 // Machine Word Sizes
-const M_WORD_SHIFT: uint = #if (ARCH_BITS == 64) 3 #else 2 #endif;
+const M_WORD_SHIFT: uint = #if (ARCH_BITS == 64) 3 #else 2 #end;
 const M_WORD_SIZE: uint = 1 << M_WORD_SHIFT;
 
 const M_MIN_ALIGN: uint = 16;                              // Minimum Allocation Alignment (16-bit on most platforms)
@@ -83,14 +83,14 @@ const M_N_DIRECT_BINS: uint = 128;                              // Number of Bin
 const M_MAX_DIRECT_SIZE: uint = M_WORD_SIZE * M_N_DIRECT_BINS;  // = 1 KiB on 64-bit systems
 
 // Page Flags
-const M_PAGE_ZEROED: uint = 1;
-const M_PAGE_RESET: uint = 2;
-const M_PAGE_FULL: uint = 4;
-const M_PAGE_RETIRED: uint = 8;
+const M_PAGE_ZEROED: u32 = 1;
+const M_PAGE_RESET: u32 = 2;
+const M_PAGE_FULL: u32 = 4;
+const M_PAGE_RETIRED: u32 = 8;
 
 // Retirement and Revival
-const M_REVIVAL_CHANCES_SMALL: uint = 16;
-const M_REVIVAL_CHANCES: uint = M_REVIVAL_CHANCES_SMALL / 4;
+const M_REVIVAL_CHANCES_SMALL: u32 = 16;
+const M_REVIVAL_CHANCES: u32 = M_REVIVAL_CHANCES_SMALL / 4;
 
 /* ------------------------------- Allocation ------------------------------- */
 
@@ -197,7 +197,7 @@ func MHeap.findFreePage(size: uint) *MPage {
 func MHeap.collectDelayed(force: bool) {
     // Take ownership of the delayed free list.
     let block = @atomic_load(&self.xdelayed_free, AMO_RELAXED);
-    while block != null && !@atomic_cas_weak(&self.xdelayed_free, block, null, AMO_ACQ_REL, AMO_RELAXED) {}
+    while block != null && !@atomic_cas_weak(&self.xdelayed_free, &block, null, AMO_ACQ_REL, AMO_RELAXED) {}
 
     while block != null {
         let next = block.next;
@@ -207,7 +207,7 @@ func MHeap.collectDelayed(force: bool) {
             let dfree = @atomic_load(&self.xdelayed_free, AMO_RELAXED);
             do {
                 block.next = dfree;
-            } while !@atomic_cas_weak(&self.xdelayed_free, dfree, block, AMO_RELEASE, AMO_RELAXED);
+            } while !@atomic_cas_weak(&self.xdelayed_free, &dfree, block, AMO_RELEASE, AMO_RELAXED);
         }
 
         block = next;
@@ -216,12 +216,12 @@ func MHeap.collectDelayed(force: bool) {
 
 func MHeap.collectRetired(force: bool) {
     // Keep track of min and max indices, so we can keep them updated.
-    let new_min = retire_ndx_max;
-    let new_max = retire_ndx_min;
+    let new_min = self.retire_ndx_max;
+    let new_max = self.retire_ndx_min;
 
-    for let i = self.retire_ndx_min; i <= retire_ndx_max; i++ {
+    for let i = self.retire_ndx_min; i <= self.retire_ndx_max; i++ {
         // Only the first page in a queue can be retired.
-        let page = pages[i].first;
+        let page = self.pages[i].first;
 
         if page != null && (page.flags & M_PAGE_RETIRED) > 0 {
             // If the page has been allocated in, then we should revive it.
@@ -233,7 +233,7 @@ func MHeap.collectRetired(force: bool) {
 
             page.revival_chances--;
             if force || page.revival_chances == 0 { // Page is out of chances.
-                self.freePage(&pages[i], page);
+                self.freePage(&self.pages[i], page);
             } else { // Still retired.
                 if (i < new_min) {
                     new_min = i;
@@ -247,8 +247,8 @@ func MHeap.collectRetired(force: bool) {
     }
 
     // Update retirement indices.
-    retire_ndx_min = new_min;
-    retire_ndx_max = new_max;
+    self.retire_ndx_min = new_min;
+    self.retire_ndx_max = new_max;
 }
 
 func MHeap.allocPage(pq: *MPageQ) *MPage {
@@ -260,7 +260,7 @@ func MHeap.allocPage(pq: *MPageQ) *MPage {
 
     // Find the first free page in the segment.
     let page: *MPage = null;
-    for let i = 0; i < segment.n_total_pages; i++ {
+    for let i: uint = 0; i < segment.n_total_pages; i++ {
         page = &segment.pages[i];
 
         if page.n_used_blocks == 0 {
@@ -276,7 +276,7 @@ func MHeap.allocPage(pq: *MPageQ) *MPage {
     }
 
     // Prepare the page for allocation.
-    page.block_size = block_size;
+    page.block_size = pq.block_size;
     page.makeReady();
 
     self.enqueuePage(pq, page);
@@ -321,7 +321,7 @@ func MHeap.free(data: *u8) {
     let page = segment.getParentPage(block);
 
     // Check if this a local or cross-thread free.
-    if @atomic_load(segment.xthr_id, AMO_RELAXED) == self.thr_id || self.tryReclaimOnFree(segment) {
+    if @atomic_load(&segment.xthr_id, AMO_RELAXED) == self.thr_id || self.tryReclaimOnFree(segment) {
         self.freeLocal(page, block);
     } else {
         self.freeCross(page, block);
@@ -335,7 +335,7 @@ func MHeap.tryReclaimOnFree(segment: *MSegment) bool {
     }
 
     // Load all the claimed pages into the appropriate page queues.
-    for let i = 0; i < segment.n_total_pages; i++ {
+    for let i: uint = 0; i < segment.n_total_pages; i++ {
         let page = &segment.pages[i];
         let pq = self.getPageQueue(page);
 
@@ -365,6 +365,8 @@ func MHeap.tryReclaimOnFree(segment: *MSegment) bool {
     if segment.n_used_pages < segment.n_total_pages {
         self.enqueueFreeSegment(segment);
     }
+
+    return true;
 }
 
 func MHeap.freeLocal(page: *MPage, block: *MBlock) {
@@ -389,7 +391,7 @@ func MHeap.freeCross(page: *MPage, block: *MBlock) {
     let tfree = @atomic_load(&page.xthr_free, AMO_RELAXED);
     let new_tfree: MThrFreeList;
     do {
-        no_delay = tfree.getDelay() != .Delayed;
+        no_delay = tfree.getDelay() != MThrDelay.Delayed;
         if no_delay { // Fast Path
             // Push onto thread free list.
             block.next = tfree.getBlock();
@@ -447,7 +449,7 @@ func MHeap.tryFreeDelayed(block: *MBlock, force: bool) bool {
     page.collectThreadFree();
 
     // Free the delayed block as a local block.
-    self.freeLocal(block);
+    self.freeLocal(page, block);
     return true;
 }
 
@@ -530,10 +532,10 @@ const _mbin_word_sizes: []uint = [
     40960,  49152,  57344,  65536,  81920,  98304,  114688, 131072,  // Bins 56-63
     163840, 196608, 229376, 262144, 372680, 393216, 458752, 524288,  // Bins 64-71
     0,  // Huge Bin
-    0,  // Full List
+    0   // Full List
 ];
 
-func mRoundToSizeClass(size: uint) {
+func mRoundToSizeClass(size: uint) uint {
     let bin = mGetPageBin(size);
     if bin >= M_BIN_HUGE {
         panic("allocator: heap size class is huge");
@@ -553,11 +555,11 @@ func MHeap.init(back_segment: *MSegment, back_page: *MPage) {
     }
 
     // Initialize the direct bins and page queues as empty.
-    for let i = 0; i < M_N_DIRECT_BINS; i++ {
+    for let i: uint = 0; i < M_N_DIRECT_BINS; i++ {
         self.direct_pages[i] = &_mpage_empty;
     }
 
-    for let i = 0; i < M_N_TOTAL_BINS; i++ {
+    for let i: uint = 0; i < M_N_TOTAL_BINS; i++ {
         let pq = &self.pages[i];
 
         pq.block_size = _mbin_word_sizes[i] * M_WORD_SIZE;
@@ -585,14 +587,14 @@ func MHeap.init(back_segment: *MSegment, back_page: *MPage) {
 
 func MHeap.cleanup() {
     // Free all pages that are empty.
-    for let i = 0; i < M_N_TOTAL_BINS; i++ {
+    for let i: uint = 0; i < M_N_TOTAL_BINS; i++ {
         let pq = &self.pages[i];
         let page = pq.first;
 
         while page != null {
             let next = page.next;
 
-            if page.n_used_pages == 0 { // No live blocks: empty.
+            if page.n_used_blocks == 0 { // No live blocks: empty.
                 self.freePage(pq, page);
             } else {
                 // Disable delayed freeing: prepare for abandonment.
@@ -612,7 +614,7 @@ func MHeap.cleanup() {
     let back_page = back_segment.getParentPage(unsafe(self as *MBlock));
 
     // Abandon or free all remaining pages.
-    for let i = 0; i < M_N_TOTAL_BINS; i++ {
+    for let i: uint = 0; i < M_N_TOTAL_BINS; i++ {
         let pq = &self.pages[i];
         let page = pq.first;
 
@@ -633,7 +635,7 @@ func MHeap.cleanup() {
     }
 
     // Free the heap's backing memory CAREFULLY.
-    if back_segment.n_used_blocks == 1 { // Heap is only allocated block.
+    if back_segment.n_used_pages == 1 { // Heap is only allocated block.
         back_segment.n_used_pages--;
 
         if back_segment.n_used_pages == 0 { // Backing page is only page in its segment.
@@ -654,7 +656,7 @@ func MHeap.cleanup() {
             let block = self as *MBlock;
             block.next = back_page.local_free; // Heap state is corrupted.
             back_page.local_free = block;
-            block.n_used_blocks--;
+            back_page.n_used_blocks--;
         }
 
         // Abandon the backing page.
@@ -672,25 +674,25 @@ struct MPageQ {
 
 func MHeap.moveToFull(src_pq: *MPageQ, page: *MPage) {
     // Remove the page from its old page queue.
-    dequeuePage(src_pq, page);
+    self.dequeuePage(src_pq, page);
 
     // Mark it as full.
     page.flags |= M_PAGE_FULL;
 
     // Add it to the full list.
-    enqueuePage(&self.pages[M_BIN_FULL], page);
+    self.enqueuePage(&self.pages[M_BIN_FULL], page);
 }
 
 func MHeap.removeFromFull(page: *MPage) {
     // Remove the page from the full list.
-    dequeuePage(&self.pages[M_BIN_FULL], page);
+    self.dequeuePage(&self.pages[M_BIN_FULL], page);
 
     // Remove its full flag.
     page.flags &= ~M_PAGE_FULL;
 
     // Add it to its destination queue.
     let dest_pq = self.getPageQueue(page);
-    enqueuePage(dest_pq, page);
+    self.enqueuePage(dest_pq, page);
 }
 
 func MHeap.enqueuePage(pq: *MPageQ, page: *MPage) {
@@ -749,18 +751,18 @@ func MHeap.updateQueueFirst(pq: *MPageQ) {
 
     // Check whether the direct bin has already been updated.
     let end = mGetWordSize(pq.block_size);
-    if page == direct_pages[end] {
+    if page == self.direct_pages[end] {
         return;
     }
 
     // Determine the start index of the range of bins that should be updated.
-    let start = 0;
+    let start: uint = 0;
     if end > 1 { // Not first bin
         // Work out the size of the previous valid bin.  On a some platforms,
         // certain bins are unused due to alignment considerations.  Hence, we
         // want to skip until we find the first page queue whose block size
         // corresponds to an actually usable bin.
-        let bin = mGetPageBin(bin);
+        let bin = mGetPageBin(page.block_size);
 
         let prev = pq;
         unsafe {
@@ -851,7 +853,7 @@ func mGetPageBin(size: uint) uint {
     wsize--;
 
     // Find the index of the most significant bit (bit scan reverse).
-    let msb = 0;
+    let msb: uint = 0;
     while (1 << msb) < wsize {
         msb++;
     }
@@ -909,7 +911,11 @@ func MThrFreeList.setDelay(delay: MThrDelay) MThrFreeList {
 // design of the allocation.
 struct MPage {
     // Page specific flags (uses the M_PAGE_* values).
-    flags: u8;
+    flags: u32;
+
+    // The number of revival chances the page has left during retirement.  If
+    // the page is not retired, this field is unused (should be 0).
+    revival_chances: u32;
 
     // Pages are organized into doubly-linked lists called page queues.  The
     // entries in the page queues are pages.  These pointers point to the
@@ -930,10 +936,6 @@ struct MPage {
 
     // The thread free list.  Must be accessed atomically.
     xthr_free: MThrFreeList;
-
-    // The number of revival chances the page has left during retirement.  If
-    // the page is not retired, this field is unused (should be 0).
-    revival_chances: u8;
 
     // The start address of the page's memory.
     start: *u8;
@@ -992,7 +994,7 @@ func MPage.makeReady() {
         let prev: *MBlock = null;
 
         let n_blocks = self.capacity / self.block_size;
-        for let i = 0; i < n_blocks; i++ {
+        for let i: uint = 0; i < n_blocks; i++ {
             curr.next = prev;
             prev = curr;
             curr++;
@@ -1075,7 +1077,7 @@ func MPage.waitAndSetDelay(delay: MThrDelay, force: bool) bool {
         tfree = @atomic_load(&self.xthr_free, AMO_ACQUIRE);
         old_delay = tfree.getDelay();
 
-        if old_delay == .Delaying { // Other thread is working on list: can't change delay.
+        if old_delay == MThrDelay.Delaying { // Other thread is working on list: can't change delay.
             // If not forced, give up after 4 tries.
             if !force && attempts > 4 { // Too much contention.
                 return false;
@@ -1085,7 +1087,7 @@ func MPage.waitAndSetDelay(delay: MThrDelay, force: bool) bool {
             // Yield and try again.
             thrYield();
             continue;
-        } elif old_delay == .NeverDelay {
+        } elif old_delay == MThrDelay.NeverDelay {
             // Never delay can't be overwritten.
             return false;
         } elif old_delay == delay {
@@ -1124,10 +1126,10 @@ func MPage.abandon() {
 // Each generic category of page accomodates many different size classes, so
 // freed pages can be reused for blocks of a different size class.
 enum MPageKind {
-    Small,
-    Med,
-    Large,
-    Huge
+    Small;
+    Med;
+    Large;
+    Huge;
 }
 
 // MSegment is a backing-slab of memory which stores pages of a specific kind.
@@ -1274,14 +1276,16 @@ func MSegmentQ.findFreeSegment() *MSegment {
             return segment;
         }
     }
+
+    return null;
 }
 
 /* -------------------------------- Segments -------------------------------- */
 
 func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSegment {
     // Determine page information.
-    let n_pages = 1;
-    let page_shift = 0;
+    let n_pages: uint = 1;
+    let page_shift: uint = 0;
 
     match page_kind {
     case .Small:
@@ -1296,7 +1300,7 @@ func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSeg
     }
 
     let page_size = 1 << page_shift;
-    if page_kind == .Huge {
+    if page_kind == MPageKind.Huge {
         page_size = segment_size;
     }
 
@@ -1322,7 +1326,7 @@ func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSeg
     }
 
     // Initialize the segment info.
-    segment.xthr_id = self.thr_id;
+    segment.xthr_id = thr_id;
     segment.full_size = segment_size;
     segment.page_kind = page_kind;
     segment.page_shift = page_shift;
@@ -1340,7 +1344,7 @@ func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSeg
     page.capacity = page.reserved;
 
     // Initialize the remaining pages.
-    for let i = 1; i < n_pages; i++ {
+    for let i: uint = 1; i < n_pages; i++ {
         let page_start = unsafe((segment as *u8) + i * page_size);
 
         page = &segment.pages[i];
@@ -1352,7 +1356,7 @@ func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSeg
         }
     }
 
-    return segment.
+    return segment;
 }
 
 func mSegmentFree(segment: *MSegment) {
@@ -1377,10 +1381,10 @@ func MSegment.tryClaim(thr_id: uint) bool {
     self.n_abandoned_pages = 0;
 
     // Enable delayed freeing on all abandoned pages.
-    for let i = 0; i < self.n_total_pages; i++ {
+    for let i: uint = 0; i < self.n_total_pages; i++ {
         let page = &self.pages[i];
 
-        if page.n_used_blocks > 0 {.
+        if page.n_used_blocks > 0 {
             page.enableDelayedFree();
         }
     }
@@ -1394,26 +1398,26 @@ func MSegment.abandon() {
     @atomic_store(&self.xthr_id, 0, AMO_ACQ_REL);
 }
 
-func MSegment.getParentPage(block: *MBlock) {
-    if self.page_kind == .Huge {
+func MSegment.getParentPage(block: *MBlock) *MPage {
+    if self.page_kind == MPageKind.Huge {
         return &self.pages[0];
     }
 
     unsafe {
-        let seg_offset = (block as *u8) - (self as *u8);
+        let seg_offset = (block as *u8) - (self as *u8) as uint;
         let page_ndx = seg_offset >> self.page_shift;
 
         if page_ndx >= self.n_total_pages {
             throw("allocator: page lookup in segment is out of bounds");
         }
 
-        return &pages[page_ndx];
+        return &self.pages[page_ndx];
     }
 }
 
 func mGetParentSegment(block: *MBlock) *MSegment {
     unsafe {
-        return (block as uint) & ~SEGMENT_MASK as *MSegment;
+        return (block as uint) & ~M_SEGMENT_MASK as *MSegment;
     }
 }
 

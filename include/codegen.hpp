@@ -305,8 +305,10 @@ private:
 
     llvm::Value* genExpr(HirExpr* expr, bool expect_addr = false, llvm::Value* alloc_loc = nullptr);
 
-    llvm::Value* genTestMatch(HirExpr *node);
-    
+    llvm::Value* genAtomicCas(HirExpr* node);
+
+    llvm::Value* genTestMatch(HirExpr* node);
+
     llvm::Value* genCast(HirExpr *node);
     llvm::Value* genBinop(HirExpr* node);
     llvm::Value* genStrEq(llvm::Value* lhs, llvm::Value* rhs);

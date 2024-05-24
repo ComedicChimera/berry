@@ -1,0 +1,46 @@
+import runtime;
+import io.std;
+
+struct ListNode {
+    value: int;
+    next: *ListNode;
+}
+
+func allocList(n: int) *ListNode {
+    if n == 0 {
+        return null;
+    }
+
+    let node = unsafe(runtime._malloc(@sizeof(ListNode)) as *ListNode);
+    node.value = n;
+    node.next = allocList(n - 1);
+    return node;
+}
+
+func printList(node: *ListNode) {
+    std.putint(node.value);
+    std.putr('\n');
+
+    if node.next != null {
+        printList(node.next);
+    }
+}
+
+func freeList(node: *ListNode) {
+    if node.next != null {
+        freeList(node.next);
+    }
+
+    unsafe {
+        runtime._mfree(node as *u8);
+    }
+}
+
+func main() {
+    let list = allocList(100);
+    printList(list);
+    freeList(list);
+
+    list = allocList(20);
+    printList(list);
+}

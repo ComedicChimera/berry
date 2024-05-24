@@ -196,12 +196,16 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
     case AST_STRUCT_LIT:
         hexpr = checkStructLit(node, infer_type);
         break;
-    case AST_UNSAFE_EXPR:
+    case AST_UNSAFE_EXPR: {
         hexpr = allocExpr(HIR_UNSAFE_EXPR, node->span);
+        
         unsafe_depth++;
-        hexpr->ir_UnsafeExpr.expr = checkExpr(node->an_UnsafeExpr.expr, infer_type);
+        auto* hsub = checkExpr(node->an_UnsafeExpr.expr, infer_type);
         unsafe_depth--;
-        break;
+
+        hexpr->type = hsub->type;
+        hexpr->ir_UnsafeExpr.expr = hsub;
+    } break;
     case AST_IDENT: {
         auto [symbol, dep] = mustLookup(node->an_Ident.name, node->span);
         if (dep != nullptr) {
@@ -252,14 +256,14 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
         auto* type = checkTypeLabel(node->an_Macro.args[0], true);
         
         hexpr = allocExpr(HIR_MACRO_SIZEOF, node->span);
-        hexpr->type = platform_int_type;
+        hexpr->type = platform_uint_type;
         hexpr->ir_MacroType.arg = type;
     } break;
     case AST_MACRO_ALIGNOF: {
         auto* type = checkTypeLabel(node->an_Macro.args[0], true);
         
         hexpr = allocExpr(HIR_MACRO_ALIGNOF, node->span);
-        hexpr->type = platform_int_type;
+        hexpr->type = platform_uint_type;
         hexpr->ir_MacroType.arg = type;
     } break;
     case AST_MACRO_ATOMIC_CAS_WEAK: {
@@ -339,7 +343,7 @@ HirExpr* Checker::checkAtomicPrimExpr(AstNode* node) {
 
     auto* type = hexpr->type->Inner();
     if (type->kind == TYPE_PTR) {
-        auto* atomic_type = type->ty_Ptr.elem_type;
+        auto* atomic_type = type->ty_Ptr.elem_type->Inner();
 
         switch (atomic_type->kind) {
         case TYPE_INT:

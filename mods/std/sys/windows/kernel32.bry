@@ -1,7 +1,6 @@
 module windows;
 
-@[extern, callconv("win64")]
-pub func GetLastError() DWORD;
+/* -------------------------------- winbase.h ------------------------------- */
 
 @[extern, callconv("win64")]
 pub func FormatMessageA(
@@ -14,26 +13,21 @@ pub func FormatMessageA(
     _Arguments: *u8
 ) DWORD;
 
-@[extern, callconv("win64")]
-pub func ExitProcess(uExitCode: UINT);
+/* ---------------------------- errhandlingapi.h ---------------------------- */
 
 @[extern, callconv("win64")]
-pub func GetStdHandle(nStdHandle: DWORD) HANDLE;
-
-@[extern, callconv("win64")]
-pub func WriteConsoleA(
-    hConsoleOutput: HANDLE, 
-    lpBuffer: *u8, 
-    nNumberOfCharsToWrite: DWORD, 
-    lpNumberOfCharsWritten: *DWORD, 
-    lpReserved: *u8
-) BOOL;
+pub func GetLastError() DWORD;
 
 @[extern, callconv("win64")]
 pub func AddVectoredExceptionHandler(
     First: ULONG,
     Handler: *u8
 ) *u8;
+
+/* --------------------------- processthreadsapi.h -------------------------- */
+
+@[extern, callconv("win64")]
+pub func ExitProcess(uExitCode: UINT);
 
 @[extern, callconv("win64")]
 pub func TlsAlloc() DWORD;
@@ -58,6 +52,57 @@ pub func CreateThread(
 ) HANDLE;
 
 @[extern, callconv("win64")]
-pub func ExitThread(
-    dwExitCode: DWORD
-);
+pub func ExitThread(dwExitCode: DWORD);
+
+@[extern, callconv("win64")]
+pub func GetCurrentThreadId() DWORD;
+
+@[extern, callconv("win64")]
+pub func SwitchToThread() BOOL;
+
+/* ------------------------------ sysinfoapi.h ------------------------------ */
+
+@[extern, callconv("win64")]
+pub func GetSystemInfo(lpSystemInfo: *SYSTEM_INFO);
+
+/* ------------------------------- memoryapi.h ------------------------------ */
+
+@[extern, callconv("win64")]
+pub func VirtualAlloc(
+    lpAddress: *u8,
+    dwSize: SIZE_T,
+    flAllocationType: DWORD,
+    flProtect: DWORD
+) *u8;
+
+@[extern, callconv("win64")]
+pub func VirtualAlloc2(
+    Process: HANDLE,
+    BaseAddress: *u8,
+    Size: SIZE_T,
+    AllocationType: ULONG,
+    PageProtection: ULONG,
+    ExtendedParameters: *MEM_EXTENDED_PARAMETER,
+    ParameterCount: ULONG
+) *u8;
+
+@[extern, callconv("win64")]
+pub func VirtualFree(
+    lpAddress: *u8,
+    dwSize: SIZE_T,
+    dwFreeType: DWORD
+) BOOL;
+
+/* -------------------------------------------------------------------------- */
+
+@[extern, callconv("win64")]
+pub func GetStdHandle(nStdHandle: DWORD) HANDLE;
+
+@[extern, callconv("win64")]
+pub func WriteConsoleA(
+    hConsoleOutput: HANDLE, 
+    lpBuffer: *u8, 
+    nNumberOfCharsToWrite: DWORD, 
+    lpNumberOfCharsWritten: *DWORD, 
+    lpReserved: *u8
+) BOOL;

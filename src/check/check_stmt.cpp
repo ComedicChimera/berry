@@ -425,8 +425,13 @@ HirStmt* Checker::checkIncDec(AstNode* node) {
     }
 
     auto op = node->an_IncDec.op.tok_kind == TOK_INC ? HIROP_ADD : HIROP_SUB;
+
+    auto* rhs_type = hlhs->type;
+    if (rhs_type->Inner()->kind == TYPE_PTR) { // Pointer Arithmetic
+        rhs_type = platform_int_type;
+    }
     
-    auto* result_type = mustApplyBinaryOp(node->span, op, hlhs->type, hlhs->type);
+    auto* result_type = mustApplyBinaryOp(node->span, op, hlhs->type, rhs_type);
     bool needs_subtype_cast = mustSubType(node->span, result_type, hlhs->type);
     finishExpr();
 

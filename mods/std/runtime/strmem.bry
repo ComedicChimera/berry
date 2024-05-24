@@ -18,7 +18,7 @@ func strcmp(a, b: string) int {
 func memset(dst: *u8, value: u8, size: uint) {
     // TODO: replace with fast implementation
 
-    for let i = 0; i < size; i++ {
+    for let i: uint = 0; i < size; i++ {
         unsafe {
             *(dst + i) = value;
         }
