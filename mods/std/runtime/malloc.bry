@@ -48,7 +48,7 @@ const M_MIN_ALIGN: uint = 16;                              // Minimum Allocation
 const M_MIN_WORD_ALIGN: uint = M_MIN_ALIGN / M_WORD_SIZE;  // 2 (on 64-bit)
 
 // Page Sizes
-const M_SMALL_PAGE_SHIFT: uint = 3 + M_WORD_SHIFT;
+const M_SMALL_PAGE_SHIFT: uint = 13 + M_WORD_SHIFT;
 const M_MED_PAGE_SHIFT: uint = 3 + M_SMALL_PAGE_SHIFT;
 const M_LARGE_PAGE_SHIFT: uint = 3 + M_MED_PAGE_SHIFT;
 
@@ -973,7 +973,7 @@ func MPage.makeReady() {
     }
 
     if self.capacity == 0 { // Page has reserved space that is not committed.
-        sysAlloc(self.start, self.reserved, 0, true);
+        sysCommit(self.start, self.reserved);
         self.capacity = self.reserved;
     }
 
@@ -1309,11 +1309,17 @@ func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSeg
         return null;
     }
 
-    let segment = unsafe(alloc_info.ptr as *MSegment);
+    // Commit the first page of memory.
+    let pseg = alloc_info.ptr;
+    if !full_commit {
+        sysCommit(pseg, page_size);
+    }
+
+    // Initialize the segment info.
+    let segment = unsafe(pseg as *MSegment);
     segment.base_addr = alloc_info.base;
     segment.full_size = alloc_info.full_size;
 
-    // Initialize the segment info.
     segment.xthr_id = thr_id;
     segment.page_kind = page_kind;
     segment.page_shift = page_shift;
@@ -1388,7 +1394,7 @@ func mOSAllocAligned(size, align: uint, commit: bool) OSAllocInfo {
 
         // Commit only the aligned part as necessary.
         if commit {
-            sysAlloc(p, size, 0, true);
+            sysCommit(p, size);
         }
     }
 

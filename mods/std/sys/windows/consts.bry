@@ -15,7 +15,7 @@ pub const FORMAT_MESSAGE_MAX_WIDTH_MASK: DWORD = 0xff;
 /* ------------------------------- winerror.h ------------------------------- */
 
 pub const ERROR_SUCCESS: DWORD = 0;
-pub const ERROR_OUTOFMEMORY: DWORD = 0xE;
+pub const ERROR_NOT_ENOUGH_MEMORY: DWORD = 0x8;
 
 /* --------------------------------- winnt.h -------------------------------- */
 

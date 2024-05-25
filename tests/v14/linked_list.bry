@@ -37,10 +37,10 @@ func freeList(node: *ListNode) {
 }
 
 func main() {
-    let list = allocList(100);
+    let list = allocList(20);
     printList(list);
     freeList(list);
 
-    list = allocList(20);
+    list = allocList(100);
     printList(list);
 }

@@ -185,18 +185,19 @@ func sysAlloc(addr: *u8, size, align_hint: uint, commit: bool) *u8 {
     }
 
     // align_hint is ignored on Windows (requires VirtualAlloc2 in mincore.lib).
-    let p = windows.VirtualAlloc(
-        addr,
-        size,
-        mem_flags,
-        windows.PAGE_READWRITE
-    );
+    let p = windows.VirtualAlloc(addr, size, mem_flags, windows.PAGE_READWRITE);
 
-    if p == null && windows.GetLastError() != windows.ERROR_OUTOFMEMORY {
+    if p == null && windows.GetLastError() != windows.ERROR_NOT_ENOUGH_MEMORY {
         _winError("VirtualAlloc");
     }
 
     return p;
+}
+
+func sysCommit(addr: *u8, size: uint) {
+    if windows.VirtualAlloc(addr, size, windows.MEM_COMMIT, windows.PAGE_READWRITE) == null {
+        _winError("VirtualAlloc");
+    }
 }
 
 func sysReset(addr: *u8, size: uint) {

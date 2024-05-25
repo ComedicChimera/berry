@@ -18,6 +18,9 @@ func thrInit(flags: uint) {
     // Allocate a backing segment for the runtime state.
     let page_kind = mGetPageKind(@sizeof(RtState));
     let segment = mSegmentAlloc(sysGetThrID(), M_SEGMENT_SIZE, page_kind);
+    if segment == null {
+        throw("initialization: could not allocate backing memory for runtime state");
+    }
 
     // Grab an initial page from the segment for allocation.
     let page = &segment.pages[0];
@@ -42,12 +45,12 @@ func thrInit(flags: uint) {
 func thrExit(exit_code: int) {
     let rs = rtGetState();
 
-    // Clean up the thread's local heap.
-    rs.heap.cleanup();
-
     if (rs.flags & RS_FLAG_MAIN) > 0 { // Main thread exits process.
         exit(exit_code);
     }
+
+    // Clean up the thread's local heap.
+    rs.heap.cleanup();
 
     // Call the system thread exit handler.
     sysThrExit(exit_code);

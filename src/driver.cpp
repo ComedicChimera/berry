@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <chrono>
+
 namespace fs = std::filesystem;
 
 #include "llvm/IR/Verifier.h"
@@ -37,6 +39,12 @@ class Compiler {
 
     llvm::TargetMachine* tmach;
 
+    using Clock = std::chrono::steady_clock;
+    using Second = std::chrono::duration<double, std::ratio<1>>;
+
+    std::chrono::time_point<Clock> profile_start;
+    std::string profile_section;
+
 public:
     Compiler(const BuildConfig& cfg)
     : cfg(cfg)
@@ -46,13 +54,17 @@ public:
     }
 
     void Compile() {
+        startTimer("Loader");
         loader.LoadAll(cfg.input_path);
+        endTimer();
 
         if (ErrorCount() > 0) {
             return;
         }
 
+        startTimer("Checker");
         check();
+        endTimer();
 
         if (ErrorCount() > 0) {
             return;
@@ -120,6 +132,7 @@ private:
         main_mod.setDataLayout(tmach->createDataLayout());
         main_mod.setTargetTriple(tmach->getTargetTriple().str());
 
+        startTimer("CodeGen");
         MainBuilder mainb(tp.ll_context, main_mod);
 
         // Generate all the user modules.
@@ -137,8 +150,10 @@ private:
         }
 
         mainb.FinishMain();
+        endTimer();
 
         // Emit the modules to LLVM if that is our output format.
+        startTimer("LLVM Compile");
         std::error_code ec;
         if (cfg.out_fmt == OUTFMT_LLVM) {
             for (auto& ll_mod : ll_mods) {
@@ -155,6 +170,7 @@ private:
                 out_file.close();
             }
 
+            endTimer();
             return;
         }
 
@@ -181,6 +197,8 @@ private:
                 obj_files.push_back(out_path);
             }
         }
+
+        endTimer();
     }
 
     void link() {
@@ -214,7 +232,9 @@ private:
         LinkConfig lconfig { out_path_fs.string(), obj_files, cfg.should_emit_debug };
         lconfig.obj_files.insert(lconfig.obj_files.end(), cfg.libs.begin(), cfg.libs.end()); 
 
+        startTimer("Linker");
         RunLinker(lconfig);
+        endTimer();
     }
 
     /* ---------------------------------------------------------------------- */
@@ -323,6 +343,17 @@ private:
         if (ec) {
             ReportFatal("failed to create output directory: {}", ec.message());
         }
+    }
+
+    void startTimer(const std::string& section) {
+        profile_section = section;
+        profile_start = Clock::now();
+    }
+
+    void endTimer() {
+        auto diff = std::chrono::duration_cast<Second>(Clock::now() - profile_start).count();
+        std::cout << "[PROFILE] " << profile_section << " ";
+        printf("%.2f ms\n", diff * 1000.0f);
     }
 };
 

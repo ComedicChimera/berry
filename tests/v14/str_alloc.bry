@@ -1,0 +1,27 @@
+import runtime;
+import io.std;
+
+func main() {
+    let data: []u8;
+    data._ptr = runtime._malloc(26);
+    data._len = 26;
+
+    for let i: rune = 0; i < 26; i++ {
+        data[i] = 'a' + i as u8;
+    }
+
+    std.puts(data as string);
+    std.putr('\n');
+
+    runtime._mfree(data._ptr);
+
+    data._ptr = runtime._malloc(30);
+    data._len = 30;
+
+    for let i = 0; i < 30; i++ {
+        data[i] = (i % 10 as rune) + '0' as u8;
+    }
+
+    std.puts(data as string);
+    std.putr('\n');
+}

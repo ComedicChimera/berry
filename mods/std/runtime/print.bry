@@ -4,3 +4,36 @@ func dputs(s: string) {
     // TODO: synchronize writing here?  
     sysWriteErr(s as []u8);
 }
+
+func dputx(v: uint) {
+    if v == 0 {
+        dputs("0");
+        return;
+    }
+    
+    let digit_buff: [18]u8;
+
+    let n = 17;
+    while v > 0 {
+        let digit = v & 0xf;
+        if digit < 10 {
+            digit_buff[n] = (digit as rune) + '0' as u8;
+        } else {
+            digit_buff[n] = (digit - 10 as rune) + 'a' as u8;
+        }
+
+        v >>= 4;
+        n--;
+    }
+
+    digit_buff[n] = 'x' as u8;
+    digit_buff[n-1] = '0' as u8;
+
+    dputs(digit_buff[n-1:] as string);
+}
+
+func dputptr(v: *u8) {
+    unsafe {
+        dputx(v as uint);
+    }
+}

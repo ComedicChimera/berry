@@ -611,6 +611,8 @@ llvm::Value* CodeGenerator::genAlloc(llvm::Type* llvm_type, HirAllocMode mode) {
 /* -------------------------------------------------------------------------- */
 
 void CodeGenerator::genBoundsCheck(llvm::Value* ndx, llvm::Value* arr_len, bool can_equal_len) {
+    ndx = irb.CreateIntCast(ndx, ll_platform_int_type, false);
+
     auto* is_ge_zero = irb.CreateICmpSGE(ndx, llvm::Constant::getNullValue(ndx->getType()));
     llvm::Value* is_lt_len;
     if (can_equal_len) {
