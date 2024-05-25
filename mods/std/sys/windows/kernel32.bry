@@ -76,17 +76,6 @@ pub func VirtualAlloc(
 ) *u8;
 
 @[extern, callconv("win64")]
-pub func VirtualAlloc2(
-    Process: HANDLE,
-    BaseAddress: *u8,
-    Size: SIZE_T,
-    AllocationType: ULONG,
-    PageProtection: ULONG,
-    ExtendedParameters: *MEM_EXTENDED_PARAMETER,
-    ParameterCount: ULONG
-) *u8;
-
-@[extern, callconv("win64")]
 pub func VirtualFree(
     lpAddress: *u8,
     dwSize: SIZE_T,

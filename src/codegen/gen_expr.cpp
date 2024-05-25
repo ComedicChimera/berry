@@ -167,7 +167,7 @@ llvm::Value* CodeGenerator::genAtomicCas(HirExpr* node) {
     irb.CreateCondBr(ll_cas_succ, cas_end_block, fail_block);
 
     setCurrentBlock(fail_block);
-    irb.CreateStore(ll_cas_old, ll_expected);
+    irb.CreateStore(ll_cas_old, ll_expected_addr);
     irb.CreateBr(cas_end_block);
 
     setCurrentBlock(cas_end_block);
@@ -312,6 +312,7 @@ llvm::Value* CodeGenerator::genBinop(HirExpr* node) {
 
         setCurrentBlock(true_block);
         auto* rhs_val = genExpr(node->ir_Binop.rhs);
+        true_block = getCurrentBlock();
         irb.CreateBr(end_block);
 
         setCurrentBlock(end_block);
@@ -328,6 +329,7 @@ llvm::Value* CodeGenerator::genBinop(HirExpr* node) {
 
         setCurrentBlock(false_block);
         auto* rhs_val = genExpr(node->ir_Binop.rhs);
+        false_block = getCurrentBlock();
         irb.CreateBr(end_block);
 
         setCurrentBlock(end_block);

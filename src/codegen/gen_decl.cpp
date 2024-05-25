@@ -321,7 +321,6 @@ void CodeGenerator::genInnerFuncBody(Type* return_type, llvm::Function* ll_func,
         std::cerr << err_msg << "\n\n";
         std::cerr << "printing function:\n\n";
         ll_func->print(llvm::errs(), nullptr);
-        // mod.print(llvm::errs(), nullptr);
         exit(1);
     }
 }

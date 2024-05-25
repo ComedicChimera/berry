@@ -13,8 +13,17 @@ pub type uint = i64;
 
 /* -------------------------------------------------------------------------- */
 
+// NOTE: We can't just directly bind `panic` to `__berry_panicUser` because the
+// runtime module which implements `_panicUser` defines `__berry_panicUser` and
+// so the implicit import of `panic` would create a collision.
+
 @extern("__berry_panicUser")
-pub func panic(message: string);
+func _panicUser(message: string);
+
+@inline
+pub func panic(message: string) {
+    _panicUser(message);
+}
 
 /* ------------------------------------------------------------------------- */
 

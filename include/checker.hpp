@@ -183,6 +183,9 @@ private:
 
     HirExpr* checkExpr(AstNode* node, Type* infer_type = nullptr);
 
+    HirExpr* checkAtomicCAS(AstNode* node);
+    HirExpr* checkAtomicLoad(AstNode* node);
+    HirExpr* checkAtomicStore(AstNode* node);
     HirExpr* checkAtomicPrimExpr(AstNode* node);
     HirMemoryOrder checkAtomicMemoryOrder(AstNode* node);
 

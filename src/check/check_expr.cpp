@@ -266,68 +266,15 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
         hexpr->type = platform_uint_type;
         hexpr->ir_MacroType.arg = type;
     } break;
-    case AST_MACRO_ATOMIC_CAS_WEAK: {
-        markNonComptime(node->span);
-
-        auto* hatomic = checkAtomicPrimExpr(node->an_Macro.args[0]);
-        auto* hexpect = checkExpr(node->an_Macro.args[1], hatomic->type);
-        mustEqual(node->span, hatomic->type, hexpect->type);
-
-        auto* elem_type = hatomic->type->Inner()->ty_Ptr.elem_type;
-        auto* hdesired = checkExpr(node->an_Macro.args[2], elem_type);
-        mustEqual(node->span, hdesired->type, elem_type);
-
-        auto succ_mo = HIRAMO_SEQ_CST;
-        if (node->an_Macro.args.size() > 3) {
-            succ_mo = checkAtomicMemoryOrder(node->an_Macro.args[3]);
-        }
-
-        auto fail_mo = succ_mo;
-        if (node->an_Macro.args.size() == 5) {
-            fail_mo = checkAtomicMemoryOrder(node->an_Macro.args[4]);
-        }
-
-        hexpr = allocExpr(HIR_MACRO_ATOMIC_CAS_WEAK, node->span);
-        hexpr->type = &prim_bool_type;
-        hexpr->ir_MacroAtomicCas.expr = hatomic;
-        hexpr->ir_MacroAtomicCas.expected = hexpect;
-        hexpr->ir_MacroAtomicCas.desired = hdesired;
-        hexpr->ir_MacroAtomicCas.mo_succ = succ_mo;
-        hexpr->ir_MacroAtomicCas.mo_fail = fail_mo;
-    } break;
-    case AST_MACRO_ATOMIC_LOAD: {
-        markNonComptime(node->span);
-
-        auto* hatomic = checkAtomicPrimExpr(node->an_Macro.args[0]);
-        auto mo = HIRAMO_SEQ_CST;
-        if (node->an_Macro.args.size() == 2) {
-            mo = checkAtomicMemoryOrder(node->an_Macro.args[1]);
-        }
-
-        hexpr = allocExpr(HIR_MACRO_ATOMIC_LOAD, node->span);
-        hexpr->type = hatomic->type->Inner()->ty_Ptr.elem_type;
-        hexpr->ir_MacroAtomicLoad.expr = hatomic;
-        hexpr->ir_MacroAtomicLoad.mo = mo;
-    } break;
-    case AST_MACRO_ATOMIC_STORE: {
-        markNonComptime(node->span);
-
-        auto* hatomic = checkAtomicPrimExpr(node->an_Macro.args[0]);
-        auto* elem_type = hatomic->type->Inner()->ty_Ptr.elem_type;
-        auto* hval = checkExpr(node->an_Macro.args[1], elem_type);
-        mustEqual(node->span, elem_type, hval->type);
-
-        auto mo = HIRAMO_SEQ_CST;
-        if (node->an_Macro.args.size() == 3) {
-            mo = checkAtomicMemoryOrder(node->an_Macro.args[2]);
-        }
-
-        hexpr = allocExpr(HIR_MACRO_ATOMIC_STORE, node->span);
-        hexpr->type = &prim_unit_type;
-        hexpr->ir_MacroAtomicStore.expr = hatomic;
-        hexpr->ir_MacroAtomicStore.value = hval;
-        hexpr->ir_MacroAtomicStore.mo = mo;
-    } break;
+    case AST_MACRO_ATOMIC_CAS_WEAK: 
+        hexpr = checkAtomicCAS(node);
+        break;
+    case AST_MACRO_ATOMIC_LOAD: 
+        hexpr = checkAtomicLoad(node);
+        break;
+    case AST_MACRO_ATOMIC_STORE: 
+        hexpr = checkAtomicStore(node);
+        break;
     default:
         Panic("expr checking is not implemented for {}", (int)node->kind);
         return nullptr;
@@ -337,6 +284,88 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
 }
 
 /* -------------------------------------------------------------------------- */
+
+HirExpr* Checker::checkAtomicCAS(AstNode* node) {
+    markNonComptime(node->span);
+
+    auto* hatomic = checkAtomicPrimExpr(node->an_Macro.args[0]);
+    auto* hexpect = checkExpr(node->an_Macro.args[1], hatomic->type);
+    mustEqual(node->span, hatomic->type, hexpect->type);
+
+    auto* elem_type = hatomic->type->Inner()->ty_Ptr.elem_type;
+    auto* hdesired = checkExpr(node->an_Macro.args[2], elem_type);
+    mustEqual(node->span, hdesired->type, elem_type);
+
+    auto succ_mo = HIRAMO_SEQ_CST;
+    if (node->an_Macro.args.size() > 3) {
+        succ_mo = checkAtomicMemoryOrder(node->an_Macro.args[3]);
+    }
+
+    auto fail_mo = succ_mo;
+    if (node->an_Macro.args.size() == 5) {
+        fail_mo = checkAtomicMemoryOrder(node->an_Macro.args[4]);
+
+        if (fail_mo & HIRAMO_RELEASE) {
+            error(node->an_Macro.args[4]->span, "atomic compare-and-swap cannot have a RELEASE failure ordering");
+        }
+    } else if (fail_mo & HIRAMO_RELEASE) {
+        fail_mo = (HirMemoryOrder)(fail_mo & ~HIRAMO_RELEASE);
+    }
+
+    auto* hexpr = allocExpr(HIR_MACRO_ATOMIC_CAS_WEAK, node->span);
+    hexpr->type = &prim_bool_type;
+    hexpr->ir_MacroAtomicCas.expr = hatomic;
+    hexpr->ir_MacroAtomicCas.expected = hexpect;
+    hexpr->ir_MacroAtomicCas.desired = hdesired;
+    hexpr->ir_MacroAtomicCas.mo_succ = succ_mo;
+    hexpr->ir_MacroAtomicCas.mo_fail = fail_mo;
+    return hexpr;
+}
+
+HirExpr* Checker::checkAtomicLoad(AstNode* node) {
+    markNonComptime(node->span);
+
+    auto* hatomic = checkAtomicPrimExpr(node->an_Macro.args[0]);
+    auto mo = HIRAMO_SEQ_CST;
+    if (node->an_Macro.args.size() == 2) {
+        mo = checkAtomicMemoryOrder(node->an_Macro.args[1]);
+    }
+
+    if (mo & HIRAMO_RELEASE) {
+        error(node->an_Macro.args[1]->span, "atomic load cannot have RELEASE ordering");
+    }
+
+    auto* hexpr = allocExpr(HIR_MACRO_ATOMIC_LOAD, node->span);
+    hexpr->type = hatomic->type->Inner()->ty_Ptr.elem_type;
+    hexpr->ir_MacroAtomicLoad.expr = hatomic;
+    hexpr->ir_MacroAtomicLoad.mo = mo;
+    return hexpr;
+}
+
+HirExpr* Checker::checkAtomicStore(AstNode* node) {
+    markNonComptime(node->span);
+
+    auto* hatomic = checkAtomicPrimExpr(node->an_Macro.args[0]);
+    auto* elem_type = hatomic->type->Inner()->ty_Ptr.elem_type;
+    auto* hval = checkExpr(node->an_Macro.args[1], elem_type);
+    mustEqual(node->span, elem_type, hval->type);
+
+    auto mo = HIRAMO_SEQ_CST;
+    if (node->an_Macro.args.size() == 3) {
+        mo = checkAtomicMemoryOrder(node->an_Macro.args[2]);
+    }
+
+    if (mo & HIRAMO_ACQUIRE) {
+        error(node->an_Macro.args[2]->span, "atomic store cannot have ACQUIRE ordering");
+    }
+
+    auto* hexpr = allocExpr(HIR_MACRO_ATOMIC_STORE, node->span);
+    hexpr->type = &prim_unit_type;
+    hexpr->ir_MacroAtomicStore.expr = hatomic;
+    hexpr->ir_MacroAtomicStore.value = hval;
+    hexpr->ir_MacroAtomicStore.mo = mo;
+    return hexpr;
+}
 
 HirExpr* Checker::checkAtomicPrimExpr(AstNode* node) {
     auto* hexpr = checkExpr(node);

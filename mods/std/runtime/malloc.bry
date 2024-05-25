@@ -305,12 +305,6 @@ func MHeap.allocHugePage(size: uint) *MPage {
     return page;
 }
 
-@inline
-func mAlignUp(size, align: uint) uint {
-    // NOTE: Align must be a power of 2.
-    return (size + align - 1) & ~(align - 1);
-}
-
 /* --------------------------------- Freeing -------------------------------- */
 
 func MHeap.free(data: *u8) {
@@ -979,7 +973,7 @@ func MPage.makeReady() {
     }
 
     if self.capacity == 0 { // Page has reserved space that is not committed.
-        sysCommit(self.start, self.reserved, 0);
+        sysAlloc(self.start, self.reserved, 0, true);
         self.capacity = self.reserved;
     }
 
@@ -1141,8 +1135,12 @@ enum MPageKind {
 struct MSegment {
     // The parent thread ID.  Must be accessed atomically (to support reclamation).
     xthr_id: uint;
+
+    // The base address of the segment's backing memory.  This may not always be
+    // the value of the segment pointer due to alignment offsets.
+    base_addr: *u8;
     
-    // The full size of the segment in bytes.
+    // The full size of the segment including alignment offset in bytes.
     full_size: uint;
 
     // The pointers the previous and next segment in the segment's free queue.
@@ -1305,29 +1303,18 @@ func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSeg
     }
 
     // Reserve (or allocate) the space for the segment.
-    let segment: *MSegment;
-    let full_commit = false;
-    unsafe {
-        segment = sysReserve(segment_size, M_SEGMENT_ALIGN) as *MSegment;
-        if segment == null { /// Unable to reserve space
-            // Fallback to commit.
-            segment = sysCommit(null, segment_size, M_SEGMENT_ALIGN) as *MSegment;
-
-            if segment == null { // Can't commit either
-                // Out of memory.
-                return null;
-            } else {
-                full_commit = true;
-            }
-        } else {
-            // Commit just the first page's worth of space.
-            sysCommit(segment as *u8, page_size, 0);
-        }
+    let full_commit = !sys_mem_info.can_reserve;
+    let alloc_info = mOSAllocAligned(segment_size, M_SEGMENT_ALIGN, full_commit);
+    if alloc_info.ptr == null { // Out of memory
+        return null;
     }
+
+    let segment = unsafe(alloc_info.ptr as *MSegment);
+    segment.base_addr = alloc_info.base;
+    segment.full_size = alloc_info.full_size;
 
     // Initialize the segment info.
     segment.xthr_id = thr_id;
-    segment.full_size = segment_size;
     segment.page_kind = page_kind;
     segment.page_shift = page_shift;
     segment.n_used_pages = 0;
@@ -1359,10 +1346,57 @@ func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSeg
     return segment;
 }
 
-func mSegmentFree(segment: *MSegment) {
-    unsafe {
-        sysRelease(segment as *u8, segment.full_size);
+struct OSAllocInfo {
+    ptr: *u8;
+    base: *u8;
+    full_size: uint;
+}
+
+func mOSAllocAligned(size, align: uint, commit: bool) OSAllocInfo {
+    size = mAlignUp(size, sys_mem_info.os_page_size);
+
+    // Try to allocate using align as a hint.
+    let p = sysAlloc(null, size, align, commit);
+    if p == null {
+        return null;
     }
+
+    unsafe {
+        if (p as uint) % align == 0 { // Already aligned
+            return .{ p, p, size };
+        }
+    }
+
+    let base: *u8;
+    let full_size: uint;
+    if sys_mem_info.can_partial_free { // mmap can free inside allocated blocks.
+        // TODO
+    } else { // VirtualAlloc can't.
+        // Over-allocate to accomodate alignment.  We always reserve here to
+        // avoid wasting physical frames on alignment.
+        full_size = size + align;
+        p = sysAlloc(null, full_size, 0, false);
+        if p == null {
+            return null;
+        }
+
+        // Save the base pointer into the segment's base address.
+        base = p;
+
+        // Align the pointer to the right region.
+        p = mAlignUpPtr(p, align);
+
+        // Commit only the aligned part as necessary.
+        if commit {
+            sysAlloc(p, size, 0, true);
+        }
+    }
+
+    return .{p, base, full_size};
+}
+
+func mSegmentFree(segment: *MSegment) {
+    sysRelease(segment.base_addr, segment.full_size);
 }
 
 func MSegment.tryClaim(thr_id: uint) bool {
@@ -1395,7 +1429,7 @@ func MSegment.tryClaim(thr_id: uint) bool {
 @inline
 func MSegment.abandon() {
     // Clear the owning thread ID: abandon the segment.
-    @atomic_store(&self.xthr_id, 0, AMO_ACQ_REL);
+    @atomic_store(&self.xthr_id, 0, AMO_RELEASE);
 }
 
 func MSegment.getParentPage(block: *MBlock) *MPage {
@@ -1431,4 +1465,17 @@ func mGetPageKind(block_size: uint) MPageKind {
     } 
 
     return .Huge;
+}
+
+@inline
+func mAlignUp(size, align: uint) uint {
+    // NOTE: Align must be a power of 2.
+    return (size + align - 1) & ~(align - 1);
+}
+
+@inline
+func mAlignUpPtr(ptr: *u8, align: uint) *u8 {
+    unsafe {
+        return mAlignUp(ptr as uint, align) as *u8;
+    }
 }
