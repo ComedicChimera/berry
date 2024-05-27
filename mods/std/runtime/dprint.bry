@@ -1,8 +1,12 @@
 module runtime;
 
+func dwrite(buff: []u8) {
+    // TODO: synchronize printing
+    sysWriteErr(buff);
+}
+
 func dputs(s: string) {
-    // TODO: synchronize writing here?  
-    sysWriteErr(s as []u8);
+    dwrite(s as []u8);
 }
 
 func dputx(v: uint) {
@@ -29,7 +33,7 @@ func dputx(v: uint) {
     digit_buff[n] = 'x' as u8;
     digit_buff[n-1] = '0' as u8;
 
-    dputs(digit_buff[n-1:] as string);
+    dwrite(digit_buff[n-1:]);
 }
 
 func dputptr(v: *u8) {
@@ -37,3 +41,18 @@ func dputptr(v: *u8) {
         dputx(v as uint);
     }
 }
+
+func dputuint(n: uint) {
+    let digit_buff: [20]u8;
+
+    let i = 19; 
+    do {
+        let digit = n % 10 as rune;
+        digit_buff[i] = '0' + digit as u8;
+
+        n /= 10;
+        i--;
+    } while (n > 0 && i >= 1);
+
+    dwrite(digit_buff[i+1:]);
+} 

@@ -41,7 +41,7 @@ pub func _mfree(data: *u8) {
 /* -------------------------------- Constants ------------------------------- */
 
 // Machine Word Sizes
-const M_WORD_SHIFT: uint = #if (ARCH_BITS == 64) 3 #else 2 #end;
+const M_WORD_SHIFT: uint = #if (ARCH_SIZE == 64) 3 #else 2 #end;
 const M_WORD_SIZE: uint = 1 << M_WORD_SHIFT;
 
 const M_MIN_ALIGN: uint = 16;                              // Minimum Allocation Alignment (16-bit on most platforms)
@@ -71,7 +71,7 @@ const M_MAX_SMALL_OBJ_SIZE: uint = M_SMALL_PAGE_SIZE / 4;   // 16 KiB (on 64-bit
 const M_MAX_MED_OBJ_SIZE: uint = M_MED_PAGE_SIZE / 4;       // 128 KiB
 const M_MAX_LARGE_OBJ_SIZE: uint = M_LARGE_PAGE_SIZE / 2;   // 2 MiB
 
-const M_MAX_ALLOC_SIZE: uint = #if (ARCH_BITS == 64) (1 << 48) - 1 #else (1 << 31) - 1 #end;
+const M_MAX_ALLOC_SIZE: uint = #if (ARCH_SIZE == 64) (1 << 48) - 1 #else (1 << 31) - 1 #end;
 
 // Bin Counts
 const M_N_REG_BINS: uint = 72;                  // 72 regular size classes
@@ -991,7 +991,7 @@ func MPage.makeReady() {
         for let i: uint = 0; i < n_blocks; i++ {
             curr.next = prev;
             prev = curr;
-            curr++;
+            curr = (curr as *u8) + self.block_size as *MBlock;
         }
 
         self.alloc_free = prev;

@@ -1,0 +1,101 @@
+module runtime;
+
+pub struct HeapStats {
+    pub reserved: uint;
+    pub committed: uint;
+    pub allocated: uint;
+    pub free: uint;
+}
+
+pub func getHeapUsage() HeapStats {
+    return null;
+}
+
+pub func _debugPrintHeapLayout() {
+    let rs = rtGetState();
+    let heap = &rs.heap;
+
+    dputs("* ------------------------------- HEAP LAYOUT ------------------------------ *\n\n");
+
+    dputs("word size = ");
+    dputx(M_WORD_SIZE);
+    dputs("\nmin alignment = ");
+    dputx(M_MIN_ALIGN);
+    dputs("\n\n");
+
+    for let i: uint = 0; i < M_N_TOTAL_BINS; i++ {
+        let pq = &heap.pages[i];
+
+        dputs("[bin ");
+        dputuint(i);
+        dputs("]: block size = ");
+        dputx(pq.block_size);
+        dputs("\n");
+
+        if pq.first == null {
+            dputs("  [empty]\n\n");
+            continue;
+        }
+
+        let j: uint = 0;
+        for let page = pq.first; page != null; page = page.next {
+            dputs("  [page ");
+            dputuint(j);
+            dputs("]\n");
+
+            dputs("    flags = ");
+            dputx(page.flags as uint);
+            dputs("\n    revival chances = ");
+            dputuint(page.revival_chances as uint);
+            dputs("\n    capacity = ");
+            dputx(page.capacity);
+            dputs("\n    reserved = ");
+            dputx(page.reserved);
+            dputs("\n    used blocks = ");
+            dputuint(page.n_used_blocks);
+            dputs("\n");
+
+            j++;
+        }
+
+        dputs("\n");
+    }
+
+    dputs("* -------------------------------------------------------------------------- *\n\n");
+}
+
+pub func _debugPrintBlockInfo(addr: *u8) {
+    let block = unsafe(addr as *MBlock);
+
+    let segment = mGetParentSegment(block);
+    let page = segment.getParentPage(block);
+
+    dputs("\n[page]:\n");
+    dputs("  flags = ");
+    dputx(page.flags as uint);
+    dputs("\n  revival chances = ");
+    dputuint(page.revival_chances as uint);
+    dputs("\n  capacity = ");
+    dputx(page.capacity);
+    dputs("\n  reserved = ");
+    dputx(page.reserved);
+    dputs("\n  used blocks = ");
+    dputuint(page.n_used_blocks);
+    dputs("\n  alloc_free = [");
+    debugPrintFreeList(page.alloc_free);
+    dputs("  ]\n  local_free = [");
+    debugPrintFreeList(page.local_free);
+    dputs("  ]\n\n");
+}
+
+func debugPrintFreeList(list: *MBlock) {
+    for let block = list; block != null; block = block.next {
+        dputs("    [block] addr = ");
+        unsafe {
+            dputptr(block as *u8);
+        }
+        dputs("\n");
+    }
+}
+
+

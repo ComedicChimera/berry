@@ -38,9 +38,18 @@ func freeList(node: *ListNode) {
 
 func main() {
     let list = allocList(20);
+    // runtime._debugPrintHeapLayout();
+    // unsafe {
+    //     runtime._debugPrintBlockInfo(list as *u8);
+    // }
+
     printList(list);
     freeList(list);
 
+    // runtime._debugPrintHeapLayout();
+
     list = allocList(100);
+    // runtime._debugPrintHeapLayout();
+
     printList(list);
 }
