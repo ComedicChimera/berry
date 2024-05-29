@@ -4,11 +4,9 @@ unsafe file;
 
 /* ------------------------ Berry's Garbage Collector ----------------------- */
 
-// Berry's garbage collector (GC) is a precise (type-accurate), non-moving,
-// parallel mark-and-sweep collector.  It is *not* concurrent (at the moment),
-// instead opting to the stop-the-world to perform a collection.  That said, it
-// is a parallel collector: each thread is responsible for marking its own
-// thread-local roots (stack and registers) and sweeping its own heap.
+// Berry's garbage collector (GC) is a precise (type-accurate), stop-the-world,
+// parallel mark-and-sweep collector.  It is *not* an on-the-fly collector , but
+// it does use all available threads to perform collection.
 
 /* -------------------------------- Constants ------------------------------- */
 
@@ -91,8 +89,7 @@ func GC.claimPage(page: *MPage) {
 func GC.collect(roots: *GCRoots) {
     // TODO: stop the world
 
-    gc.markFromRoots(roots, true);
-    gc.sweep();
+    // TODO: mark and sweep
 
     // TODO: wait for other collectors
 
@@ -104,14 +101,6 @@ func GC.collect(roots: *GCRoots) {
     self.target_alloc = next_alloc;
 
     // TODO: start the world
-}
-
-func GC.markFromRoots(roots: *GCRoots, primary: bool) {
-    // TODO
-}
-
-func GC.sweep() {
-    // TODO
 }
 
 /* ----------------------------- Initialization ----------------------------- */
