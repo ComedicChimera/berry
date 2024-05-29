@@ -1,15 +1,25 @@
 module runtime;
 
-pub struct HeapStats {
-    pub reserved: uint;
-    pub committed: uint;
-    pub allocated: uint;
-    pub free: uint;
+/* ---------------------------- Memory Statistics --------------------------- */
+
+// MStats contains all the memory information that is maintained by the runtime
+// internally.  Other memory information is gathered from the OS as necessary
+// (ex: total commit charge, total reserved etc.)
+struct MStats {
+    // Stores the total number of bytes allocated for live (uncollected)
+    // objects. This counter is increased by the allocator on an allocation and
+    // decreased by the allocator during a free.  The GC uses this value among
+    // others to decide when to collect.  Importantly, any allocation or free
+    // which goes through the allocator will update this count even if it does
+    // not go through the garbage collector.  Furthermore, this count is
+    // accessed concurrently and so must only be mutated via atomic operations.
+    xalloc: u64;
 }
 
-pub func getHeapUsage() HeapStats {
-    return null;
-}
+// The global object storing runtime statistics. 
+let mstats: MStats;
+
+/* ---------------------- Allocator Debugging Routines ---------------------- */
 
 pub func _debugPrintHeapLayout() {
     let rs = rtGetState();

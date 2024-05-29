@@ -1,5 +1,7 @@
 module runtime;
 
+unsafe file;
+
 /* ------------------------ Berry's Memory Allocator ------------------------ */
 
 // Berry's memory allocator (berry-malloc) is a simplified implementation of
@@ -13,7 +15,11 @@ pub func _malloc(size: uint) *u8 {
     let rs = rtGetState();
     let flags = rs.swapFlags(RS_FLAG_THROW);
 
-    let data = rs.heap.malloc(size);
+    let page = rs.heap.findFreePage(size);
+    let data: *u8 = null;
+    if page != null {
+        data = page.popFreeBlock();
+    }
 
     rs.flags = flags;
     return data;
@@ -23,7 +29,18 @@ pub func _mrealloc(data: *u8, new_size: uint) *u8 {
     let rs = rtGetState();
     let flags = rs.swapFlags(RS_FLAG_THROW);
 
-    data = rs.heap.realloc(data, new_size);
+    let page = mGetParentPage(data as *MBlock);
+    if new_size > page.block_size && new_size < page.block_size / 2 {
+        let old_data = data;
+
+        page = rs.heap.findFreePage(new_size);
+        if page != null {
+            data = page.popFreeBlock();
+            memcpy(data, old_data, page.block_size);
+        }
+
+        rs.heap.freeData(old_data);
+    }
 
     rs.flags = flags;
     return data;
@@ -33,12 +50,17 @@ pub func _mfree(data: *u8) {
     let rs = rtGetState();
     let flags = rs.swapFlags(RS_FLAG_THROW);
 
-    rs.heap.free(data);
+    rs.heap.freeData(data);
 
     rs.flags = flags;
 }
 
 /* -------------------------------- Constants ------------------------------- */
+
+// Useful Size Constants
+const M_KB: uint = 1024;
+const M_MB: uint = M_KB * M_KB;
+const M_GB: uint = M_MB * M_KB;
 
 // Machine Word Sizes
 const M_WORD_SHIFT: uint = #if (ARCH_SIZE == 64) 3 #else 2 #end;
@@ -119,35 +141,26 @@ struct MHeap {
     retire_ndx_min, retire_ndx_max: uint;
 }
 
-func MHeap.malloc(size: uint) *u8 {
+func MHeap.findFreePage(size: uint) *MPage {
     // Find a page with free space.
-    let page: *MPage = null;
     if size <= M_MAX_DIRECT_SIZE { // Fast Path
         let wsize = mGetWordSize(size);
-        page = self.direct_pages[wsize];
+        let page = self.direct_pages[wsize];
 
         if page.alloc_free == null { // Fast Path failed
             // Fallback to generic malloc
-            page = self.findFreePage(size);
+            page = self.findFreePageSlow(size);
         }
+
+        return page;
     } elif size > M_MAX_ALLOC_SIZE { // Huge Allocation
-        page = self.allocHugePage(size);
+        return self.allocHugePage(size);
     } else { // Regular (slow) Path
-        page = self.findFreePage(size);
+        return self.findFreePageSlow(size);
     }
-
-    // NOTE: page is never null here.
-
-    // Allocate in the free page.
-    return page.popFreeBlock();
 }
 
-func MHeap.realloc(data: *u8, new_size: uint) *u8 {
-    // TODO
-    return null;
-}
-
-func MHeap.findFreePage(size: uint) *MPage {
+func MHeap.findFreePageSlow(size: uint) *MPage {
     // Collect all delayed frees to free up space.
     self.collectDelayed(false /* no force*/);
 
@@ -186,11 +199,9 @@ func MHeap.findFreePage(size: uint) *MPage {
 
         // Try to allocate again.
         page = self.allocPage(pq);  
-        if page == null { // Out of memory.
-            panic("out of memory");
-        }
     }
 
+    // page may be null if the second attempt at allocation failed.
     return page;
 }
 
@@ -307,12 +318,15 @@ func MHeap.allocHugePage(size: uint) *MPage {
 
 /* --------------------------------- Freeing -------------------------------- */
 
-func MHeap.free(data: *u8) {
-    let block = unsafe(data as *MBlock);
+func MHeap.freeData(data: *u8) {
+    let block = data as *MBlock;
 
     // Get the parent segment and page.
     let segment = mGetParentSegment(block);
     let page = segment.getParentPage(block);
+
+    // Update mstats.
+    @atomic_sub(&mstats.xalloc, page.block_size);
 
     // Check if this a local or cross-thread free.
     if @atomic_load(&segment.xthr_id, AMO_RELAXED) == self.thr_id || self.tryReclaimOnFree(segment) {
@@ -415,9 +429,7 @@ func MHeap.freeCross(page: *MPage, block: *MBlock) {
 }
 
 func MHeap.tryFreeDelayed(block: *MBlock, force: bool) bool {
-    // Get the segment and page.
-    let segment = mGetParentSegment(block);
-    let page = segment.getParentPage(block);
+    let page = mGetParentPage(block);
 
     // This step is a bit subtle.  The general idea is that since we are
     // potentially removing a page's last "representative" block from the
@@ -470,7 +482,7 @@ func MHeap.freePage(pq: *MPageQ, page: *MPage) {
     page.revival_chances = 0;
 
     // Update the parent segment's usage count.
-    let segment = mGetParentSegment(unsafe(page as *MBlock));
+    let segment = mGetParentSegment(page as *MBlock);
 
     if segment.n_used_pages == segment.n_total_pages { // Segment was full.
         self.enqueueFreeSegment(segment);
@@ -604,8 +616,8 @@ func MHeap.cleanup() {
     self.collectDelayed(true /* force */);
 
     // Get the backing segment and page of the heap.
-    let back_segment = mGetParentSegment(unsafe(self as *MBlock));
-    let back_page = back_segment.getParentPage(unsafe(self as *MBlock));
+    let back_segment = mGetParentSegment(self as *MBlock);
+    let back_page = back_segment.getParentPage(self as *MBlock);
 
     // Abandon or free all remaining pages.
     for let i: uint = 0; i < M_N_TOTAL_BINS; i++ {
@@ -645,13 +657,11 @@ func MHeap.cleanup() {
             back_segment.abandon();
         }
     } else {
-        unsafe {
-            // Free the block containing the heap explicitly.
-            let block = self as *MBlock;
-            block.next = back_page.local_free; // Heap state is corrupted.
-            back_page.local_free = block;
-            back_page.n_used_blocks--;
-        }
+        // Free the block containing the heap explicitly.
+        let block = self as *MBlock;
+        block.next = back_page.local_free; // Heap state is corrupted.
+        back_page.local_free = block;
+        back_page.n_used_blocks--;
 
         // Abandon the backing page.
         back_page.abandon();
@@ -758,13 +768,9 @@ func MHeap.updateQueueFirst(pq: *MPageQ) {
         // corresponds to an actually usable bin.
         let bin = mGetPageBin(page.block_size);
 
-        let prev = pq;
-        unsafe {
+        let prev = pq - 1;
+        while prev > &self.pages[0] && bin == mGetPageBin(prev.block_size) {
             prev--;
-
-            while prev > &self.pages[0] && bin == mGetPageBin(prev.block_size) {
-                prev--;
-            }
         }
 
         // The start index for pq's direct bins will be the word size of the
@@ -796,9 +802,7 @@ func MHeap.getPageQueue(page: *MPage) *MPageQ {
 
 @inline
 func MHeap.getQueueIndex(pq: *MPageQ) uint {
-    unsafe {
-        return pq - &self.pages[0] as uint;
-    }
+    return pq - &self.pages[0] as uint;
 }
 
 func mGetPageBin(size: uint) uint {
@@ -879,21 +883,15 @@ enum MThrDelay {
 }
 
 func MThrFreeList.getBlock() *MBlock {
-    unsafe {
-        return (*self & ~3) as *MBlock;
-    }
+    return (*self & ~3) as *MBlock;
 }
 
 func MThrFreeList.setBlock(block: *MBlock) MThrFreeList {
-    unsafe {
-        return (*self & 3) | (block as uint);
-    }
+    return (*self & 3) | (block as uint);
 }
 
 func MThrFreeList.getDelay() MThrDelay {
-    unsafe {
-        return (*self & 3) as MThrDelay;
-    }
+    return (*self & 3) as MThrDelay;
 }
 
 func MThrFreeList.setDelay(delay: MThrDelay) MThrFreeList {
@@ -983,19 +981,17 @@ func MPage.makeReady() {
     }
 
     // Initialize the allocation free list.
-    unsafe {
-        let curr = self.start as *MBlock;
-        let prev: *MBlock = null;
+    let curr = self.start as *MBlock;
+    let prev: *MBlock = null;
 
-        let n_blocks = self.capacity / self.block_size;
-        for let i: uint = 0; i < n_blocks; i++ {
-            curr.next = prev;
-            prev = curr;
-            curr = (curr as *u8) + self.block_size as *MBlock;
-        }
-
-        self.alloc_free = prev;
+    let n_blocks = self.capacity / self.block_size;
+    for let i: uint = 0; i < n_blocks; i++ {
+        curr.next = prev;
+        prev = curr;
+        curr = (curr as *u8) + self.block_size as *MBlock;
     }
+
+    self.alloc_free = prev;
 
     // Local and thread free lists start as empty.
     self.local_free = null;
@@ -1008,7 +1004,7 @@ func MPage.popFreeBlock() *u8 {
     self.alloc_free = block.next;
     self.n_used_blocks++;
 
-    let data = unsafe(block as *u8);
+    let data = block as *u8;
 
     // Zero the block.
     if (self.flags & M_PAGE_ZEROED) > 0 {
@@ -1016,6 +1012,9 @@ func MPage.popFreeBlock() *u8 {
     } else {
         memset(data, 0, self.block_size);
     }
+
+    // Update mstats.
+    @atomic_add(&mstats.xalloc, self.block_size);
 
     return data;
 }
@@ -1106,7 +1105,7 @@ func MPage.enableDelayedFree() {
 }
 
 func MPage.abandon() {
-    let segment = mGetParentSegment(unsafe(self as *MBlock));
+    let segment = mGetParentSegment(self as *MBlock);
     segment.n_abandoned_pages++;
 
     if segment.n_abandoned_pages == segment.n_used_pages { // Segment contains all abandoned pages.
@@ -1316,7 +1315,7 @@ func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSeg
     }
 
     // Initialize the segment info.
-    let segment = unsafe(pseg as *MSegment);
+    let segment = pseg as *MSegment;
     segment.base_addr = alloc_info.base;
     segment.full_size = alloc_info.full_size;
 
@@ -1331,14 +1330,14 @@ func mSegmentAlloc(thr_id: uint, segment_size: uint, page_kind: MPageKind) *MSeg
     // Initialize the first page.
     let page = &segment.pages[0];
 
-    let first_page_start = unsafe((segment as *u8) + segment.header_size);
+    let first_page_start = (segment as *u8) + segment.header_size;
     page.zeroInit(first_page_start);
     page.reserved = page_size - segment.header_size;
     page.capacity = page.reserved;
 
     // Initialize the remaining pages.
     for let i: uint = 1; i < n_pages; i++ {
-        let page_start = unsafe((segment as *u8) + i * page_size);
+        let page_start = (segment as *u8) + i * page_size;
 
         page = &segment.pages[i];
         page.zeroInit(page_start);
@@ -1367,10 +1366,8 @@ func mOSAllocAligned(size, align: uint, commit: bool) OSAllocInfo {
         return null;
     }
 
-    unsafe {
-        if (p as uint) % align == 0 { // Already aligned
-            return .{ p, p, size };
-        }
+    if (p as uint) % align == 0 { // Already aligned
+        return .{ p, p, size };
     }
 
     let base: *u8;
@@ -1443,22 +1440,24 @@ func MSegment.getParentPage(block: *MBlock) *MPage {
         return &self.pages[0];
     }
 
-    unsafe {
-        let seg_offset = (block as *u8) - (self as *u8) as uint;
-        let page_ndx = seg_offset >> self.page_shift;
+    let seg_offset = (block as *u8) - (self as *u8) as uint;
+    let page_ndx = seg_offset >> self.page_shift;
 
-        if page_ndx >= self.n_total_pages {
-            throw("allocator: page lookup in segment is out of bounds");
-        }
-
-        return &self.pages[page_ndx];
+    if page_ndx >= self.n_total_pages {
+        throw("allocator: page lookup in segment is out of bounds");
     }
+
+    return &self.pages[page_ndx];
 }
 
 func mGetParentSegment(block: *MBlock) *MSegment {
-    unsafe {
-        return (block as uint) & ~M_SEGMENT_MASK as *MSegment;
-    }
+    return (block as uint) & ~M_SEGMENT_MASK as *MSegment;
+}
+
+@inline
+func mGetParentPage(block: *MBlock) *MPage {
+    let segment = mGetParentSegment(block);
+    return segment.getParentPage(block);
 }
 
 func mGetPageKind(block_size: uint) MPageKind {
@@ -1481,7 +1480,5 @@ func mAlignUp(size, align: uint) uint {
 
 @inline
 func mAlignUpPtr(ptr: *u8, align: uint) *u8 {
-    unsafe {
-        return mAlignUp(ptr as uint, align) as *u8;
-    }
+    return mAlignUp(ptr as uint, align) as *u8;
 }

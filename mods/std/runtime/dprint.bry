@@ -36,10 +36,8 @@ func dputx(v: uint) {
     dwrite(digit_buff[n-1:]);
 }
 
-func dputptr(v: *u8) {
-    unsafe {
-        dputx(v as uint);
-    }
+unsafe func dputptr(v: *u8) {
+    dputx(v as uint);
 }
 
 func dputuint(n: uint) {

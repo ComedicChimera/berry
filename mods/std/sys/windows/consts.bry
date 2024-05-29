@@ -1,6 +1,6 @@
 module windows;
 
-pub const INVALID_HANDLE_VALUE: HANDLE = unsafe(-1 as HANDLE);
+pub unsafe const INVALID_HANDLE_VALUE: HANDLE = -1 as HANDLE;
 
 /* -------------------------------- winbase.h ------------------------------- */
 

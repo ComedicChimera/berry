@@ -14,7 +14,7 @@ func RtState.swapFlags(flags: uint) uint {
     return old_flags;
 }
 
-func thrInit(flags: uint) {
+unsafe func thrInit(flags: uint) {
     // Allocate a backing segment for the runtime state.
     let page_kind = mGetPageKind(@sizeof(RtState));
     let segment = mSegmentAlloc(sysGetThrID(), M_SEGMENT_SIZE, page_kind);
@@ -30,7 +30,7 @@ func thrInit(flags: uint) {
 
     // Allocate space for the runtime state.
     let block = page.popFreeBlock();
-    let rs = unsafe(block as *RtState);
+    let rs = block as *RtState;
 
     // Initialize the runtime state.
     rs.flags = flags;
