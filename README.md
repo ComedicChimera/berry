@@ -139,27 +139,61 @@ don't always get time (or energy) to work on it.
         - Should support multi-threading
         - Based off mi-malloc
 
-- [ ] Target 15: Threads
+- [ ] Target 15: Garbage Collection
+    * Mark-and-Sweep GC
+        - Write it single threaded for now (later adapt it to be STW).
+        - No support for polymorphic types (require type pointer maps).
+        - Lazy sweeping: allocator will sweep thread-local garbage when it needs
+          more space for allocation (as a part of the generic malloc path).
+        - Generation of stack and register maps
+        - Efficient stack crawling for marking
+    * Automatic Heap Allocation
+        - All allocations with `new` default to heap allocation.
+        - Slice literals also default to heap allocation.
+        - Global memory is allocated on the heap unless it is comptime.  This allows
+        us to mutate the pointer value without creating a memory leak.
+    * Escape Analysis
+        - Optimization pass determines whether an allocation with `new` or that
+        of a slice literal can be stored on the stack instead of the heap.
+        - References via `&` can "escape" to the heap if the compiler determines
+        that their lifetime may be greater than their enclosing function.  This
+        is done via a simple alloc-and-copy.
+    * Use of `unsafe` to disable garbage collector behavior in code which messes
+    with memory or uses pointers in unsafe ways (ex: inside the allocator).
+        - Remove unsafe expressions.
+        - Add the ability to tag declarations as unsafe which makes their whole
+        predicate unsafe (ex: disable GC throughout whole function).  This
+        replaces the need for unsafe expressions for declaring unsafe constants.
+        - Make it possible to declare files as being unsafe (ex: `malloc.bry`)
+        to avoid having to declare every single thing inside it as unsafe. 
+    * Allow the GC to mark certain pages is "unmanaged" making them ineligible
+    for collection.  This also ensures that the page has no mark bitmap.
+        - Perhaps the absence of a mark bitmap could indicate that a page is
+        unmanaged or we could use a page flag to indicate it.
+
+- [ ] Target 16: Multiple Threads
     * Function Type labels
         - No closures yet, just regular old functions
     * Linking and compiling asm files
         - For now, just set the compiler to always compile the appropriate
           `asm/rt_[os]_[arch].asm` file.
     * Runtime Thread Support
-        - Creation of Rthreads
+        - Creation of RtThreads
         - Management of Threads and TLS state
         - Thread shutdown on panic
+    * Threads and GC Interactions
+        - Add GC check points to enable GC to stop the world via a barrier.
+        - Ensure that threads can only be suspended at GC check points, so
+        that a collection can occur without waking them.
+        - Explore the possibility of doing parallel marking using all threads:
+        all the threads are already going to rendezvous at a GC check point and
+        if we are clever, it may be possible to allow all the threads to mark
+        from their own roots (stacks and registers) in parallel.
     * Expose thread functionality through `threads` package
-        - Wrap `Rthread` into `Thread`
+        - Wrap `RtThread` into `Thread`
         - Thread methods: `get_id`, `suspend`, `wait`, etc.
         - Utility Method: `sleep`, `sleepms`, `get_current_thread`
     * Test compatibility with dynamic memory
-
-- [ ] Target 16: Garbage Collection
-    * Simple Mark-and-Sweep Garbage Collector
-        - We can make it better letter on.
-    * Automatic Heap Allocation
-    * Escape Analysis
 
 - [ ] Target 17: Better Functions
     * Variadic Arguments
