@@ -142,11 +142,9 @@ don't always get time (or energy) to work on it.
 - [ ] Target 15: Garbage Collection
     * Mark-and-Sweep GC
         - Write it single threaded for now (later adapt it to be STW).
-        - No support for polymorphic types (require type pointer maps).
-        - Lazy sweeping: allocator will sweep thread-local garbage when it needs
-          more space for allocation (as a part of the generic malloc path).
+        - No support for polymorphic types (for now; requires type pointer maps).
         - Generation of stack and register maps
-        - Efficient stack crawling for marking
+        - Stack crawling for marking
     * Automatic Heap Allocation
         - All allocations with `new` default to heap allocation.
         - Slice literals also default to heap allocation.
@@ -166,10 +164,11 @@ don't always get time (or energy) to work on it.
         replaces the need for unsafe expressions for declaring unsafe constants.
         - Make it possible to declare files as being unsafe (ex: `malloc.bry`)
         to avoid having to declare every single thing inside it as unsafe. 
-    * Allow the GC to mark certain pages is "unmanaged" making them ineligible
-    for collection.  This also ensures that the page has no mark bitmap.
-        - Perhaps the absence of a mark bitmap could indicate that a page is
-        unmanaged or we could use a page flag to indicate it.
+    * Allow runtime to designate certain heap objects as ineligible for
+    collection.  For example, the rtstate structure which is stored in TLS
+    should not be collected even though it may not appear to have a root.  
+        - This mechanism may also be useful for state-handoffs between threads
+          later on down the line.
 
 - [ ] Target 16: Multiple Threads
     * Function Type labels
