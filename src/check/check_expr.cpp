@@ -196,16 +196,6 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
     case AST_STRUCT_LIT:
         hexpr = checkStructLit(node, infer_type);
         break;
-    case AST_UNSAFE_EXPR: {
-        hexpr = allocExpr(HIR_UNSAFE_EXPR, node->span);
-        
-        unsafe_depth++;
-        auto* hsub = checkExpr(node->an_UnsafeExpr.expr, infer_type);
-        unsafe_depth--;
-
-        hexpr->type = hsub->type;
-        hexpr->ir_UnsafeExpr.expr = hsub;
-    } break;
     case AST_IDENT: {
         auto [symbol, dep] = mustLookup(node->an_Ident.name, node->span);
         if (dep != nullptr) {

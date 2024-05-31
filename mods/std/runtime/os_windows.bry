@@ -38,7 +38,7 @@ func sysInit() {
     _sysGetInfo();
 
     // Get the standard error handle for sys_ewrite.
-    _sys_stderr = windows.GetStdHandle(-12 as windows.DWORD);
+    _sys_stderr = windows.GetStdHandle(windows.STD_ERROR_HANDLE);
     if _sys_stderr == windows.INVALID_HANDLE_VALUE {
         _winError("GetStdHandle");
     }

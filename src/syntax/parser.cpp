@@ -11,25 +11,49 @@ void Parser::ParseFile() {
         next();  // SEMI
     }
 
+    // Parse import statements.
     while (has(TOK_IMPORT)) {
         parseImportStmt();
     }
 
+    // Check for an `unsafe file` statement.
+    DeclFlags global_flags = 0;
+    if (has(TOK_UNSAFE)) {
+        next();
+
+        if (has(TOK_IDENT)) { // Is `unsafe IDENT`
+            next();
+
+            if (prev.value != "file") {
+                fatal(prev.span, "expected 'file' but got '{}'", prev.value);
+            }
+
+            want(TOK_SEMI);
+            global_flags = DECL_UNSAFE;
+        } else { // Normal unsafe declaration
+            parseDecl({}, DECL_UNSAFE);
+        }
+    }
+
+    // Parse remaining declarations in file.
     AttributeMap attr_map;
-    bool exported = false;
     while (!has(TOK_EOF)) {
         if (has(TOK_ATSIGN)) {
             parseAttrList(attr_map);
         }
 
-        if (has(TOK_PUB)) {
+        auto flags = global_flags;
+        if (has(TOK_PUB)) { // `pub` modifier
             next();
-            exported = true;
-        } else {
-            exported = false;
+            flags |= DECL_EXPORTED;
         }
 
-        parseDecl(std::move(attr_map), exported);
+        if (has(TOK_UNSAFE)) { // `unsafe` modifier
+            next();
+            flags |= DECL_UNSAFE;
+        }
+
+        parseDecl(std::move(attr_map), flags);
     }
 }
 

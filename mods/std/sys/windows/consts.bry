@@ -66,3 +66,9 @@ pub const EXCEPTION_CONTINUE_EXECUTION: DWORD = 0xffffffff;
 pub const EXCEPTION_CONTINUE_SEARCH: DWORD = 0x0;
 
 pub const EXCEPTION_NONCONTINUABLE: DWORD = 1;
+
+/* -------------------------------------------------------------------------- */
+
+pub const STD_INPUT_HANDLE: DWORD = -10;
+pub const STD_OUTPUT_HANDLE: DWORD = -11;
+pub const STD_ERROR_HANDLE: DWORD = -12;

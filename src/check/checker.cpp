@@ -27,10 +27,13 @@ void Checker::CheckModule() {
     first_pass = false;
     curr_decl_number = 0;
     for (auto* decl : mod.unsorted_decls) {
+        src_file = &mod.files[decl->file_number];
+
         // Reset colors for init ordering.
         decl->color = COLOR_WHITE;
 
-        src_file = &mod.files[decl->file_number];
+        // Handle unsafe decls.
+        unsafe_depth = (int)((decl->flags & DECL_UNSAFE) > 0);
 
         switch (decl->hir_decl->kind) {
         case HIR_FUNC:
@@ -62,6 +65,7 @@ void Checker::CheckModule() {
             break;
         }
 
+        unsafe_depth = 0;
         curr_decl_number++;
     }
 

@@ -70,14 +70,19 @@ struct Attribute {
     TextSpan value_span;
 };
 
+using DeclFlags = uint8_t;
+enum {
+    DECL_EXPORTED = 1,
+    DECL_UNSAFE = 2
+};
 
 // Decl is a declaration in the module.
 struct Decl {
     // file_number is the module-local number of the declaring file.
     size_t file_number;
 
-    // color the declarations current graph color (used for cycle detection).
-    GColor color;
+    // flags is the declaration's associated flags (public, unsafe, etc.)
+    DeclFlags flags;
 
     // attrs contains the declaration's attributes.
     std::span<Attribute> attrs;
@@ -88,8 +93,12 @@ struct Decl {
     // hir_decl is the declaration HIR node.
     HirDecl* hir_decl { nullptr };
 
-    Decl(size_t file_number_, std::span<Attribute> attrs_, AstNode* adecl_)
+    // color the declarations current graph color (used for cycle detection).
+    GColor color;
+
+    Decl(size_t file_number_, DeclFlags flags_, std::span<Attribute> attrs_, AstNode* adecl_)
     : file_number(file_number_)
+    , flags(flags_)
     , attrs(attrs_)
     , ast_decl(adecl_)
     {}

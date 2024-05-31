@@ -17,7 +17,7 @@ module runtime;
 func _umain();
 
 @abientry("__berry_start")
-func _rtStart() {
+unsafe func _rtStart() {
     // Initialize the system bindings (TLS, exception handlers, etc.).
     sysInit();
 

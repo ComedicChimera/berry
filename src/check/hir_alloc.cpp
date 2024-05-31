@@ -52,7 +52,6 @@ static size_t hir_variant_sizes[HIRS_COUNT] = {
     sizeof(size_ref_expr.ir_StructLit),
     sizeof(size_ref_expr.ir_EnumLit),
     sizeof(size_ref_expr.ir_StaticGet),
-    sizeof(size_ref_expr.ir_UnsafeExpr),
     sizeof(size_ref_expr.ir_Ident),
     sizeof(size_ref_expr.ir_Num),
     sizeof(size_ref_expr.ir_Float),

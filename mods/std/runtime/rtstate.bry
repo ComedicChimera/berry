@@ -1,5 +1,7 @@
 module runtime;
 
+unsafe file;
+
 const RS_FLAG_MAIN: uint = 1;
 const RS_FLAG_THROW: uint = 2;
 
@@ -14,7 +16,7 @@ func RtState.swapFlags(flags: uint) uint {
     return old_flags;
 }
 
-unsafe func thrInit(flags: uint) {
+func thrInit(flags: uint) {
     // Allocate a backing segment for the runtime state.
     let page_kind = mGetPageKind(@sizeof(RtState));
     let segment = mSegmentAlloc(sysGetThrID(), M_SEGMENT_SIZE, page_kind);

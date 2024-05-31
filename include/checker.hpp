@@ -113,13 +113,13 @@ private:
     void reportCycle(Decl* decl);
 
     HirDecl* checkFuncDecl(AstNode* node);
-    HirDecl* checkMethodDecl(AstNode* node);
-    HirDecl* checkFactoryDecl(AstNode* node);
+    HirDecl* checkMethodDecl(AstNode* node, bool exported);
+    HirDecl* checkFactoryDecl(AstNode* node, bool exported);
     Type* checkFuncSignature(AstNode* node, std::vector<Symbol*>& params);
     MethodTable& getMethodTable(Type* bind_type);
 
     HirDecl* checkGlobalVar(AstNode* node);
-    HirDecl* checkGlobalConst(AstNode* node);
+    HirDecl* checkGlobalConst(AstNode* node, bool unsafe);
     HirDecl* checkTypeDef(AstNode* node);
 
     HirStmt* checkFuncBody(AstNode* body, std::span<Symbol*> params, Type* return_type);

@@ -67,7 +67,7 @@ private:
     void parseAttrList(AttributeMap& attr_map);
     void parseAttribute(AttributeMap& attr_map);
 
-    void parseDecl(AttributeMap&& attr_map, bool exported);
+    void parseDecl(AttributeMap&& attr_map, DeclFlags flags);
     AstNode* parseFuncOrMethodDecl(bool exported);
     AstNode* parseFactoryDecl(bool exported);
     AstNode* parseFuncSignature();

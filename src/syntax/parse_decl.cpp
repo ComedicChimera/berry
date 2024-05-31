@@ -47,9 +47,10 @@ void Parser::parseAttribute(AttributeMap& attr_map) {
 
 /* -------------------------------------------------------------------------- */
 
-void Parser::parseDecl(AttributeMap&& attr_map, bool exported) {
+void Parser::parseDecl(AttributeMap&& attr_map, DeclFlags flags) {
     AstNode* node { nullptr };
 
+    bool exported = (flags & DECL_EXPORTED) > 0;
     switch (tok.kind) {
     case TOK_FUNC:
         node = parseFuncOrMethodDecl(exported);
@@ -77,6 +78,7 @@ void Parser::parseDecl(AttributeMap&& attr_map, bool exported) {
     
     auto* decl = global_arena.New<Decl>(
         src_file.file_number, 
+        flags,
         moveAttrsToArena(std::move(attr_map)), 
         node
     );
@@ -137,7 +139,6 @@ AstNode* Parser::parseFuncOrMethodDecl(bool exported) {
         amethod->an_Method.name_span = name_tok.span;
         amethod->an_Method.func_type = afunc_type;
         amethod->an_Method.body = body;
-        amethod->an_Method.exported = exported;
         return amethod;
     }
 
@@ -186,7 +187,6 @@ AstNode* Parser::parseFactoryDecl(bool exported) {
     afactory->an_Factory.bind_type = bind_type;
     afactory->an_Factory.func_type = afunc_type;
     afactory->an_Factory.body = body;
-    afactory->an_Factory.exported = exported;
 
     return afactory;
 }

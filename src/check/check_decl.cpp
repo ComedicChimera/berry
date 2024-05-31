@@ -47,16 +47,16 @@ void Checker::checkDecl(Decl* decl) {
         decl->hir_decl = checkFuncDecl(decl->ast_decl);
         break;
     case AST_METHOD:
-        decl->hir_decl = checkMethodDecl(decl->ast_decl);
+        decl->hir_decl = checkMethodDecl(decl->ast_decl, (decl->flags & DECL_EXPORTED) > 0);
         break;
     case AST_FACTORY:
-        decl->hir_decl = checkFactoryDecl(decl->ast_decl);
+        decl->hir_decl = checkFactoryDecl(decl->ast_decl, (decl->flags & DECL_EXPORTED) > 0);
         break;
     case AST_VAR:
         decl->hir_decl = checkGlobalVar(decl->ast_decl);
         break;
     case AST_CONST:
-        decl->hir_decl = checkGlobalConst(decl->ast_decl);
+        decl->hir_decl = checkGlobalConst(decl->ast_decl, (decl->flags & DECL_UNSAFE) > 0);
         mod.sorted_decls.push_back(decl);
         break;
     case AST_TYPEDEF:
@@ -155,7 +155,7 @@ HirDecl* Checker::checkFuncDecl(AstNode* node) {
     return hfunc;
 }
 
-HirDecl* Checker::checkMethodDecl(AstNode* node) {
+HirDecl* Checker::checkMethodDecl(AstNode* node, bool exported) {
     auto& amethod = node->an_Method;
     auto* bind_type = checkTypeLabel(amethod.bind_type, false);
 
@@ -180,7 +180,7 @@ HirDecl* Checker::checkMethodDecl(AstNode* node) {
         mod.id,
         amethod.name,
         func_type,
-        amethod.exported
+        exported
     );
     mtable.emplace(amethod.name, method);
 
@@ -193,7 +193,7 @@ HirDecl* Checker::checkMethodDecl(AstNode* node) {
     return hmethod;
 }
 
-HirDecl* Checker::checkFactoryDecl(AstNode* node) {
+HirDecl* Checker::checkFactoryDecl(AstNode* node, bool exported) {
     auto& afact = node->an_Factory;
     auto* bind_type = checkTypeLabel(afact.bind_type, false);
 
@@ -209,7 +209,7 @@ HirDecl* Checker::checkFactoryDecl(AstNode* node) {
     auto* factory = arena.New<FactoryFunc>(
         mod.id,
         func_type,
-        afact.exported
+        exported
     );
     bind_type->ty_Named.factory = factory;
 
@@ -296,7 +296,7 @@ HirDecl* Checker::checkGlobalVar(AstNode* node) {
     return hvar;
 }
 
-HirDecl* Checker::checkGlobalConst(AstNode* node) {
+HirDecl* Checker::checkGlobalConst(AstNode* node, bool unsafe) {
     auto* type = checkTypeLabel(node->an_Var.type, true);
     auto* symbol = node->an_Var.symbol;
     symbol->type = type;
@@ -304,7 +304,9 @@ HirDecl* Checker::checkGlobalConst(AstNode* node) {
     ConstValue* value;
     if (node->an_Var.init) {
         comptime_depth++;
+        unsafe_depth += (int)unsafe;
         auto* hinit = checkExpr(node->an_Var.init, type);
+        unsafe_depth -= (int)unsafe;
         comptime_depth--;
         
         hinit = subtypeCast(hinit, type);
