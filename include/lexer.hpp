@@ -147,10 +147,6 @@ private:
     // stored in rbuff, and the number of bytes of the rune is stored in rlen.
     rune getRune();
 
-    // writeRune writes the contents of rbuff into tok_buff without clearing
-    // rbuff. Effectively, it moves the previously read in rune into tok_buff.
-    void writeRune();
-
     /* ---------------------------------------------------------------------- */
 
     // fatal reports a compile error and throws a CompileError to abort lexing.

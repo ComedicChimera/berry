@@ -229,47 +229,59 @@ void Lexer::lexNumberLit(Token& tok) {
     read();
 
     int base = 10;
+    bool expect_digit = false;
     if (peek()) {
         switch (ahead) {
         case 'b':
-            read();
             base = 2;
             break;
         case 'o':
-            read();
             base = 8;
             break;
         case 'x':
-            read();
             base = 16;
             break;
         default:
-            break;
+            goto nobase;
         }
+
+        read();
+        expect_digit = true;
     }
 
+nobase:
     bool is_float = false;
     switch (base) {
     case 2:
         while (peek()) {
             if (ahead == '0' || ahead == '1') {
                 read();
-            } else if (ahead == '_') {
+                expect_digit = false;
+            } else if (!expect_digit && ahead == '_') {
                 skip();
             } else {
                 break;
             }
         }
+
+        if (expect_digit) {
+            fatal("expected a digit");
+        }
         break;
     case 8:
         while (peek()) {
-            if ('0' <= ahead && ahead < '9') {
+            if ('0' <= ahead && ahead < '8') {
                 read();
-            } else if (ahead == '_') {
+                expect_digit = false;
+            } else if (!expect_digit && ahead == '_') {
                 skip();
             } else {
                 break;
             }
+        }
+
+        if (expect_digit) {
+            fatal("expected a digit");
         }
         break;
     case 10:
@@ -294,7 +306,9 @@ bool Lexer::readFloatOrIntLit(Token& tok, DigitCheckFunc f_is_digit, char exp_ch
 
     while (peek()) {
         if (ahead == '.') {
-            if (has_exp) {
+            if (expect_digit) {
+                break;
+            } else if (has_exp) {
                 fatal("decimal point cannot occur in exponent");
             } else if (is_float) {
                 fatal("multiple decimal points in float literal");
@@ -303,14 +317,16 @@ bool Lexer::readFloatOrIntLit(Token& tok, DigitCheckFunc f_is_digit, char exp_ch
             is_float = true;
             expect_digit = true;
             read();
-        } else if (ahead == '_') {
+        } else if (!expect_digit && ahead == '_') {
             skip();
             continue;
         } else if (f_is_digit(ahead)) {
             expect_digit = false;
             read();
         } else if (ahead == exp_char_lower || ahead == exp_char_upper) {
-            if (has_exp) {
+            if (expect_digit) {
+                break;
+            } else if (has_exp) {
                 fatal("multiple exponents in float literal");
             } 
 
@@ -328,7 +344,7 @@ bool Lexer::readFloatOrIntLit(Token& tok, DigitCheckFunc f_is_digit, char exp_ch
     }
 
     if (expect_digit) {
-        fatal("expected digit to end float literal");
+        fatal("expected a digit");
     }
 
     return is_float;
@@ -455,7 +471,7 @@ void Lexer::lexRuneLit(Token& tok) {
     } else if (ahead == '\'') {
         fatal("empty rune literal");
     } else if (ahead == '\n') {
-        fatal("rune literal can't contain newline");
+        fatal("rune literal cannot contain newline");
     } else if (ahead == '\\') {
         readEscapeSeq();
     } else {
@@ -465,7 +481,7 @@ void Lexer::lexRuneLit(Token& tok) {
     if (!peek()) {
         fatal("unclosed rune literal");
     } else if (ahead != '\'') {
-        fatal("rune literal is too long");
+        fatal("rune contains more than one character");
     }
 
     skip();
@@ -551,7 +567,7 @@ rune Lexer::read() {
         }
     }
 
-    writeRune();
+    tok_buff.append(rbuff, rlen);
     updatePos(r);
     rlen = 0;
 
@@ -642,10 +658,6 @@ rune Lexer::getRune() {
     rlen = n_bytes + 1;
 
     return r;
-}
-
-void Lexer::writeRune() {
-    tok_buff.append(rbuff, rlen);
 }
 
 /* -------------------------------------------------------------------------- */

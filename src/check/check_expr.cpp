@@ -210,12 +210,20 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
     } break;
     case AST_NUM_LIT:
         hexpr = allocExpr(HIR_NUM_LIT, node->span);
-        hexpr->type = infer_type ? infer_type : newUntyped(UK_NUM);
+        if (infer_type != nullptr && tctx.IsNumberType(infer_type)) {
+            hexpr->type = infer_type;
+        } else {
+            hexpr->type = newUntyped(UK_NUM);
+        }
         hexpr->ir_Num.value = node->an_Num.value;
         break;
     case AST_FLOAT_LIT:
         hexpr = allocExpr(HIR_FLOAT_LIT, node->span);
-        hexpr->type = infer_type ? infer_type : newUntyped(UK_FLOAT);
+        if (infer_type != nullptr && infer_type->Inner()->kind == TYPE_FLOAT) {
+            hexpr->type = infer_type;
+        } else {
+            hexpr->type = newUntyped(UK_FLOAT);
+        }
         hexpr->ir_Float.value = node->an_Float.value;
         break;
     case AST_BOOL_LIT:
