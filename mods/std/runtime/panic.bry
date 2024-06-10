@@ -1,7 +1,5 @@
 module runtime;
 
-unsafe file;
-
 // NOTE: The panic functions not tagged @abientry are directly called by the
 // signal handler implemented in the appropriate os_*.bry source file.
 

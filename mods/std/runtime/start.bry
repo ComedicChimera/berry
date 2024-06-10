@@ -1,23 +1,23 @@
 module runtime;
 
-// _umain is a compiler-generated function which essentially represents the
+// _main is a compiler-generated function which essentially represents the
 // transition from runtime code to user code.  It contains the code to call all
 // non-comptime global initializers and call the user's provided main function.
 // The runtime must be in a good state before this function is called.
 //
-// NOTE: Because `_umain` is responsible for calling non-comptime global
+// NOTE: Because `_main` is responsible for calling non-comptime global
 // initializers, runtime code called before initialization must NOT use global
 // initializers which cannot be evaluated at compile-time: we are reliant on the
 // compiler putting comptime initializers in `.data` (or `.rodata`) and not
 // generating initialization code for them.  Otherwise, we could end up in a
-// situation where calling `_umain` overwrites runtime state in an undesirable
+// situation where calling `_main` overwrites runtime state in an undesirable
 // way.  All this is to say: don't use non-comptime global initializers in the
 // runtime, or bad things may happen.
 @extern("__berry_main")
-func _umain();
+func _main();
 
 @abientry("__berry_start")
-unsafe func _rtStart() {
+func _start() {
     // Initialize the system bindings (TLS, exception handlers, etc.).
     sysInit();
 
@@ -25,7 +25,7 @@ unsafe func _rtStart() {
     thrInit(RS_FLAG_MAIN);
 
     // Transfer control to user code.
-    _umain();
+    _main();
 
     // Exit the current thread gracefully when `main` returns.
     thrExit(0);

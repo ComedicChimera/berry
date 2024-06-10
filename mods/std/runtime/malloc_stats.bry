@@ -75,7 +75,7 @@ pub func _debugPrintHeapLayout() {
 }
 
 pub func _debugPrintBlockInfo(addr: *u8) {
-    let block = unsafe(addr as *MBlock);
+    let block = addr as *MBlock;
 
     let segment = mGetParentSegment(block);
     let page = segment.getParentPage(block);
@@ -101,9 +101,7 @@ pub func _debugPrintBlockInfo(addr: *u8) {
 func debugPrintFreeList(list: *MBlock) {
     for let block = list; block != null; block = block.next {
         dputs("    [block] addr = ");
-        unsafe {
-            dputptr(block as *u8);
-        }
+        dputptr(block as *u8);
         dputs("\n");
     }
 }

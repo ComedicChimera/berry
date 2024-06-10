@@ -147,6 +147,7 @@ Module& Loader::loadDefaults() {
     Assert(core_mod.deps.size() == 0, "core module must have no dependencies");
 
     runtime_mod = &loadModule(std_path, std_path / "runtime");
+    Assert(runtime_mod->id == BERRY_RT_MOD_ID, "runtime module must be second module loaded");
     return core_mod;
 }
 

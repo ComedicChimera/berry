@@ -4,8 +4,6 @@ module runtime;
 
 import sys.windows;
 
-unsafe file;
-
 func _winError(func_name: string) {
     let buff: [512]u8;
     let i  = 0;

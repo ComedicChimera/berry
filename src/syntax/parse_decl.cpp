@@ -1,52 +1,5 @@
 #include "parser.hpp"
 
-void Parser::parseAttrList(AttributeMap& attr_map) {
-    next();
-
-    if (has(TOK_LBRACKET)) {
-        next();
-
-        while (true) {
-            parseAttribute(attr_map);
-
-            if (has(TOK_COMMA)) {
-                next();
-            } else {
-                break;
-            }
-        }
-
-        want(TOK_RBRACKET);
-    } else {
-        parseAttribute(attr_map);
-    }
-}
-
-void Parser::parseAttribute(AttributeMap& attr_map) {
-    auto name_tok = wantAndGet(TOK_IDENT);
-    auto name = global_arena.MoveStr(std::move(name_tok.value));
-
-    if (has(TOK_LPAREN)) {
-        next();
-        auto value_tok = wantAndGet(TOK_STRLIT);
-        want(TOK_RPAREN);
-
-        attr_map.emplace(name, Attribute{
-            name,
-            name_tok.span,
-            global_arena.MoveStr(std::move(value_tok.value)),
-            value_tok.span
-        });
-    } else {
-        attr_map.emplace(name, Attribute{ 
-            name,
-            name_tok.span
-        });
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-
 void Parser::parseDecl(AttributeMap&& attr_map, DeclFlags flags) {
     AstNode* node { nullptr };
 
@@ -98,7 +51,6 @@ AstNode* Parser::parseFuncOrMethodDecl(bool exported) {
     if (has(TOK_DOT)) {
         bind_type = allocNode(AST_IDENT, name_tok.span);
         bind_type->an_Ident.name = ast_arena.MoveStr(std::move(name_tok.value));
-        bind_type->an_Ident.symbol = nullptr;
 
         next();
         name_tok = wantAndGet(TOK_IDENT);
@@ -440,7 +392,6 @@ AstNode* Parser::parseEnumDecl(bool exported) {
         } else {
             variant = allocNode(AST_IDENT, var_name_tok.span);
             variant->an_Ident.name = variant_name;
-            variant->an_Ident.symbol = nullptr;
         }
 
         variants.push_back(variant);

@@ -106,6 +106,9 @@ struct Decl {
 
 /* -------------------------------------------------------------------------- */
 
+// The runtime module should always be the second one loaded.
+#define BERRY_RT_MOD_ID 1
+
 // Module represents a Berry module.
 struct Module {
     // id is the module's unique ID.

@@ -1,7 +1,5 @@
 module runtime;
 
-unsafe file;
-
 const RS_FLAG_MAIN: uint = 1;
 const RS_FLAG_THROW: uint = 2;
 

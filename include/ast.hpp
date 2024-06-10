@@ -218,7 +218,6 @@ struct AstNode {
         } an_StructLit;
         struct {
             std::string_view name;
-            Symbol* symbol; // bound late
         } an_Ident;
         struct {
             uint64_t value;
