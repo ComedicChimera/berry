@@ -1,7 +1,5 @@
 module runtime;
 
-unsafe file;
-
 /* ------------------------ Berry's Memory Allocator ------------------------ */
 
 // Berry's memory allocator (berry-malloc) is a simplified implementation of
@@ -326,7 +324,7 @@ func MHeap.freeData(data: *u8) {
     let page = segment.getParentPage(block);
 
     // Update mstats.
-    @atomic_sub(&mstats.xalloc, page.block_size);
+    // @atomic_sub(&mstats.xalloc, page.block_size);
 
     // Check if this a local or cross-thread free.
     if @atomic_load(&segment.xthr_id, AMO_RELAXED) == self.thr_id || self.tryReclaimOnFree(segment) {
@@ -1014,7 +1012,7 @@ func MPage.popFreeBlock() *u8 {
     }
 
     // Update mstats.
-    @atomic_add(&mstats.xalloc, self.block_size);
+    // @atomic_add(&mstats.xalloc, self.block_size);
 
     return data;
 }

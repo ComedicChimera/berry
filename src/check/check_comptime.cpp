@@ -102,9 +102,6 @@ ConstValue* Checker::evalComptime(HirExpr* node) {
             value = decl->hir_decl->ir_GlobalConst.init;
         }
     } break;
-    case HIR_UNSAFE_EXPR: 
-        value = evalComptime(node->ir_UnsafeExpr.expr);
-        break;
     case HIR_IDENT: {
         auto* symbol = node->ir_Ident.symbol;
         Assert(symbol->flags & SYM_COMPTIME, "comptime eval with non-comptime symbol");

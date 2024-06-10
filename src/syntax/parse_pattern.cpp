@@ -76,7 +76,6 @@ AstNode* Parser::parsePattern() {
 
         auto* ident = allocNode(AST_IDENT, prev.span);
         ident->an_Ident.name = ast_arena.MoveStr(std::move(prev.value));
-        ident->an_Ident.symbol = nullptr;
 
         if (has(TOK_DOT)) {
             next();

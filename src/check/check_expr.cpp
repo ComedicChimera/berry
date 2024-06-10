@@ -931,7 +931,16 @@ void Checker::maybeExpandComptime(Symbol* symbol) {
         if (symbol->type == nullptr) {
             // Recursively expand comptime values.
             Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
+
+            decl_number_stack.push_back(curr_decl_number);
+            curr_decl_number = symbol->decl_number;
+            
             checkDecl(mod.unsorted_decls[symbol->decl_number]);
+
+            curr_decl_number = decl_number_stack.back();
+            decl_number_stack.pop_back();
+
+            src_file = &mod.files[mod.unsorted_decls[curr_decl_number]->file_number];
         }
     }
 }

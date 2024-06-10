@@ -1,7 +1,5 @@
 module runtime;
 
-unsafe file;
-
 /* ------------------------ Berry's Garbage Collector ----------------------- */
 
 // Berry's garbage collector (GC) is a precise (type-accurate), stop-the-world,
@@ -16,113 +14,113 @@ const GC_INIT_HEAP: uint = 16 * M_KB;
 
 /* ------------------------------ GC Allocation ----------------------------- */
 
-struct GC {
-    target_alloc: uint;
-}
+// struct GC {
+//     target_alloc: uint;
+// }
 
-let gc: GC;
+// let gc: GC;
 
-@abientry("__berry_gcMalloc")
-func _gcMalloc(size: uint, roots: *GCRoots) *u8 {
-    let rs = rtGetState();
-    let flags = rs.swapFlags(RS_FLAG_THROW);
+// @abientry("__berry_gcMalloc")
+// func _gcMalloc(size: uint, roots: *GCRoots) *u8 {
+//     let rs = rtGetState();
+//     let flags = rs.swapFlags(RS_FLAG_THROW);
 
-    let data = gc.malloc(&rs.heap, size, roots);
+//     let data = gc.malloc(&rs.heap, size, roots);
 
-    rs.flags = flags;
-    return data;
-}
+//     rs.flags = flags;
+//     return data;
+// }
 
-@abientry("__berry_gcRealloc")
-func _gcRealloc(data: *u8, new_size: uint, roots: *GCRoots) *u8 {
-    let rs = rtGetState();
-    let flags = rs.swapFlags(RS_FLAG_THROW);
+// @abientry("__berry_gcRealloc")
+// func _gcRealloc(data: *u8, new_size: uint, roots: *GCRoots) *u8 {
+//     let rs = rtGetState();
+//     let flags = rs.swapFlags(RS_FLAG_THROW);
 
-    let page = mGetParentPage(data as *MBlock);
-    if new_size > page.block_size && new_size < page.block_size / 2 {
-        let old_data = data;
-        data = gc.malloc(new_size, roots);
+//     let page = mGetParentPage(data as *MBlock);
+//     if new_size > page.block_size && new_size < page.block_size / 2 {
+//         let old_data = data;
+//         data = gc.malloc(new_size, roots);
 
-        memcpy(data, old_data, page.block_size);
-        rs.heap.freeData(old_data);
-    }
+//         memcpy(data, old_data, page.block_size);
+//         rs.heap.freeData(old_data);
+//     }
 
-    rs.flags = flags;
-    return data;
-}
+//     rs.flags = flags;
+//     return data;
+// }
 
-func GC.malloc(heap: *MHeap, size: uint, roots: *GCRoots) *u8 {
-    // Determine if we should collect based on the number of bytes allocated
-    // since previous collection.  In particular, if our heap grows beyond our
-    // target allocation limit, then we trigger a collection and update the
-    // limit appropriately.
-    let curr_alloc = @atomic_load(&mstats.xalloc, AMO_RELAXED);
-    if curr_alloc > self.target_alloc {
-        self.collect(roots);
-    }
+// func GC.malloc(heap: *MHeap, size: uint, roots: *GCRoots) *u8 {
+//     // Determine if we should collect based on the number of bytes allocated
+//     // since previous collection.  In particular, if our heap grows beyond our
+//     // target allocation limit, then we trigger a collection and update the
+//     // limit appropriately.
+//     let curr_alloc = @atomic_load(&mstats.xalloc, AMO_RELAXED);
+//     if curr_alloc > self.target_alloc {
+//         self.collect(roots);
+//     }
 
-    let page = heap.findFreePage(size);
-    if page == null { // Allocation Failed
-        // Collect to try to recover memory.
-        self.collect(roots);
+//     let page = heap.findFreePage(size);
+//     if page == null { // Allocation Failed
+//         // Collect to try to recover memory.
+//         self.collect(roots);
 
-        // Try to allocate again.
-        page = heap.findFreePage(size);
-        if page == null { // Out of memory.
-            panic("out of memory");
-        }
-    }
+//         // Try to allocate again.
+//         page = heap.findFreePage(size);
+//         if page == null { // Out of memory.
+//             panic("out of memory");
+//         }
+//     }
 
-    // Make sure the allocated page is managed by the GC.
-    self.claimPage(page);
+//     // Make sure the allocated page is managed by the GC.
+//     self.claimPage(page);
 
-    // Get a free block from the page.
-    return page.popFreeBlock();
-}
+//     // Get a free block from the page.
+//     return page.popFreeBlock();
+// }
 
-func GC.claimPage(page: *MPage) {
-    // TODO
-}
+// func GC.claimPage(page: *MPage) {
+//     // TODO
+// }
 
-/* ------------------------------ GC Collection ----------------------------- */
+// /* ------------------------------ GC Collection ----------------------------- */
 
-func GC.collect(roots: *GCRoots) {
-    // TODO: stop the world
+// func GC.collect(roots: *GCRoots) {
+//     // TODO: stop the world
 
-    // TODO: mark and sweep
+//     // TODO: mark and sweep
 
-    // TODO: wait for other collectors
+//     // TODO: wait for other collectors
 
-    // Update target heap.
-    let next_alloc = mstats.xalloc + mstats.xalloc * GC_SCALE / 100;
-    if next_alloc > GC_MAX_HEAP {
-        next_alloc = GC_MAX_HEAP;
-    }
-    self.target_alloc = next_alloc;
+//     // Update target heap.
+//     let next_alloc = mstats.xalloc + mstats.xalloc * GC_SCALE / 100;
+//     if next_alloc > GC_MAX_HEAP {
+//         next_alloc = GC_MAX_HEAP;
+//     }
+//     self.target_alloc = next_alloc;
 
-    // TODO: start the world
-}
+//     // TODO: start the world
+// }
 
-/* ----------------------------- Initialization ----------------------------- */
+// /* ----------------------------- Initialization ----------------------------- */
 
-func gcInit() {
-    // TODO
-}
+// func gcInit() {
+//     // TODO
+// }
 
-/* --------------------------- Tracing Information -------------------------- */
+// /* --------------------------- Tracing Information -------------------------- */
 
-struct GCRoots {
-    // TODO
-}
+// struct GCRoots {
+//     // TODO
+// }
 
-struct GCObjMap {
-    n_fields: uint;
+// struct GCObjMap {
+//     n_fields: uint;
 
-    // &obj_map.fields = first field, &obj_map.fields + 1 = second field, ...
-    fields: GCObjField;
-}
+//     // &obj_map.fields = first field, &obj_map.fields + 1 = second field, ...
+//     fields: GCObjField;
+// }
 
-struct GCObjField {
-    offset: uint;
-    map: *GCObjMap;
-}
+// struct GCObjField {
+//     offset: uint;
+//     map: *GCObjMap;
+// }

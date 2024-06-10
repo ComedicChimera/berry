@@ -16,24 +16,8 @@ void Parser::ParseFile() {
         parseImportStmt();
     }
 
-    // Check for an `unsafe file` statement.
-    DeclFlags global_flags = 0;
-    if (has(TOK_UNSAFE)) {
-        next();
-
-        if (has(TOK_IDENT)) { // Is `unsafe IDENT`
-            next();
-
-            if (prev.value != "file") {
-                fatal(prev.span, "expected 'file' but got '{}'", prev.value);
-            }
-
-            want(TOK_SEMI);
-            global_flags = DECL_UNSAFE;
-        } else { // Normal unsafe declaration
-            parseDecl({}, DECL_UNSAFE);
-        }
-    }
+    // Mark runtime module as universally unsafe.
+    DeclFlags global_flags = src_file.parent->id == BERRY_RT_MOD_ID ? DECL_UNSAFE : 0;
 
     // Parse remaining declarations in file.
     AttributeMap attr_map;
@@ -54,6 +38,53 @@ void Parser::ParseFile() {
         }
 
         parseDecl(std::move(attr_map), flags);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+void Parser::parseAttrList(AttributeMap& attr_map) {
+    next();
+
+    if (has(TOK_LBRACKET)) {
+        next();
+
+        while (true) {
+            parseAttribute(attr_map);
+
+            if (has(TOK_COMMA)) {
+                next();
+            } else {
+                break;
+            }
+        }
+
+        want(TOK_RBRACKET);
+    } else {
+        parseAttribute(attr_map);
+    }
+}
+
+void Parser::parseAttribute(AttributeMap& attr_map) {
+    auto name_tok = wantAndGet(TOK_IDENT);
+    auto name = global_arena.MoveStr(std::move(name_tok.value));
+
+    if (has(TOK_LPAREN)) {
+        next();
+        auto value_tok = wantAndGet(TOK_STRLIT);
+        want(TOK_RPAREN);
+
+        attr_map.emplace(name, Attribute{
+            name,
+            name_tok.span,
+            global_arena.MoveStr(std::move(value_tok.value)),
+            value_tok.span
+        });
+    } else {
+        attr_map.emplace(name, Attribute{ 
+            name,
+            name_tok.span
+        });
     }
 }
 

@@ -67,8 +67,6 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
         return genStructLit(node, alloc_loc);
     case HIR_ENUM_LIT: 
         return getPlatformIntConst(node->ir_EnumLit.tag_value);
-    case HIR_UNSAFE_EXPR:
-        return genExpr(node->ir_UnsafeExpr.expr, expect_addr, alloc_loc);
     case HIR_IDENT: 
         return genIdent(node, expect_addr);
     case HIR_NUM_LIT: {

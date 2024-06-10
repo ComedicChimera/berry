@@ -15,7 +15,7 @@ func strcmp(a, b: string) int {
     return a._len - b._len;
 }
 
-unsafe func memset(dst: *u8, value: u8, size: uint) {
+func memset(dst: *u8, value: u8, size: uint) {
     // TODO: replace with fast implementation
 
     for let i: uint = 0; i < size; i++ {
@@ -23,7 +23,7 @@ unsafe func memset(dst: *u8, value: u8, size: uint) {
     }
 }
 
-unsafe func memcpy(dst, src: *u8, size: uint) {
+func memcpy(dst, src: *u8, size: uint) {
     // TODO: replace with fast implementation
 
     for let i: uint = 0; i < size; i++ {
