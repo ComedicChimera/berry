@@ -67,6 +67,13 @@ void CodeGenerator::genDeclBody(Decl* decl) {
 
 /* -------------------------------------------------------------------------- */
 
+// cconv_name_to_id maps Berry calling convention names to their LLVM IDs.
+std::unordered_map<std::string_view, llvm::CallingConv::ID> cconv_name_to_id {
+    { "c", llvm::CallingConv::C },
+    { "stdcall", llvm::CallingConv::X86_StdCall },
+    { "win64", llvm::CallingConv::Win64 }
+};
+
 void CodeGenerator::genFuncProto(Decl* decl) {
     auto* node = decl->hir_decl;
     auto* symbol = node->ir_Func.symbol;

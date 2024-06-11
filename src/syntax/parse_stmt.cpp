@@ -24,7 +24,7 @@ AstNode* Parser::parseStmt() {
     switch (tok.kind) {
     case TOK_LET:
     case TOK_CONST:
-        stmt = parseLocalVarDef();
+        stmt = parseLocalVarDecl();
         break;
     case TOK_BREAK:
         next();
@@ -170,7 +170,7 @@ AstNode* Parser::parseForLoop() {
 
     AstNode* iter_var { nullptr };
     if (has(TOK_LET)) {
-        iter_var = parseLocalVarDef();
+        iter_var = parseLocalVarDecl();
     }
 
     want(TOK_SEMI);
@@ -255,7 +255,7 @@ AstNode* Parser::parseMatchStmt() {
 
 /* -------------------------------------------------------------------------- */
 
-AstNode* Parser::parseLocalVarDef() {
+AstNode* Parser::parseLocalVarDecl() {
     auto start_span = tok.span;
     bool comptime = false;
     if (has(TOK_CONST)) {

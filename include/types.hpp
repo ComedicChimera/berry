@@ -157,14 +157,6 @@ enum UntypedKind {
     UK_NULL,    // null literal (can be any type)
 };
 
-// TypeCtxFlags stores all possible type context flags.
-typedef int TypeCtxFlags;
-enum {
-    TC_DEFAULT = 0,
-    TC_INFER = 1,
-    TC_UNSAFE = 2
-};
-
 // TypeConvResult indicates the result of a particular type conversion (cast or
 // coerce) It is used by the checker to determine a) if a conversion is valid
 // and b) if it requires a type cast (explicit or implicit).  The goal is to
@@ -199,10 +191,25 @@ class TypeContext {
     std::vector<untypedTableEntry> unt_table;
 
 public:
-    // flags contains the context flags.
-    TypeCtxFlags flags;
+    // Flags controlling behavior of type context.
+    bool infer_enabled = false;   // Enable inferences based on comparisons.
+    bool unsafe_enabled = false;  // Enable unsafe type conversions. 
 
-    TypeContext() : flags(TC_DEFAULT) {}
+    TypeContext() = default;
+
+    TypeContext(const TypeContext& other)
+    : unt_uf(other.unt_uf)
+    , unt_table(other.unt_table)
+    , infer_enabled(other.infer_enabled)
+    , unsafe_enabled(other.unsafe_enabled)
+    {}
+
+    TypeContext(TypeContext&& other)
+    : unt_uf(std::move(other.unt_uf))
+    , unt_table(std::move(other.unt_table))
+    , infer_enabled(other.infer_enabled)
+    , unsafe_enabled(other.unsafe_enabled)
+    {}
 
     // Important: All of the comparison functions can change their behavior
     // depending on the context flags.  For example, if TC_INFER is set then the

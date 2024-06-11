@@ -1,8 +1,8 @@
-let x: i64 = y;
-let y: i64 = z;
-let z: i64 = x;
+let x = y;
+let y = z;
+let z = x;
 
-let a: i64 = fn();
+let a = fn();
 
 func fn() i64 {
     return a + 2;

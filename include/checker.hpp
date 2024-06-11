@@ -8,6 +8,12 @@
 // Scope represents a local lexical scope.
 typedef std::unordered_map<std::string_view, Symbol*> Scope;
 
+// NullSpan represents an occurrence of a null literal in an expression.
+struct NullSpan {
+    Type* untyped;
+    TextSpan span;
+};
+
 // Checker performs semantic analysis on a source file.
 class Checker {
     // arena is the arena used for allocation of symbols and types.
@@ -16,46 +22,43 @@ class Checker {
     // mod is the module being checked.
     Module& mod;
 
-    // src_file is the source file currently being checked.
-    SourceFile* src_file { nullptr };
-
     // core_dep is a pointer to the core module dependency.  This will non-null
     // in every module except the core module itself.
     Module::DepEntry* core_dep;
 
-    // tctx is the checker's type context.
-    TypeContext tctx;
+    /* ------------------------ Declaration Ordering ------------------------ */
 
-    /* ---------------------------------------------------------------------- */
+    // src_file stores the current source file being checked.
+    SourceFile* src_file;
+    
+    // sorted_decls is a temporary vector used to hold declarations as they
+    // are sorted into the correct order.  This will replace the module's decls
+    // vector once sorting is complete.
+    std::vector<Decl*> sorted_decls;
 
-    // first_pass indicates which checking pass is running (first = definition
-    // and global comptimes, second = everything else).
-    bool first_pass { true };
+    // n_sorted counts the number of declarations which have already been
+    // sorted. It is used as a cursor to determine where to insert the next
+    // declaration in the sorted_decls array.
+    size_t n_sorted;
+    
+    // curr_decl_num stores the number of the current declaration being checked.
+    size_t curr_decl_num;
 
-    // comptime_depth keeps track of the level of nested comptime expansion.
-    int comptime_depth { 0 };
+    // decl_num_stack keeps a record of saved decl numbers during recursive
+    // expansion of types and constants.
+    std::vector<size_t> decl_num_stack;
 
-    // decl_number_stack keeps track of the current declaration being compiled.
-    // It is used for tracing cycles during recursive declaration checking.
-    std::vector<size_t> decl_number_stack;
+    // TODO: preserve expr context during constant expansion
 
-    // curr_decl_number stores the number of the current decl being compiled.
-    size_t curr_decl_number { 0 };
+    // init_table keeps track of dependences between global variables (through
+    // functions) to perform init order checking.
+    std::vector<std::unordered_set<size_t>> init_table;
 
-    // is_comptime_expr indicates if an expression which is not declared
-    // comptime can be comptime.  This is used to promote global variable
-    // initializers to constant values.
-    bool is_comptime_expr { false };
+    /* ---------------- Local Variables and Scoped Quantities --------------- */
 
-    /* ---------------------------------------------------------------------- */
-
-    // scope_stack keeps a stack of the enclosing local scopes with the one on
+     // scope_stack keeps a stack of the enclosing local scopes with the one on
     // the top (end) being the current local scope.
     std::vector<Scope> scope_stack;
-
-
-    // null_spans maps untyped nulls to their corresponding spans.
-    std::vector<std::pair<Type*, TextSpan>> null_spans;
 
     // enclosing_return_type is the return type of the function whose body is
     // being type checked. If the checker is running outside of a function body,
@@ -70,14 +73,26 @@ class Checker {
     // fallthough is enabled for a specific case.
     std::vector<bool> fallthru_stack;
 
-    // unsafe_depth keeps track of how many enclosing unsafe blocks there are.
+    // unsafe_depth keeps track of how many enclosing unsafe blocks or
+    // declarations there are.  If this is greater than 0, than unsafe
+    // operations are allowed.  This has to be part of the local context since
+    // an unsafe comptime could be expand a non-unsafe comptime and vice-versa.
     int unsafe_depth { 0 };
 
-    // init_graph is used to keep track of which predicates depend on which
-    // global symbols in order to determine the correct initialization ordering.
-    std::vector<std::vector<size_t>> init_graph;
+    /* -------------------------- Expression State -------------------------- */
 
-    /* ---------------------------------------------------------------------- */
+    // tctx is the checker's type context.
+    TypeContext tctx;
+        
+    // null_spans maps untyped nulls to their corresponding spans.
+    std::vector<NullSpan> null_spans;
+
+    // is_comptime_expr indicates if an expression which is not declared
+    // comptime can be comptime.  This is used to promote global variable
+    // initializers to constant values.
+    bool is_comptime_expr { false };
+
+    /* -------------------------- Pattern Matching -------------------------- */
 
     // PatternContext stores all state that is used for exhaustivity checking in
     // match statements and expression.  Anything that wants to call

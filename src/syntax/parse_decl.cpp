@@ -36,7 +36,7 @@ void Parser::parseDecl(AttributeMap&& attr_map, DeclFlags flags) {
         node
     );
 
-    src_file.parent->unsorted_decls.push_back(decl);
+    src_file.parent->decls.push_back(decl);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -99,7 +99,7 @@ AstNode* Parser::parseFuncOrMethodDecl(bool exported) {
         global_arena.MoveStr(std::move(name_tok.value)),
         name_tok.span,
         exported ? SYM_FUNC | SYM_EXPORTED : SYM_FUNC,
-        src_file.parent->unsorted_decls.size(),
+        src_file.parent->decls.size(),
         nullptr,
         true
     );
@@ -196,47 +196,13 @@ void Parser::parseFuncParams(std::vector<AstFuncParam>& params) {
 /* -------------------------------------------------------------------------- */
 
 AstNode* Parser::parseGlobalVarDecl(bool exported) {
-    auto start_span = tok.span;
-    bool comptime = tok.kind == TOK_CONST;
-    next();
+    auto* avar = parseLocalVarDecl();
 
-    auto name_tok = wantAndGet(TOK_IDENT);
-
-    if (!has(TOK_COLON)) {
-        fatal(name_tok.span, "global variable must have an explicit type label");
-    }
-
-    auto* type = parseTypeExt();
-
-    AstNode* init_expr = nullptr;
-    if (has(TOK_ASSIGN)) {
-        init_expr = parseInitializer();
-    }
-
-    auto end_span = tok.span;
-    want(TOK_SEMI);
-
-    SymbolFlags flags = comptime ? SYM_CONST : SYM_VAR;
+    auto* symbol = avar->an_Var.symbol;
     if (exported)
-        flags |= SYM_EXPORTED;
-
-    Symbol* symbol = global_arena.New<Symbol>(
-        src_file.parent->id,
-        global_arena.MoveStr(std::move(name_tok.value)),
-        name_tok.span,
-        flags,
-        src_file.parent->unsorted_decls.size(),
-        nullptr,
-        comptime  
-    );
+        symbol->flags |= SYM_EXPORTED;
 
     defineGlobal(symbol);
-
-    auto* avar = allocNode(comptime ? AST_CONST : AST_VAR, SpanOver(start_span, end_span));
-    avar->an_Var.symbol = symbol;
-    avar->an_Var.type = type;
-    avar->an_Var.init = init_expr;
-
     return avar;
 }
 
@@ -303,7 +269,7 @@ AstNode* Parser::parseStructDecl(bool exported) {
         named_type->ty_Named.name,
         name_tok.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
-        src_file.parent->unsorted_decls.size(),
+        src_file.parent->decls.size(),
         named_type,
         false
     );
@@ -345,7 +311,7 @@ AstNode* Parser::parseAliasDecl(bool exported) {
         alias_type->ty_Named.name,
         ident.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
-        src_file.parent->unsorted_decls.size(),
+        src_file.parent->decls.size(),
         alias_type,
         false
     );
@@ -411,7 +377,7 @@ AstNode* Parser::parseEnumDecl(bool exported) {
         named_type->ty_Named.name,
         ident.span,
         exported ? SYM_TYPE | SYM_EXPORTED : SYM_TYPE,
-        src_file.parent->unsorted_decls.size(),
+        src_file.parent->decls.size(),
         named_type,
         false
     );

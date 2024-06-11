@@ -4,7 +4,7 @@ void CodeGenerator::genImports() {
     size_t i = 0;
     for (auto& dep : src_mod.deps) {
         for (auto decl_num : dep.usages) {
-            auto* decl = dep.mod->sorted_decls[decl_num];
+            auto* decl = dep.mod->decls[decl_num];
             auto* hir_decl = decl->hir_decl;
 
             switch (hir_decl->kind) {
@@ -41,6 +41,8 @@ void CodeGenerator::genImports() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+extern std::unordered_map<std::string_view, llvm::CallingConv::ID> cconv_name_to_id;
 
 llvm::Value* CodeGenerator::genImportFunc(Module& imported_mod, Decl* decl) {
     auto* node = decl->hir_decl;

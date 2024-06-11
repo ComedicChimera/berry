@@ -83,7 +83,6 @@ void DebugGenerator::BeginFuncBody(Decl* decl, llvm::Function* ll_func) {
             if (attr.value == "win64") {
                 call_conv = llvm::dwarf::DW_CC_LLVM_Win64;
             } else if (attr.value == "stdcall") {
-                // TOOD: borland stdcall?
                 call_conv = llvm::dwarf::DW_CC_BORLAND_stdcall;
             }    
         }

@@ -1,16 +1,16 @@
 import io.std;
 
-const x: i64 = y + 2;
-const y: i64 = 10;
-pub const z: i64 = (x * y) - 4 * (x + y);
+const x = y + 2;
+const y = 10;
+pub const z = (x * y) - 4 * (x + y);
 
-const name: string = "Bob Jones";
-const first_char: u8 = name[0];
-const first_name: string = name[:5];
+const name = "Bob Jones";
+const first_char = name[0];
+const first_name = name[:5];
 
-const primes: []i64 = [2, 3, 5, 7, 11, 13];
-const second_prime: i64 = primes[1];
-const middle_primes: []i64 = primes[1:y - 6];
+const primes = [2, 3, 5, 7, 11, 13];
+const second_prime = primes[1];
+const middle_primes = primes[1:y - 6];
 const zero_array: [x]i64;
 
 struct Vec2 {
@@ -23,9 +23,9 @@ struct Vec3 {
 
 pub const v2: Vec2 = .{1, 2};
 pub const v3: Vec3 = .{x=8, y=4, z=2};
-const first_component_sum: i64 = v2.x + v3.x;
+const first_component_sum = v2.x + v3.x;
 
-let glvar_v3: Vec3 = v3;
+let glvar_v3 = v3;
 
 func print_array(arr: []i64) {
     for let i = 0; i < arr._len; i++ {

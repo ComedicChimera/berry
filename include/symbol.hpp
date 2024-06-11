@@ -36,9 +36,9 @@ struct Symbol {
     // flags are the flags associated with the symbol.
     SymbolFlags flags;
 
-    // decl_number is the number of the global declaration of the symbol. For
-    // local symbols, this field is not used.
-    size_t decl_number;
+    // decl_num is the number of the global declaration of the symbol. For local
+    // symbols, this field is not used.
+    size_t decl_num;
 
     // type is the data type of the symbol.
     Type* type { nullptr };
@@ -123,20 +123,9 @@ struct Module {
     // symbol_table is the module's global symbol table.
     std::unordered_map<std::string_view, Symbol*> symbol_table;
 
-    // NOTE: Sorting the declarations requires quite a bit of overhead.  Based
-    // on my own analysis, it seems like using two vectors is the best way to go
-    // about this (a compromise between simplicity and efficiency).  That said,
-    // one could certainly argue for a more optimal approach.
-
-    // sorted_decls stores the module's declarations in proper order.  This
-    // vector starts empty and is incrementally filled as declarations are moved
-    // from the unsorted vector to this one.
-    std::vector<Decl*> sorted_decls;
-
-    // unsorted_decls stores the module's declarations in the order they are
-    // defined by the user.  Declarations are moved from this vector to the
-    // sorted vector as the compiler determines their correct order.
-    std::vector<Decl*> unsorted_decls;
+    // decls stores all the module's declarations.  This vector will be sorted
+    // into correct initialization order after type checking is done.
+    std::vector<Decl*> decls;
 
     // DepEntry is a module dependency entry.
     struct DepEntry {

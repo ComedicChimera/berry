@@ -1,11 +1,11 @@
 import io.std;
 
-let x: i64 = z - 2;
-let y: i64 = x + 4;
-let z: i64 = 8;
+let x = z - 2;
+let y = x + 4;
+let z = 8;
 
-let a: i64 = fn();
-let b: i64 = x * x;
+let a = fn();
+let b = x * x;
 
 func fn() i64 {
     return b / 2;

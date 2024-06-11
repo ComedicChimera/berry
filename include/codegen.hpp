@@ -187,15 +187,6 @@ class CodeGenerator {
     // the dependency ID and the second index is the definition number.
     std::vector<std::unordered_map<size_t, llvm::Value*>> loaded_imports;
 
-    /* ---------------------------------------------------------------------- */
-
-    // cconv_name_to_id maps Berry calling convention names to their LLVM IDs.
-    std::unordered_map<std::string_view, llvm::CallingConv::ID> cconv_name_to_id {
-        { "c", llvm::CallingConv::C },
-        { "stdcall", llvm::CallingConv::X86_StdCall },
-        { "win64", llvm::CallingConv::Win64 }
-    };
-
 public:
     // Creates a new code generator using ctx and outputting to mod.
     CodeGenerator(

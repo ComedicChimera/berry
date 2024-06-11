@@ -3,7 +3,7 @@
 Checker::Checker(Arena& arena, Module& mod)
 : arena(arena)
 , mod(mod)
-, init_graph(mod.unsorted_decls.size())
+, init_graph(mod.decls.size())
 {
     if (mod.deps.size() > 0) {
         // Core module is always the last dependency added to any module. All
@@ -18,7 +18,7 @@ Checker::Checker(Arena& arena, Module& mod)
 void Checker::CheckModule() {
     // First checking pass.
     curr_decl_number = 0;
-    for (auto* decl : mod.unsorted_decls) {
+    for (auto* decl : mod.decls) {
         checkDecl(decl);
         curr_decl_number++;
     }
@@ -26,7 +26,7 @@ void Checker::CheckModule() {
     // Second checking pass.
     first_pass = false;
     curr_decl_number = 0;
-    for (auto* decl : mod.unsorted_decls) {
+    for (auto* decl : mod.decls) {
         src_file = &mod.files[decl->file_number];
 
         // Reset colors for init ordering.
@@ -71,7 +71,7 @@ void Checker::CheckModule() {
 
     // Sort remaining declarations into correct initialization order.
     curr_decl_number = 0;
-    for (auto* decl : mod.unsorted_decls) {
+    for (auto* decl : mod.decls) {
         switch (decl->hir_decl->kind) {
         case HIR_FUNC: case HIR_METHOD: case HIR_FACTORY:
             if (decl->color == COLOR_WHITE) {
@@ -86,9 +86,12 @@ void Checker::CheckModule() {
         curr_decl_number++;
     }
 
+    // Replace the old unsorted decl vector with the sorted version.
+    
+
     // Update the declaration numbers of the newly sorted declarations.
     curr_decl_number = 0;
-    for (auto* decl : mod.sorted_decls) {
+    for (auto* decl : mod.decls) {
         switch (decl->hir_decl->kind) {
         case HIR_GLOBAL_VAR:
             decl->hir_decl->ir_GlobalVar.symbol->decl_number = curr_decl_number;
@@ -114,10 +117,6 @@ void Checker::CheckModule() {
 
         curr_decl_number++;
     }
-
-    // Clear out the unsorted declarations list (we don't need it anymore).
-    mod.unsorted_decls.clear();
-    mod.unsorted_decls.shrink_to_fit();
 }
 
 /* -------------------------------------------------------------------------- */

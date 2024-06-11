@@ -91,7 +91,7 @@ private:
     AstNode* maybeParseElse();
     AstNode* parseMatchStmt();
 
-    AstNode* parseLocalVarDef();
+    AstNode* parseLocalVarDecl();
     AstNode* parseExprAssignStmt();
 
     /* ---------------------------------------------------------------------- */

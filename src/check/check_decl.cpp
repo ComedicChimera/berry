@@ -80,7 +80,7 @@ bool Checker::addToInitOrder(Decl* decl) {
 
         for (size_t edge_number : edges) {
             curr_decl_number = edge_number;
-            if (addToInitOrder(mod.unsorted_decls[curr_decl_number])) {
+            if (addToInitOrder(mod.decls[curr_decl_number])) {
                 decl->color = COLOR_BLACK;
                 return true;
             }
@@ -115,7 +115,7 @@ void Checker::reportCycle(Decl* decl) {
 
         fmt_cycle += " -> ";
 
-        auto [name, is_const] = getDeclNameAndConst(mod.unsorted_decls[n]->ast_decl);
+        auto [name, is_const] = getDeclNameAndConst(mod.decls[n]->ast_decl);
         fmt_cycle += name;
         if (is_const) {
             cycle_involves_const = true;
@@ -526,12 +526,12 @@ Type* Checker::checkTypeLabel(AstNode* node, bool should_expand) {
                     decl_number_stack.push_back(curr_decl_number);
                     curr_decl_number = symbol->decl_number;
 
-                    checkDecl(mod.unsorted_decls[curr_decl_number]);
+                    checkDecl(mod.decls[curr_decl_number]);
 
                     curr_decl_number = decl_number_stack.back();
                     decl_number_stack.pop_back();
 
-                    src_file = &mod.files[mod.unsorted_decls[curr_decl_number]->file_number];
+                    src_file = &mod.files[mod.decls[curr_decl_number]->file_number];
                 }
             }
 
