@@ -26,7 +26,7 @@ std::unordered_map<HirOpKind, std::string> hir_op_kind_to_name {
 
 
 Type* Checker::mustApplyBinaryOp(const TextSpan& span, HirOpKind op, Type* lhs_type, Type* rhs_type) {
-    tctx.flags |= TC_INFER;
+    tctx.infer_enabled = true;
 
     auto* lhs_outer_type = lhs_type;
     auto* rhs_outer_type = rhs_type;
@@ -123,7 +123,7 @@ Type* Checker::mustApplyBinaryOp(const TextSpan& span, HirOpKind op, Type* lhs_t
         fatal(span, "cannot apply {} operator to {} and {}", hir_op_kind_to_name[op], lhs_outer_type->ToString(), rhs_outer_type->ToString());
     }
 
-    tctx.flags ^= TC_INFER;
+    tctx.infer_enabled = false;
     return return_type;
 }
 
@@ -168,8 +168,8 @@ Type* Checker::maybeApplyPtrCompareOp(Type* lhs_type, Type* rhs_type) {
 /* -------------------------------------------------------------------------- */
 
 Type* Checker::mustApplyUnaryOp(const TextSpan& span, HirOpKind op, Type* operand_type) {
-    tctx.flags |= TC_INFER;
-
+    tctx.infer_enabled = true;
+    
     Type* return_type { nullptr };
     switch (op) {
     case HIROP_NOT:
@@ -198,6 +198,6 @@ Type* Checker::mustApplyUnaryOp(const TextSpan& span, HirOpKind op, Type* operan
         fatal(span, "cannot apply {} operator to {}", hir_op_kind_to_name[op], operand_type->ToString());
     }
 
-    tctx.flags ^= TC_INFER;
+    tctx.infer_enabled = false;
     return return_type;
 }

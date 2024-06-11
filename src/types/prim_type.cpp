@@ -7,7 +7,7 @@ bool TypeContext::IsNumberType(Type* type) {
         auto& entry = find(inner->ty_Untyp.key);
 
         if (entry.kind == UK_NULL) {
-            if (flags & TC_INFER) {
+            if (infer_enabled) {
                 entry.kind = UK_NUM;
                 return true;
             }
@@ -30,7 +30,7 @@ bool TypeContext::IsIntType(Type* type) {
         if (entry.kind == UK_INT) {
             return true;
         } else if (entry.kind == UK_NUM || entry.kind == UK_NULL) {
-            if (flags & TC_INFER) {
+            if (infer_enabled) {
                 entry.kind = UK_INT;
                 return true;
             }

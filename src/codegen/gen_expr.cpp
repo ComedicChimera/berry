@@ -47,7 +47,7 @@ llvm::Value* CodeGenerator::genExpr(HirExpr* node, bool expect_addr, llvm::Value
         return genFieldExpr(node, expect_addr);
     case HIR_STATIC_GET: {
         auto* imported_symbol = node->ir_StaticGet.imported_symbol;
-        auto* ll_value = loaded_imports[node->ir_StaticGet.dep_id][imported_symbol->decl_number];
+        auto* ll_value = loaded_imports[node->ir_StaticGet.dep_id][imported_symbol->decl_num];
 
         if (!expect_addr && (imported_symbol->flags & SYM_VAR) && !shouldPtrWrap(node->type)) {
             return irb.CreateLoad(genType(node->type), ll_value);

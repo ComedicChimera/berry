@@ -78,8 +78,8 @@ enum {
 
 // Decl is a declaration in the module.
 struct Decl {
-    // file_number is the module-local number of the declaring file.
-    size_t file_number;
+    // file_num is the module-local number of the declaring file.
+    size_t file_num;
 
     // flags is the declaration's associated flags (public, unsafe, etc.)
     DeclFlags flags;
@@ -97,7 +97,7 @@ struct Decl {
     GColor color;
 
     Decl(size_t file_number_, DeclFlags flags_, std::span<Attribute> attrs_, AstNode* adecl_)
-    : file_number(file_number_)
+    : file_num(file_number_)
     , flags(flags_)
     , attrs(attrs_)
     , ast_decl(adecl_)
@@ -181,8 +181,8 @@ struct SourceFile {
     // parent is the module the file is apart of.
     Module* parent;
 
-    // file_number uniquely identifies the source file within its parent module.
-    size_t file_number;
+    // file_num uniquely identifies the source file within its parent module.
+    size_t file_num;
     
     // abs_path is the absolute path to the file.
     std::string abs_path;
@@ -201,7 +201,7 @@ struct SourceFile {
 
     SourceFile(Module* parent_, size_t file_number_, std::string&& abs_path_, std::string&& display_path_)
     : parent(parent_)
-    , file_number(file_number_)
+    , file_num(file_number_)
     , abs_path(std::move(abs_path_))
     , display_path(std::move(display_path_))
     , llvm_di_file(nullptr)
@@ -209,7 +209,7 @@ struct SourceFile {
 
     SourceFile(SourceFile&& src_file)
     : parent(src_file.parent)
-    , file_number(src_file.file_number)
+    , file_num(src_file.file_num)
     , abs_path(std::move(src_file.abs_path))
     , display_path(std::move(src_file.display_path))
     , llvm_di_file(src_file.llvm_di_file)

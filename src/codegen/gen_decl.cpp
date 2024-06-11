@@ -338,7 +338,7 @@ void CodeGenerator::genGlobalVarDecl(Decl* decl) {
     auto& aglobal = decl->hir_decl->ir_GlobalVar;
     auto* symbol = aglobal.symbol;
 
-    debug.SetCurrentFile(src_mod.files[decl->file_number]);
+    debug.SetCurrentFile(src_mod.files[decl->file_num]);
     
     auto* ll_type = genType(symbol->type, true);
 

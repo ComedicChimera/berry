@@ -3,6 +3,7 @@
 Checker::Checker(Arena& arena, Module& mod)
 : arena(arena)
 , mod(mod)
+, sorted_decls(mod.decls.size())
 , init_graph(mod.decls.size())
 {
     if (mod.deps.size() > 0) {
@@ -17,17 +18,17 @@ Checker::Checker(Arena& arena, Module& mod)
 
 void Checker::CheckModule() {
     // First checking pass.
-    curr_decl_number = 0;
+    curr_decl_num = 0;
     for (auto* decl : mod.decls) {
         checkDecl(decl);
-        curr_decl_number++;
+        curr_decl_num++;
     }
 
     // Second checking pass.
     first_pass = false;
-    curr_decl_number = 0;
+    curr_decl_num = 0;
     for (auto* decl : mod.decls) {
-        src_file = &mod.files[decl->file_number];
+        src_file = &mod.files[decl->file_num];
 
         // Reset colors for init ordering.
         decl->color = COLOR_WHITE;
@@ -66,16 +67,16 @@ void Checker::CheckModule() {
         }
 
         unsafe_depth = 0;
-        curr_decl_number++;
+        curr_decl_num++;
     }
 
     // Sort remaining declarations into correct initialization order.
-    curr_decl_number = 0;
+    curr_decl_num = 0;
     for (auto* decl : mod.decls) {
         switch (decl->hir_decl->kind) {
         case HIR_FUNC: case HIR_METHOD: case HIR_FACTORY:
             if (decl->color == COLOR_WHITE) {
-                mod.sorted_decls.push_back(decl);
+                sorted_decls[n_sorted++] = decl;
             }
             break;
         case HIR_GLOBAL_VAR:
@@ -83,91 +84,184 @@ void Checker::CheckModule() {
             break;
         }
 
-        curr_decl_number++;
+        curr_decl_num++;
     }
 
     // Replace the old unsorted decl vector with the sorted version.
-    
+    mod.decls = std::move(sorted_decls);
 
     // Update the declaration numbers of the newly sorted declarations.
-    curr_decl_number = 0;
+    curr_decl_num = 0;
     for (auto* decl : mod.decls) {
         switch (decl->hir_decl->kind) {
         case HIR_GLOBAL_VAR:
-            decl->hir_decl->ir_GlobalVar.symbol->decl_number = curr_decl_number;
+            decl->hir_decl->ir_GlobalVar.symbol->decl_num = curr_decl_num;
             break;
         case HIR_GLOBAL_CONST:
-            decl->hir_decl->ir_GlobalConst.symbol->decl_number = curr_decl_number;
+            decl->hir_decl->ir_GlobalConst.symbol->decl_num = curr_decl_num;
             break;
         case HIR_FUNC:
-            decl->hir_decl->ir_Func.symbol->decl_number = curr_decl_number;
+            decl->hir_decl->ir_Func.symbol->decl_num = curr_decl_num;
             break;
         case HIR_STRUCT:
         case HIR_ENUM:
         case HIR_ALIAS:
-            decl->hir_decl->ir_TypeDef.symbol->decl_number = curr_decl_number;
+            decl->hir_decl->ir_TypeDef.symbol->decl_num = curr_decl_num;
             break;
         case HIR_METHOD:
-            decl->hir_decl->ir_Method.method->decl_number = curr_decl_number;
+            decl->hir_decl->ir_Method.method->decl_num = curr_decl_num;
             break;
         case HIR_FACTORY:
-            decl->hir_decl->ir_Factory.bind_type->ty_Named.factory->decl_number = curr_decl_number;
+            decl->hir_decl->ir_Factory.bind_type->ty_Named.factory->decl_num = curr_decl_num;
             break;
         }
 
-        curr_decl_number++;
+        curr_decl_num++;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+
+static Symbol* getDeclSymbol(AstNode* node) {
+    switch (node->kind) {
+    case AST_FUNC:
+        return node->an_Func.symbol;
+    case AST_TYPEDEF:
+        return node->an_TypeDef.symbol;
+    case AST_VAR:
+    case AST_CONST:
+        return node->an_Var.symbol;
+    }
+
+    return nullptr;
+}
+
+static std::pair<std::string_view, bool> getDeclNameAndConst(AstNode* node) {
+    switch (node->kind) {
+    case AST_METHOD:
+        return { node->an_Method.name, false };
+    case AST_FACTORY:
+        // TODO: get the factory name
+        return { "factory", false };
+    default: {
+        auto* symbol = getDeclSymbol(node);
+        return { symbol->name, symbol->flags & SYM_CONST };
+    } break;
+    }
+}
+
+bool Checker::addToInitOrder(Decl* decl) {
+    switch (decl->color) {
+    case COLOR_BLACK:
+        break;
+    case COLOR_WHITE: {
+        decl->color = COLOR_GREY;
+
+        auto& edges = init_graph[curr_decl_num];
+        pushDeclNum(0);  // 0 is just a dummy argument.
+
+        for (size_t edge_number : edges) {
+            curr_decl_num = edge_number;
+            if (addToInitOrder(mod.decls[curr_decl_num])) {
+                decl->color = COLOR_BLACK;
+                return true;
+            }
+        }
+
+        popDeclNum();
+
+        sorted_decls[n_sorted++] = decl;
+        decl->color = COLOR_BLACK;
+        return false;
+    } break;
+    case COLOR_GREY:
+        if (decl->hir_decl->kind == HIR_GLOBAL_VAR) {
+            reportCycle(decl);
+            decl->color = COLOR_BLACK;
+            return true;
+        }
+        break;
+    }
+
+    return false;
+}
+
+void Checker::reportCycle(Decl* decl) {
+    auto* start_symbol = getDeclSymbol(decl->ast_decl);
+    std::string fmt_cycle(start_symbol->name);
+    bool cycle_involves_const = false;
+    
+    for (size_t i = decl_num_stack.size() - 1; i >= 0; i--) {
+        auto n = decl_num_stack[i];
+
+        fmt_cycle += " -> ";
+
+        auto [name, is_const] = getDeclNameAndConst(mod.decls[n]->ast_decl);
+        fmt_cycle += name;
+        if (is_const) {
+            cycle_involves_const = true;
+        }
+
+        if (n == curr_decl_num) {
+            break;
+        }
+    }
+    
+    if (start_symbol->flags & SYM_TYPE) {
+        if (cycle_involves_const) {
+            error(start_symbol->span, "type depends cyclically on constant: {}", fmt_cycle);
+        } else {
+            error(start_symbol->span, "infinite type detected: {}", fmt_cycle);
+        }
+    } else {
+        error(start_symbol->span, "initialization cycle detected: {}", fmt_cycle);
     }
 }
 
 /* -------------------------------------------------------------------------- */
 
 void Checker::mustEqual(const TextSpan &span, Type* a, Type* b) {
-    tctx.flags |= TC_INFER;
+    tctx.infer_enabled = true;
 
     if (!tctx.Equal(a, b)) {
         fatal(span, "type mismatch: {} v. {}", a->ToString(), b->ToString());
     }
 
-    tctx.flags ^= TC_INFER;
+    tctx.infer_enabled = false;
 }
 
 bool Checker::mustSubType(const TextSpan &span, Type* sub, Type* super) {
-    tctx.flags |= TC_INFER;
+    tctx.infer_enabled = true;
 
     auto conv_result = tctx.SubType(sub, super);
     if (conv_result == TY_CONV_FAIL) {
         fatal(span, "{} is not a subtype of {}", sub->ToString(), super->ToString());
     }
 
-    tctx.flags ^= TC_INFER;
+    tctx.infer_enabled = false;
 
     return conv_result == TY_CONV_CAST;
 }
 
 void Checker::mustCast(const TextSpan &span, Type* src, Type* dest) {
-    tctx.flags |= TC_INFER;
-
-    if (unsafe_depth > 0) {
-        tctx.flags |= TC_UNSAFE;
-    } else {
-        tctx.flags &= ~TC_UNSAFE;
-    }
+    tctx.infer_enabled = true;
+    tctx.unsafe_enabled = unsafe_depth > 0;
 
     if (!tctx.Cast(src, dest)) {
         fatal(span, "{} cannot be cast to {}", src->ToString(), dest->ToString());
     }
 
-    tctx.flags ^= TC_INFER;
+    tctx.infer_enabled = false;
 }
 
 void Checker::mustIntType(const TextSpan& span, Type* type) {
-    tctx.flags |= TC_INFER;
+    tctx.infer_enabled = true;
 
     if (!tctx.IsIntType(type)) {
         fatal(span, "expected an integer type but got {}", type->ToString());
     }
 
-    tctx.flags ^= TC_INFER;
+    tctx.infer_enabled = false;
 }
 
 Type* Checker::newUntyped(UntypedKind kind) {
@@ -182,8 +276,8 @@ void Checker::finishExpr() {
 
     bool any_bad_nulls = false;
     for (auto& pair : null_spans) {
-        if (pair.first->ty_Untyp.concrete_type == nullptr) {
-            error(pair.second, "unable to infer type of null");
+        if (pair.untyped->ty_Untyp.concrete_type == nullptr) {
+            error(pair.span, "unable to infer type of null");
             any_bad_nulls = true;
         }
     }
@@ -229,7 +323,7 @@ std::pair<Symbol*, Module::DepEntry*> Checker::mustLookup(std::string_view name,
     auto it = mod.symbol_table.find(name);
     if (it != mod.symbol_table.end()) {
         if (!first_pass && (it->second->flags & SYM_TYPE) == 0) {
-            init_graph[curr_decl_number].push_back(it->second->decl_number);
+            init_graph[curr_decl_num].insert(it->second->decl_num);
         }
 
         return { it->second, nullptr };
@@ -254,7 +348,7 @@ Symbol* Checker::findSymbolInDep(Module::DepEntry& dep, std::string_view name) {
 
     auto* imported_symbol = it->second;
     if (imported_symbol->flags & SYM_EXPORTED) {
-        dep.usages.insert(imported_symbol->decl_number);
+        dep.usages.insert(imported_symbol->decl_num);
         return imported_symbol;
     }
 
@@ -284,7 +378,7 @@ Method* Checker::tryLookupMethod(const TextSpan& span, Type* bind_type, std::str
                         // Add the appropriate usage entry.
                         for (auto& dep : mod.deps) {
                             if (dep.mod->id == method->parent_id) {
-                                dep.usages.insert(method->decl_number);
+                                dep.usages.insert(method->decl_num);
                                 break;
                             }
                         }
@@ -292,7 +386,7 @@ Method* Checker::tryLookupMethod(const TextSpan& span, Type* bind_type, std::str
                         fatal(span, "method {} of type {} is not exported", method_name, bind_type->ToString());
                     }
                 } else if (!first_pass) { // Do we even need this check?
-                    init_graph[curr_decl_number].push_back(method->decl_number);
+                    init_graph[curr_decl_num].insert(method->decl_num);
                 }
 
                 return method;

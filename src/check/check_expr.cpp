@@ -494,7 +494,7 @@ HirExpr* Checker::checkFactoryCall(const TextSpan& span, Type* type, std::span<A
         if (factory_func->exported) {
             for (auto& dep : mod.deps) { // Add usage ID
                 if (dep.mod->id == factory_func->parent_id) {
-                    dep.usages.insert(factory_func->decl_number);
+                    dep.usages.insert(factory_func->decl_num);
                     break;
                 }
             }
@@ -502,7 +502,7 @@ HirExpr* Checker::checkFactoryCall(const TextSpan& span, Type* type, std::span<A
             fatal(span, "factory function {}() is not exported", type->ToString());
         }
     } else if (!first_pass) {
-        init_graph[curr_decl_number].push_back(factory_func->decl_number);
+        init_graph[curr_decl_num].insert(factory_func->decl_num);
     }
 
     auto hargs = checkArgs(span, factory_func->signature, args);
@@ -932,15 +932,22 @@ void Checker::maybeExpandComptime(Symbol* symbol) {
             // Recursively expand comptime values.
             Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
 
-            decl_number_stack.push_back(curr_decl_number);
-            curr_decl_number = symbol->decl_number;
-            
-            checkDecl(mod.decls[symbol->decl_number]);
+            // Save and clear expression-local state which may be modified
+            // during comptime expansion.
+            auto prev_tctx = std::move(tctx);
+            auto prev_null_spans = std::move(null_spans);
+            int prev_unsafe_depth = unsafe_depth;
+            unsafe_depth = 0;
 
-            curr_decl_number = decl_number_stack.back();
-            decl_number_stack.pop_back();
+            // Expand the comptime declaration.
+            pushDeclNum(symbol->decl_num);
+            checkDecl(mod.decls[symbol->decl_num]);
+            popDeclNum();
 
-            src_file = &mod.files[mod.decls[curr_decl_number]->file_number];
+            // Restore old expression state.
+            tctx = std::move(prev_tctx);
+            null_spans = std::move(prev_null_spans);
+            unsafe_depth = prev_unsafe_depth;
         }
     }
 }

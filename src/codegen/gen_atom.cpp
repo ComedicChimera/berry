@@ -52,7 +52,7 @@ llvm::Value* CodeGenerator::genCallMethod(HirExpr* node, llvm::Value* alloc_loc)
     } else {
         for (auto& dep : src_mod.deps) {
             if (dep.mod->id == hmcall.method->parent_id) {
-                ll_method = loaded_imports[dep.id][hmcall.method->decl_number];
+                ll_method = loaded_imports[dep.id][hmcall.method->decl_num];
                 break;
             }
         }
@@ -91,7 +91,7 @@ llvm::Value* CodeGenerator::genCallFactory(HirExpr* node, llvm::Value* alloc_loc
     } else {
         for (auto& dep : src_mod.deps) {
             if (dep.mod->id == hfcall.func->parent_id) {
-                ll_factory = loaded_imports[dep.id][hfcall.func->decl_number];
+                ll_factory = loaded_imports[dep.id][hfcall.func->decl_num];
                 break;
             }
         }
@@ -546,7 +546,7 @@ llvm::Value* CodeGenerator::genIdent(HirExpr* node, bool expect_addr) {
     if (symbol->parent_id != src_mod.id) {
         Assert((symbol->flags & SYM_EXPORTED) != 0, "unexported core symbol used in codegen");
         
-        ll_value = loaded_imports.back()[symbol->decl_number];
+        ll_value = loaded_imports.back()[symbol->decl_num];
     } else {
         ll_value = symbol->llvm_value;
     }

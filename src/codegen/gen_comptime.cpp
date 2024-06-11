@@ -36,7 +36,7 @@ llvm::Constant* CodeGenerator::genComptime(ConstValue* value, ComptimeGenFlags f
                 dep_id++;
             }
 
-            return llvm::dyn_cast<llvm::Constant>(loaded_imports[dep_id][sym->decl_number]);
+            return llvm::dyn_cast<llvm::Constant>(loaded_imports[dep_id][sym->decl_num]);
         }
     } break;
     case CONST_ARRAY:

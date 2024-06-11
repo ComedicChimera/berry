@@ -295,8 +295,8 @@ void Loader::resolveImports(const fs::path& local_path, Module& mod) {
             n++;
         }
 
-        for (const auto& [file_number, span] : dep.import_locs) {
-            ReportCompileError(mod.files[file_number].display_path, span, "unable to import module: {}", fmt_mod_path);
+        for (const auto& [file_num, span] : dep.import_locs) {
+            ReportCompileError(mod.files[file_num].display_path, span, "unable to import module: {}", fmt_mod_path);
         }
     }
 }
@@ -389,9 +389,9 @@ void Loader::checkForImportCycles() {
         if (colors[mod.id] == COLOR_WHITE) {
             ImportCycle cycle;
             if (findCycle(mod, colors, cycle)) {
-                for (const auto& [file_number, span] : cycle.bad_dep->import_locs) {
+                for (const auto& [file_num, span] : cycle.bad_dep->import_locs) {
                     ReportCompileError(
-                        mod.files[file_number].display_path,
+                        mod.files[file_num].display_path,
                         span,
                         "import of module {} creates cycle",
                         cycle.bad_dep->mod->name

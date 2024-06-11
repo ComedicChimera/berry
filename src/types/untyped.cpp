@@ -85,7 +85,8 @@ void TypeContext::InferAll() {
 }
 
 void TypeContext::Clear() {
-    flags = TC_DEFAULT;
+    infer_enabled = false;
+    unsafe_enabled = false;
 
     unt_table.clear();
     unt_uf.clear();
@@ -112,7 +113,7 @@ bool TypeContext::tryConcrete(size_t key, Type* other) {
         break;
     }
 
-    if (compat && (flags & TC_INFER)) {
+    if (compat && infer_enabled) {
         entry.concrete_type = other;
     }
 
@@ -158,7 +159,7 @@ bool TypeContext::tryUnion(size_t a, size_t b) {
         return false;
     }
 
-    if (flags & TC_INFER == 0)
+    if (!infer_enabled)
         return true;
 
     auto& dominant = which ? bentry : aentry;

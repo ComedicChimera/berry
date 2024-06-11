@@ -48,7 +48,7 @@ struct StructField {
 // Method contains the shared type information for a method.
 struct Method {
     size_t parent_id;
-    size_t decl_number;
+    size_t decl_num;
 
     std::string_view name;
     Type* signature;
@@ -58,7 +58,7 @@ struct Method {
 
     Method(size_t parent_id_, std::string_view name_, Type* sig_, bool exported_)
     : parent_id(parent_id_)
-    , decl_number(0)
+    , decl_num(0)
     , name(name_)
     , signature(sig_)
     , exported(exported_)
@@ -71,7 +71,7 @@ typedef std::unordered_map<std::string_view, Method*> MethodTable;
 
 struct FactoryFunc {
     size_t parent_id;
-    size_t decl_number;
+    size_t decl_num;
 
     Type* signature;
     bool exported;
@@ -80,7 +80,7 @@ struct FactoryFunc {
 
     FactoryFunc(size_t parent_id_, Type* sig_, bool exported_)
     : parent_id(parent_id_)
-    , decl_number(0)
+    , decl_num(0)
     , signature(sig_)
     , exported(exported_)
     , llvm_value(nullptr)
@@ -197,19 +197,30 @@ public:
 
     TypeContext() = default;
 
-    TypeContext(const TypeContext& other)
-    : unt_uf(other.unt_uf)
-    , unt_table(other.unt_table)
-    , infer_enabled(other.infer_enabled)
-    , unsafe_enabled(other.unsafe_enabled)
-    {}
+    TypeContext(const TypeContext& other) = default;
+    TypeContext& operator=(const TypeContext& other) = default;
 
     TypeContext(TypeContext&& other)
     : unt_uf(std::move(other.unt_uf))
     , unt_table(std::move(other.unt_table))
     , infer_enabled(other.infer_enabled)
     , unsafe_enabled(other.unsafe_enabled)
-    {}
+    {
+        other.infer_enabled = false;
+        other.unsafe_enabled = false;
+    }
+
+    TypeContext& operator=(TypeContext&& other) {
+        unt_uf = std::move(other.unt_uf);
+        unt_table = std::move(other.unt_table);
+        infer_enabled = other.infer_enabled;
+        unsafe_enabled = other.unsafe_enabled;
+
+        other.infer_enabled = false;
+        other.unsafe_enabled = false;
+
+        return *this;
+    }
 
     // Important: All of the comparison functions can change their behavior
     // depending on the context flags.  For example, if TC_INFER is set then the

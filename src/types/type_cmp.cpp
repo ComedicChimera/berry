@@ -122,7 +122,7 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
             case UK_INT:
                 return true;
             case UK_NUM:
-                if (flags & TC_INFER) {
+                if (infer_enabled) {
                     entry.kind = UK_INT;
                 }
 
@@ -146,7 +146,7 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
 
     switch (src->kind) {
     case TYPE_INT:
-        if ((flags & TC_UNSAFE) && (dest->kind == TYPE_PTR || dest->kind == TYPE_ENUM))
+        if (unsafe_enabled && (dest->kind == TYPE_PTR || dest->kind == TYPE_ENUM))
             return true;
         
         return innerIsNumberType(dest) || dest->kind == TYPE_BOOL;
@@ -158,21 +158,21 @@ bool TypeContext::innerCast(Type* src, Type* dest) {
         }
         break;
     case TYPE_PTR:
-        if ((flags & TC_UNSAFE) && (dest->kind == TYPE_INT || dest->kind == TYPE_PTR)) {
+        if (unsafe_enabled && (dest->kind == TYPE_INT || dest->kind == TYPE_PTR)) {
             return true;
         }
         break;
     case TYPE_SLICE:
         if (dest->kind == TYPE_STRING) {
             return Equal(src->ty_Slice.elem_type, &prim_u8_type);
-        } else if ((flags & TC_UNSAFE) && dest->kind == TYPE_ARRAY) {
+        } else if (unsafe_enabled && dest->kind == TYPE_ARRAY) {
             return Equal(src->ty_Slice.elem_type, dest->ty_Array.elem_type);
         }
         break;
     case TYPE_STRING:
         if (dest->kind == TYPE_SLICE) {
             return Equal(&prim_u8_type, dest->ty_Slice.elem_type);
-        } else if ((flags & TC_UNSAFE) && dest->kind == TYPE_ARRAY) {
+        } else if (unsafe_enabled && dest->kind == TYPE_ARRAY) {
             return Equal(&prim_u8_type, dest->ty_Array.elem_type);
         }
         break;

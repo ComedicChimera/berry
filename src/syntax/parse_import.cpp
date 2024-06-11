@@ -64,7 +64,7 @@ void Parser::parseModulePath() {
         }
 
         src_file.parent->deps[dep_id].import_locs.emplace_back(
-            src_file.file_number, 
+            src_file.file_num, 
             SpanOver(mod_path[0].span, mod_path.back().span)
         );
     } else {

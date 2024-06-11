@@ -39,8 +39,11 @@ class Checker {
     // n_sorted counts the number of declarations which have already been
     // sorted. It is used as a cursor to determine where to insert the next
     // declaration in the sorted_decls array.
-    size_t n_sorted;
-    
+    size_t n_sorted { 0 };
+
+    // first_pass is used to indicate what phase of checking is in progress.
+    bool first_pass { true };
+
     // curr_decl_num stores the number of the current declaration being checked.
     size_t curr_decl_num;
 
@@ -48,11 +51,9 @@ class Checker {
     // expansion of types and constants.
     std::vector<size_t> decl_num_stack;
 
-    // TODO: preserve expr context during constant expansion
-
     // init_table keeps track of dependences between global variables (through
     // functions) to perform init order checking.
-    std::vector<std::unordered_set<size_t>> init_table;
+    std::vector<std::unordered_set<size_t>> init_graph;
 
     /* ---------------- Local Variables and Scoped Quantities --------------- */
 
@@ -78,6 +79,9 @@ class Checker {
     // operations are allowed.  This has to be part of the local context since
     // an unsafe comptime could be expand a non-unsafe comptime and vice-versa.
     int unsafe_depth { 0 };
+
+    // comptime_depth keeps track of the level of nested comptime expansion.
+    int comptime_depth { 0 };
 
     /* -------------------------- Expression State -------------------------- */
 
@@ -123,9 +127,10 @@ public:
     void CheckModule();
 
 private:
-    void checkDecl(Decl* decl);
     bool addToInitOrder(Decl* decl);
     void reportCycle(Decl* decl);
+
+    void checkDecl(Decl* decl);
 
     HirDecl* checkFuncDecl(AstNode* node);
     HirDecl* checkMethodDecl(AstNode* node, bool exported);
@@ -147,6 +152,9 @@ private:
     void checkGlobalVarAttrs(Decl* decl);
 
     Type* checkTypeLabel(AstNode* node, bool should_expand);
+
+    void pushDeclNum(size_t new_num);
+    void popDeclNum();
 
     /* ---------------------------------------------------------------------- */
 

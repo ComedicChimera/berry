@@ -30,7 +30,7 @@ void Parser::parseDecl(AttributeMap&& attr_map, DeclFlags flags) {
     }
     
     auto* decl = global_arena.New<Decl>(
-        src_file.file_number, 
+        src_file.file_num, 
         flags,
         moveAttrsToArena(std::move(attr_map)), 
         node

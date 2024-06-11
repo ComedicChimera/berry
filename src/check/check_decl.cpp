@@ -1,35 +1,7 @@
 #include "checker.hpp"
 
-static Symbol* getDeclSymbol(AstNode* node) {
-    switch (node->kind) {
-    case AST_FUNC:
-        return node->an_Func.symbol;
-    case AST_TYPEDEF:
-        return node->an_TypeDef.symbol;
-    case AST_VAR:
-    case AST_CONST:
-        return node->an_Var.symbol;
-    }
-
-    return nullptr;
-}
-
-static std::pair<std::string_view, bool> getDeclNameAndConst(AstNode* node) {
-    switch (node->kind) {
-    case AST_METHOD:
-        return { node->an_Method.name, false };
-    case AST_FACTORY:
-        // TODO: get the factory name
-        return { "factory", false };
-    default: {
-        auto* symbol = getDeclSymbol(node);
-        return { symbol->name, symbol->flags & SYM_CONST };
-    } break;
-    }
-}
-
 void Checker::checkDecl(Decl* decl) {
-    src_file = &mod.files[decl->file_number];
+    src_file = &mod.files[decl->file_num];
 
     switch (decl->color) {
     case COLOR_BLACK:
@@ -57,84 +29,15 @@ void Checker::checkDecl(Decl* decl) {
         break;
     case AST_CONST:
         decl->hir_decl = checkGlobalConst(decl->ast_decl, (decl->flags & DECL_UNSAFE) > 0);
-        mod.sorted_decls.push_back(decl);
+        sorted_decls[n_sorted++] = decl;
         break;
     case AST_TYPEDEF:
         decl->hir_decl = checkTypeDef(decl->ast_decl);
-        mod.sorted_decls.push_back(decl);
+        sorted_decls[n_sorted++] = decl;
         break;
     }
 
     decl->color = COLOR_BLACK;
-}
-
-bool Checker::addToInitOrder(Decl* decl) {
-    switch (decl->color) {
-    case COLOR_BLACK:
-        break;
-    case COLOR_WHITE: {
-        decl->color = COLOR_GREY;
-
-        auto& edges = init_graph[curr_decl_number];
-        decl_number_stack.push_back(curr_decl_number);
-
-        for (size_t edge_number : edges) {
-            curr_decl_number = edge_number;
-            if (addToInitOrder(mod.decls[curr_decl_number])) {
-                decl->color = COLOR_BLACK;
-                return true;
-            }
-        }
-
-        curr_decl_number = decl_number_stack.back();
-        decl_number_stack.pop_back();
-
-        mod.sorted_decls.push_back(decl);
-        decl->color = COLOR_BLACK;
-        return false;
-    } break;
-    case COLOR_GREY:
-        if (decl->hir_decl->kind == HIR_GLOBAL_VAR) {
-            reportCycle(decl);
-            decl->color = COLOR_BLACK;
-            return true;
-        }
-        break;
-    }
-
-    return false;
-}
-
-void Checker::reportCycle(Decl* decl) {
-    auto* start_symbol = getDeclSymbol(decl->ast_decl);
-    std::string fmt_cycle(start_symbol->name);
-    bool cycle_involves_const = false;
-    
-    for (size_t i = decl_number_stack.size() - 1; i >= 0; i--) {
-        auto n = decl_number_stack[i];
-
-        fmt_cycle += " -> ";
-
-        auto [name, is_const] = getDeclNameAndConst(mod.decls[n]->ast_decl);
-        fmt_cycle += name;
-        if (is_const) {
-            cycle_involves_const = true;
-        }
-
-        if (n == curr_decl_number) {
-            break;
-        }
-    }
-    
-    if (start_symbol->flags & SYM_TYPE) {
-        if (cycle_involves_const) {
-            error(start_symbol->span, "type depends cyclically on constant: {}", fmt_cycle);
-        } else {
-            error(start_symbol->span, "infinite type detected: {}", fmt_cycle);
-        }
-    } else {
-        error(start_symbol->span, "initialization cycle detected: {}", fmt_cycle);
-    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -286,6 +189,8 @@ MethodTable& Checker::getMethodTable(Type* bind_type) {
 /* -------------------------------------------------------------------------- */
 
 HirDecl* Checker::checkGlobalVar(AstNode* node) {
+    // TODO: global variables without type labels
+
     auto* type = checkTypeLabel(node->an_Var.type, false);
     auto* symbol = node->an_Var.symbol;
     symbol->type = type;
@@ -523,15 +428,9 @@ Type* Checker::checkTypeLabel(AstNode* node, bool should_expand) {
 
             if (named_type->ty_Named.type == nullptr) {
                 if (first_pass && (comptime_depth > 0 || should_expand)) {
-                    decl_number_stack.push_back(curr_decl_number);
-                    curr_decl_number = symbol->decl_number;
-
-                    checkDecl(mod.decls[curr_decl_number]);
-
-                    curr_decl_number = decl_number_stack.back();
-                    decl_number_stack.pop_back();
-
-                    src_file = &mod.files[mod.decls[curr_decl_number]->file_number];
+                    pushDeclNum(symbol->decl_num);
+                    checkDecl(mod.decls[curr_decl_num]);
+                    popDeclNum();
                 }
             }
 
@@ -560,4 +459,18 @@ Type* Checker::checkTypeLabel(AstNode* node, bool should_expand) {
     }
 
     return nullptr;
+}
+
+/* -------------------------------------------------------------------------- */
+
+void Checker::pushDeclNum(size_t new_num) {
+    decl_num_stack.push_back(curr_decl_num);
+    curr_decl_num = new_num;
+}
+
+void Checker::popDeclNum() {
+    curr_decl_num = decl_num_stack.back();
+    decl_num_stack.pop_back();
+
+    src_file = &mod.files[mod.decls[curr_decl_num]->file_num];
 }

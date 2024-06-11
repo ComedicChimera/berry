@@ -14,7 +14,7 @@ void CodeGenerator::GenerateModule() {
     }
 
     for (auto* decl : src_mod.decls) {
-        src_file = &src_mod.files[decl->file_number];
+        src_file = &src_mod.files[decl->file_num];
 
         genDeclProto(decl);
     }
@@ -22,7 +22,7 @@ void CodeGenerator::GenerateModule() {
     genBuiltinFuncs();
 
     for (auto* decl : src_mod.decls) {
-        src_file = &src_mod.files[decl->file_number];
+        src_file = &src_mod.files[decl->file_num];
         debug.SetCurrentFile(*src_file);
 
         genDeclBody(decl);

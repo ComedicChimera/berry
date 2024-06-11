@@ -54,8 +54,8 @@ void MainBuilder::GenUserMainCall(Module& root_mod) {
     }
 
     if (sym->type->ty_Func.param_types.size() != 0 || sym->type->ty_Func.return_type->kind != TYPE_UNIT) {
-        auto* decl = root_mod.sorted_decls[sym->decl_number];
-        auto& src_file = root_mod.files[decl->file_number];
+        auto* decl = root_mod.decls[sym->decl_num];
+        auto& src_file = root_mod.files[decl->file_num];
         
         ReportCompileError(src_file.display_path, sym->span, "main function must take no arguments and return no value");
     }
