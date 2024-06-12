@@ -16,19 +16,19 @@ void Checker::checkDecl(Decl* decl) {
 
     switch (decl->ast_decl->kind) {
     case AST_FUNC:
-        decl->hir_decl = checkFuncDecl(decl->ast_decl);
+        decl->hir_decl = checkFuncDecl(decl);
         break;
     case AST_METHOD:
-        decl->hir_decl = checkMethodDecl(decl->ast_decl, (decl->flags & DECL_EXPORTED) > 0);
+        decl->hir_decl = checkMethodDecl(decl);
         break;
     case AST_FACTORY:
-        decl->hir_decl = checkFactoryDecl(decl->ast_decl, (decl->flags & DECL_EXPORTED) > 0);
+        decl->hir_decl = checkFactoryDecl(decl);
         break;
     case AST_VAR:
-        decl->hir_decl = checkGlobalVar(decl->ast_decl);
+        decl->hir_decl = checkGlobalVar(decl);
         break;
     case AST_CONST:
-        decl->hir_decl = checkGlobalConst(decl->ast_decl, (decl->flags & DECL_UNSAFE) > 0);
+        decl->hir_decl = checkGlobalConst(decl);
         sorted_decls[n_sorted++] = decl;
         break;
     case AST_TYPEDEF:
@@ -42,7 +42,10 @@ void Checker::checkDecl(Decl* decl) {
 
 /* -------------------------------------------------------------------------- */
 
-HirDecl* Checker::checkFuncDecl(AstNode* node) {
+HirDecl* Checker::checkFuncDecl(Decl* decl) {
+    checkFuncAttrs(decl);
+
+    auto* node = decl->ast_decl;
     auto* symbol = node->an_Func.symbol;
 
     std::vector<Symbol*> params;
@@ -58,8 +61,10 @@ HirDecl* Checker::checkFuncDecl(AstNode* node) {
     return hfunc;
 }
 
-HirDecl* Checker::checkMethodDecl(AstNode* node, bool exported) {
-    auto& amethod = node->an_Method;
+HirDecl* Checker::checkMethodDecl(Decl* decl) {
+    checkMethodAttrs(decl);
+
+    auto& amethod = decl->ast_decl->an_Method;
     auto* bind_type = checkTypeLabel(amethod.bind_type, false);
 
     auto* uw_bind_type = bind_type->FullUnwrap();
@@ -83,11 +88,11 @@ HirDecl* Checker::checkMethodDecl(AstNode* node, bool exported) {
         mod.id,
         amethod.name,
         func_type,
-        exported
+        decl->flags & DECL_EXPORTED
     );
     mtable.emplace(amethod.name, method);
 
-    auto* hmethod = allocDecl(HIR_METHOD, node->span);
+    auto* hmethod = allocDecl(HIR_METHOD, decl->ast_decl->span);
     hmethod->ir_Method.bind_type = bind_type;
     hmethod->ir_Method.method = method;
     hmethod->ir_Method.params = arena.MoveVec(std::move(params));
@@ -96,8 +101,10 @@ HirDecl* Checker::checkMethodDecl(AstNode* node, bool exported) {
     return hmethod;
 }
 
-HirDecl* Checker::checkFactoryDecl(AstNode* node, bool exported) {
-    auto& afact = node->an_Factory;
+HirDecl* Checker::checkFactoryDecl(Decl* decl) {
+    checkFactoryAttrs(decl);
+
+    auto& afact = decl->ast_decl->an_Factory;
     auto* bind_type = checkTypeLabel(afact.bind_type, false);
 
     Assert(bind_type->kind == TYPE_NAMED || bind_type->kind == TYPE_ALIAS, "non-named method bind type");
@@ -112,11 +119,11 @@ HirDecl* Checker::checkFactoryDecl(AstNode* node, bool exported) {
     auto* factory = arena.New<FactoryFunc>(
         mod.id,
         func_type,
-        exported
+        decl->flags & DECL_EXPORTED
     );
     bind_type->ty_Named.factory = factory;
 
-    auto* hfact = allocDecl(HIR_FACTORY, node->span);
+    auto* hfact = allocDecl(HIR_FACTORY, decl->ast_decl->span);
     hfact->ir_Factory.bind_type = bind_type;
     hfact->ir_Factory.func = factory;
     hfact->ir_Factory.params = arena.MoveVec(std::move(params));
@@ -188,23 +195,51 @@ MethodTable& Checker::getMethodTable(Type* bind_type) {
 
 /* -------------------------------------------------------------------------- */
 
-HirDecl* Checker::checkGlobalVar(AstNode* node) {
-    // TODO: global variables without type labels
+HirDecl* Checker::checkGlobalVar(Decl* decl) {
+    checkGlobalVarAttrs(decl);
 
-    auto* type = checkTypeLabel(node->an_Var.type, false);
+    auto* node = decl->ast_decl;
     auto* symbol = node->an_Var.symbol;
-    symbol->type = type;
 
-    auto* hvar = allocDecl(HIR_GLOBAL_VAR, node->span);
-    hvar->ir_GlobalVar.symbol = symbol;
-    
-    return hvar;
+    Type* type = nullptr;
+    if (node->an_Var.type) {
+        type = checkTypeLabel(node->an_Var.type, true);
+    }
+
+    auto* hgvar = allocDecl(HIR_GLOBAL_VAR, node->span);
+    hgvar->ir_GlobalVar.symbol = symbol;
+
+    if (decl->ast_decl->an_Var.init) {
+        is_comptime_expr = true;
+        auto* hinit = checkExpr(node->an_Var.init, type);
+
+        if (type == nullptr) {
+            type = hinit->type;
+        } else {
+            hinit = subtypeCast(hinit, type);
+        }
+
+        finishExpr();
+
+        hgvar->ir_GlobalVar.init = hinit;
+        hgvar->ir_GlobalVar.const_init = is_comptime_expr ? evalComptime(hinit) : nullptr;
+    }
+
+    symbol->type = type;
+    return hgvar;
 }
 
-HirDecl* Checker::checkGlobalConst(AstNode* node, bool unsafe) {
-    auto* type = checkTypeLabel(node->an_Var.type, true);
+HirDecl* Checker::checkGlobalConst(Decl* decl) {
+    checkGlobalVarAttrs(decl);
+
+    auto* node = decl->ast_decl;
     auto* symbol = node->an_Var.symbol;
-    symbol->type = type;
+    bool unsafe = (decl->flags & DECL_UNSAFE) > 0;
+
+    Type* type = nullptr;
+    if (node->an_Var.type) {
+        type = checkTypeLabel(node->an_Var.type, true);
+    }
 
     ConstValue* value;
     if (node->an_Var.init) {
@@ -213,20 +248,25 @@ HirDecl* Checker::checkGlobalConst(AstNode* node, bool unsafe) {
         auto* hinit = checkExpr(node->an_Var.init, type);
         unsafe_depth -= (int)unsafe;
         comptime_depth--;
+
+        if (type == nullptr) {
+            type = hinit->type;
+        } else {
+            hinit = subtypeCast(hinit, type);
+        }
         
-        hinit = subtypeCast(hinit, type);
         finishExpr();
 
         value = evalComptime(hinit);
     } else {
         value = getComptimeNull(type);
     }
-    
 
     auto* hconst = allocDecl(HIR_GLOBAL_CONST, node->span);
     hconst->ir_GlobalConst.symbol = symbol;
     hconst->ir_GlobalConst.init = value;
 
+    symbol->type = type;
     return hconst;
 }
 
@@ -313,22 +353,6 @@ void Checker::checkMethodBody(Decl* decl) {
     }
     
     hm.body = hbody;
-}
-
-void Checker::checkGlobalVarInit(Decl* decl) {
-    checkGlobalVarAttrs(decl);
-
-    if (decl->ast_decl->an_Var.init) {
-        auto& hgvar = decl->hir_decl->ir_GlobalVar;
-
-        is_comptime_expr = true;
-        auto* hexpr = checkExpr(decl->ast_decl->an_Var.init, hgvar.symbol->type);
-        hexpr = subtypeCast(hexpr, hgvar.symbol->type);
-        finishExpr();
-
-        hgvar.init = hexpr;
-        hgvar.const_init = is_comptime_expr ? evalComptime(hexpr) : nullptr;
-    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -427,7 +451,7 @@ Type* Checker::checkTypeLabel(AstNode* node, bool should_expand) {
             auto* named_type = symbol->type;
 
             if (named_type->ty_Named.type == nullptr) {
-                if (first_pass && (comptime_depth > 0 || should_expand)) {
+                if (first_pass && should_expand) {
                     pushDeclNum(symbol->decl_num);
                     checkDecl(mod.decls[curr_decl_num]);
                     popDeclNum();

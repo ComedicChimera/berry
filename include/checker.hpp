@@ -130,31 +130,35 @@ private:
     bool addToInitOrder(Decl* decl);
     void reportCycle(Decl* decl);
 
+    /* ---------------------------------------------------------------------- */
+
     void checkDecl(Decl* decl);
 
-    HirDecl* checkFuncDecl(AstNode* node);
-    HirDecl* checkMethodDecl(AstNode* node, bool exported);
-    HirDecl* checkFactoryDecl(AstNode* node, bool exported);
+    HirDecl* checkFuncDecl(Decl* decl);
+    HirDecl* checkMethodDecl(Decl* decl);
+    HirDecl* checkFactoryDecl(Decl* decl);
     Type* checkFuncSignature(AstNode* node, std::vector<Symbol*>& params);
     MethodTable& getMethodTable(Type* bind_type);
 
-    HirDecl* checkGlobalVar(AstNode* node);
-    HirDecl* checkGlobalConst(AstNode* node, bool unsafe);
+    HirDecl* checkGlobalVar(Decl* decl);
+    HirDecl* checkGlobalConst(Decl* decl);
+
     HirDecl* checkTypeDef(AstNode* node);
 
     HirStmt* checkFuncBody(AstNode* body, std::span<Symbol*> params, Type* return_type);
     void checkMethodBody(Decl* decl);
-    void checkGlobalVarInit(Decl* decl);
-
-    void checkFuncAttrs(Decl* decl);
-    void checkMethodAttrs(Decl* decl);
-    void checkFactoryAttrs(Decl* decl);
-    void checkGlobalVarAttrs(Decl* decl);
 
     Type* checkTypeLabel(AstNode* node, bool should_expand);
 
     void pushDeclNum(size_t new_num);
     void popDeclNum();
+
+    /* ---------------------------------------------------------------------- */
+
+    void checkFuncAttrs(Decl* decl);
+    void checkMethodAttrs(Decl* decl);
+    void checkFactoryAttrs(Decl* decl);
+    void checkGlobalVarAttrs(Decl* decl);
 
     /* ---------------------------------------------------------------------- */
 
@@ -228,7 +232,7 @@ private:
     HirExpr* checkValueSymbol(Symbol* symbol, const TextSpan& span);
 
     void markNonComptime(const TextSpan& span);
-    void maybeExpandComptime(Symbol* symbol);
+    void maybeExpandIdent(Symbol* symbol);
 
     /* ---------------------------------------------------------------------- */
 

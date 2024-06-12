@@ -27,7 +27,7 @@ func _start() {
     // Transfer control to user code.
     _main();
 
-    // Exit the current thread gracefully when `main` returns.
-    thrExit(0);
+    // Exit the current program gracefully when `main` returns.
+    exit(0);
 }
 

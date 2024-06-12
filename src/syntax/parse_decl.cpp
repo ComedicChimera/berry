@@ -197,11 +197,13 @@ void Parser::parseFuncParams(std::vector<AstFuncParam>& params) {
 
 AstNode* Parser::parseGlobalVarDecl(bool exported) {
     auto* avar = parseLocalVarDecl();
+    want(TOK_SEMI);
 
     auto* symbol = avar->an_Var.symbol;
     if (exported)
         symbol->flags |= SYM_EXPORTED;
 
+    symbol->decl_num = src_file.parent->decls.size();
     defineGlobal(symbol);
     return avar;
 }

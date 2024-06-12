@@ -1,0 +1,11 @@
+let x = f();
+
+func f() int {
+	return y;
+}
+
+let y = g();
+
+func g() int {
+	return f();
+}

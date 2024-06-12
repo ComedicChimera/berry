@@ -38,7 +38,6 @@ void Checker::CheckModule() {
 
         switch (decl->hir_decl->kind) {
         case HIR_FUNC:
-            checkFuncAttrs(decl);
             if (decl->ast_decl->an_Func.body) {
                 decl->hir_decl->ir_Func.body = checkFuncBody(
                     decl->ast_decl->an_Func.body,
@@ -51,18 +50,11 @@ void Checker::CheckModule() {
             checkMethodBody(decl);
             break;
         case HIR_FACTORY:
-            checkFactoryAttrs(decl);
             decl->hir_decl->ir_Factory.body = checkFuncBody(
                 decl->ast_decl->an_Factory.body,
                 decl->hir_decl->ir_Factory.params,
                 decl->hir_decl->ir_Factory.return_type
             );
-            break;
-        case HIR_GLOBAL_VAR:
-            checkGlobalVarInit(decl);
-            break;
-        case HIR_GLOBAL_CONST:
-            checkGlobalVarAttrs(decl);
             break;
         }
 
@@ -122,7 +114,8 @@ void Checker::CheckModule() {
 
 /* -------------------------------------------------------------------------- */
 
-static Symbol* getDeclSymbol(AstNode* node) {
+static Symbol* getDeclSymbol(Decl* decl) {
+    auto* node = decl->ast_decl;
     switch (node->kind) {
     case AST_FUNC:
         return node->an_Func.symbol;
@@ -136,16 +129,17 @@ static Symbol* getDeclSymbol(AstNode* node) {
     return nullptr;
 }
 
-static std::pair<std::string_view, bool> getDeclNameAndConst(AstNode* node) {
-    switch (node->kind) {
-    case AST_METHOD:
-        return { node->an_Method.name, false };
-    case AST_FACTORY:
-        // TODO: get the factory name
-        return { "factory", false };
+static std::pair<std::string, bool> getDeclNameAndConst(Decl* decl) {
+    // NOTE: Methods and factories can only be involved in cycles during init
+    // order checking, so we are safe to access their HIR nodes.
+    switch (decl->ast_decl->kind) {
+    case HIR_METHOD:
+        return { std::string(decl->hir_decl->ir_Method.method->name), false };
+    case HIR_FACTORY:
+        return { decl->hir_decl->ir_Factory.bind_type->ToString() + ".factory", false };
     default: {
-        auto* symbol = getDeclSymbol(node);
-        return { symbol->name, symbol->flags & SYM_CONST };
+        auto* symbol = getDeclSymbol(decl);
+        return { std::string(symbol->name), symbol->flags & SYM_CONST };
     } break;
     }
 }
@@ -175,11 +169,25 @@ bool Checker::addToInitOrder(Decl* decl) {
         return false;
     } break;
     case COLOR_GREY:
-        if (decl->hir_decl->kind == HIR_GLOBAL_VAR) {
-            reportCycle(decl);
-            decl->color = COLOR_BLACK;
-            return true;
-        }
+        // We might have an invalid cycle at this point, but we have to check.
+        // Cycles involving only functions are fine (recursion).  It's when we
+        // have cycles that involve global variables that there is a problem.
+        for (size_t i = decl_num_stack.size() - 1; i >= 0; i--) {
+            auto decl_num = decl_num_stack[i];
+
+            // If a global variable is part of the cycle, then the execution of
+            // its initializer in some way depends on the evaluation of a
+            // function which depends recursively upon its value. 
+            if (mod.decls[decl_num]->hir_decl->kind == HIR_GLOBAL_VAR) {
+                reportCycle(decl);
+                decl->color = COLOR_BLACK;
+                return true;
+            }
+
+            if (decl_num == curr_decl_num) {
+                break;
+            }
+        } 
         break;
     }
 
@@ -187,7 +195,7 @@ bool Checker::addToInitOrder(Decl* decl) {
 }
 
 void Checker::reportCycle(Decl* decl) {
-    auto* start_symbol = getDeclSymbol(decl->ast_decl);
+    auto* start_symbol = getDeclSymbol(decl);
     std::string fmt_cycle(start_symbol->name);
     bool cycle_involves_const = false;
     
@@ -196,7 +204,7 @@ void Checker::reportCycle(Decl* decl) {
 
         fmt_cycle += " -> ";
 
-        auto [name, is_const] = getDeclNameAndConst(mod.decls[n]->ast_decl);
+        auto [name, is_const] = getDeclNameAndConst(mod.decls[n]);
         fmt_cycle += name;
         if (is_const) {
             cycle_involves_const = true;
@@ -322,7 +330,7 @@ std::pair<Symbol*, Module::DepEntry*> Checker::mustLookup(std::string_view name,
 
     auto it = mod.symbol_table.find(name);
     if (it != mod.symbol_table.end()) {
-        if (!first_pass && (it->second->flags & SYM_TYPE) == 0) {
+        if ((it->second->flags & SYM_COMPTIME) == 0) {
             init_graph[curr_decl_num].insert(it->second->decl_num);
         }
 

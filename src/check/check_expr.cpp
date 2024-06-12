@@ -546,7 +546,7 @@ HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {
         }
 
         if (symbol->flags & SYM_TYPE) { // Type.name2
-            maybeExpandComptime(symbol);
+            maybeExpandIdent(symbol);
 
             return checkEnumLit(node, symbol->type);
         }
@@ -568,7 +568,7 @@ HirExpr* Checker::checkSelector(AstNode* node, Type* infer_type) {
 
                 root_expr = checkStaticGet(dep->id, imported_symbol, dep->mod->name, aroot->span);
             } else if (symbol->flags & SYM_TYPE) { // Type.name1.name2
-                maybeExpandComptime(symbol);
+                maybeExpandIdent(symbol);
 
                 root_expr = checkEnumLit(aroot, symbol->type);
             } else { // value.name1.name2
@@ -900,14 +900,19 @@ std::vector<HirFieldInit> Checker::checkFieldInits(std::span<AstNode*> afield_in
     return field_inits;
 }
 
+/* -------------------------------------------------------------------------- */
+
 HirExpr* Checker::checkValueSymbol(Symbol* symbol, const TextSpan& span) {
-    if (symbol->flags & SYM_COMPTIME) {
-        maybeExpandComptime(symbol);
-    } else if (comptime_depth > 0) {
-        fatal(span, "value of {} cannot be determined at compile time", symbol->name);
-    } else {
-        is_comptime_expr = false;
+    if ((symbol->flags & SYM_COMPTIME) == 0) {
+        if (comptime_depth > 0) {
+            fatal(span, "value of {} cannot be determined at compile time", symbol->name);
+        } else {
+            is_comptime_expr = false;
+        } 
     }
+    
+    maybeExpandIdent(symbol);
+    Assert(symbol->type != nullptr, "identifier type was null");
 
     auto* hexpr = allocExpr(HIR_IDENT, span);
     hexpr->type = symbol->type;
@@ -915,8 +920,6 @@ HirExpr* Checker::checkValueSymbol(Symbol* symbol, const TextSpan& span) {
     hexpr->ir_Ident.symbol = symbol;
     return hexpr;
 }
-
-/* -------------------------------------------------------------------------- */
 
 void Checker::markNonComptime(const TextSpan& span) {
     if (comptime_depth > 0) {
@@ -926,28 +929,28 @@ void Checker::markNonComptime(const TextSpan& span) {
     }
 }
 
-void Checker::maybeExpandComptime(Symbol* symbol) {
-    if (first_pass && comptime_depth > 0) {
-        if (symbol->type == nullptr) {
-            // Recursively expand comptime values.
-            Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
+void Checker::maybeExpandIdent(Symbol* symbol) {
+    if (first_pass && symbol->type == nullptr) {
+        // Recursively expand global symbols.
+        Assert(symbol->parent_id == mod.id, "comptime is undetermined after module checking is completed");
 
-            // Save and clear expression-local state which may be modified
-            // during comptime expansion.
-            auto prev_tctx = std::move(tctx);
-            auto prev_null_spans = std::move(null_spans);
-            int prev_unsafe_depth = unsafe_depth;
-            unsafe_depth = 0;
+        // Save and clear expression-local state which may be modified during
+        // global variable expansion.
+        auto prev_tctx = std::move(tctx);
+        auto prev_null_spans = std::move(null_spans);
+        bool prev_is_comptime_expr = is_comptime_expr;
+        int prev_unsafe_depth = unsafe_depth;
+        unsafe_depth = 0;
 
-            // Expand the comptime declaration.
-            pushDeclNum(symbol->decl_num);
-            checkDecl(mod.decls[symbol->decl_num]);
-            popDeclNum();
+        // Expand the declaration.
+        pushDeclNum(symbol->decl_num);
+        checkDecl(mod.decls[symbol->decl_num]);
+        popDeclNum();
 
-            // Restore old expression state.
-            tctx = std::move(prev_tctx);
-            null_spans = std::move(prev_null_spans);
-            unsafe_depth = prev_unsafe_depth;
-        }
+        // Restore old expression state.
+        tctx = std::move(prev_tctx);
+        null_spans = std::move(prev_null_spans);
+        is_comptime_expr = prev_is_comptime_expr;
+        unsafe_depth = prev_unsafe_depth;
     }
 }

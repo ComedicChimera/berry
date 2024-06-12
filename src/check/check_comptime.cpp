@@ -631,43 +631,43 @@ ConstValue* Checker::evalComptimeUnaryOp(HirExpr* node) {
         switch (operand->kind) {
         case CONST_I8:
             value = allocComptime(CONST_I8);
-            value->v_i8 = -value->v_i8;
+            value->v_i8 = -operand->v_i8;
             break;
         case CONST_U8:
             value = allocComptime(CONST_U8);
-            value->v_u8 = -value->v_u8;
+            value->v_u8 = -operand->v_u8;
             break;
         case CONST_I16:
             value = allocComptime(CONST_I16);
-            value->v_i16 = -value->v_i16;
+            value->v_i16 = -operand->v_i16;
             break;
         case CONST_U16:
             value = allocComptime(CONST_U16);
-            value->v_u16 = -value->v_u16;
+            value->v_u16 = -operand->v_u16;
             break;
         case CONST_I32:
             value = allocComptime(CONST_I32);
-            value->v_i32 = -value->v_i32;
+            value->v_i32 = -operand->v_i32;
             break;
         case CONST_U32:
             value = allocComptime(CONST_U32);
-            value->v_u32 = -value->v_u32;
+            value->v_u32 = -operand->v_u32;
             break;
         case CONST_I64:
             value = allocComptime(CONST_I64);
-            value->v_i64 = -value->v_i64;
+            value->v_i64 = -operand->v_i64;
             break;
         case CONST_U64:
             value = allocComptime(CONST_U64);
-            value->v_u64 = -value->v_u64;
+            value->v_u64 = -operand->v_u64;
             break;
         case CONST_F32:
             value = allocComptime(CONST_F32);
-            value->v_f32 = -value->v_f32;
+            value->v_f32 = -operand->v_f32;
             break;
         case CONST_F64:
             value = allocComptime(CONST_F64);
-            value->v_f64 = -value->v_f64;
+            value->v_f64 = -operand->v_f64;
             break;
         }
         break;
