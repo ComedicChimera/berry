@@ -58,6 +58,8 @@ enum HirKind {
     HIR_STRING_LIT,
     HIR_NULL,
 
+    HIR_PATTERN_CAPTURE, 
+
     HIR_MACRO_SIZEOF,           // uses ir_MacroType
     HIR_MACRO_ALIGNOF,          // uses ir_MacroType
     HIR_MACRO_ATOMIC_CAS_WEAK,  // uses ir_MacroAtomicCas
@@ -281,6 +283,13 @@ struct HirExpr : public HirNode {
             Symbol* symbol;
         } ir_Ident;
         struct {
+            Symbol* symbol;
+
+            // Pattern captures can act as local variables.
+            HirAllocMode alloc_mode;
+            bool is_gcroot;
+        } ir_Capture;
+        struct {
             uint64_t value;
         } ir_Num;
         struct {
@@ -380,6 +389,12 @@ struct HirStmt : public HirNode {
         struct {
             Symbol* symbol;
             HirExpr* init;
+
+            // Local variables can escape to the heap through references (&x).
+            // Note that heap-allocated local variables can still be GC roots.
+            // In this case, we have to spill the local variable pointer itself
+            // onto the stack.
+            HirAllocMode alloc_mode;
 
             // Local variables which hold pointers may or may not be roots: the
             // escape analyzer may "demote" a pointer holding local variable to

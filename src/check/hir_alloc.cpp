@@ -59,6 +59,8 @@ static size_t hir_variant_sizes[HIRS_COUNT] = {
     sizeof(size_ref_expr.ir_String),
     0,
 
+    sizeof(size_ref_expr.ir_Capture),
+
     sizeof(size_ref_expr.ir_MacroType),
     sizeof(size_ref_expr.ir_MacroType),
     sizeof(size_ref_expr.ir_MacroAtomicCas),

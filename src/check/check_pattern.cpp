@@ -69,13 +69,15 @@ std::pair<HirExpr*, bool> Checker::checkPattern(AstNode* node, Type* expect_type
         hexpr->ir_Bool.value = node->an_Bool.value;
         break;
     case AST_IDENT: {
-        hexpr = allocExpr(HIR_IDENT, node->span);
+        hexpr = allocExpr(HIR_PATTERN_CAPTURE, node->span);
         hexpr->type = expect_type;
+        hexpr->ir_Capture.alloc_mode = HIRMEM_STACK;
+        hexpr->ir_Capture.is_gcroot = false;
 
         if (node->an_Ident.name == "_") {
-            hexpr->ir_Ident.symbol = nullptr;
+            hexpr->ir_Capture.symbol = nullptr;
         } else {
-            hexpr->ir_Ident.symbol = arena.New<Symbol>(
+            hexpr->ir_Capture.symbol = arena.New<Symbol>(
                 mod.id,
                 node->an_Ident.name,
                 node->span,
@@ -115,9 +117,9 @@ std::pair<HirExpr*, bool> Checker::checkPattern(AstNode* node, Type* expect_type
 
 void Checker::declarePatternCaptures(HirExpr* pattern) {
     switch (pattern->kind) {
-    case HIR_IDENT:
-        if (pattern->ir_Ident.symbol)
-            declareLocal(pattern->ir_Ident.symbol);
+    case HIR_PATTERN_CAPTURE:
+        if (pattern->ir_Capture.symbol)
+            declareLocal(pattern->ir_Capture.symbol);
         
         break;
     }

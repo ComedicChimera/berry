@@ -330,6 +330,12 @@ HirStmt* Checker::checkLocalVar(AstNode* node) {
     auto* hvar = allocStmt(HIR_LOCAL_VAR, node->span);
     hvar->ir_LocalVar.symbol = alocal.symbol;
     hvar->ir_LocalVar.init = hinit;
+
+    // Local variables are always stack-allocated by default.
+    hvar->ir_LocalVar.alloc_mode = HIRMEM_STACK;
+
+    // May be promoted to roots by escape analyzer.
+    hvar->ir_LocalVar.is_gcroot = false;
     return hvar;
 }
 
