@@ -1,0 +1,45 @@
+import io.std;
+
+struct ListNode {
+    value: int;
+    next: *ListNode;
+}
+
+func createList(n: int) *ListNode {
+    let head = new ListNode{value: n};
+
+    let node = head;
+    for let i = 1; i < n; i++ {
+        let next = new ListNode{value: n - i};
+        node.next = next;
+        node = next;
+    }
+
+    return head;
+}
+
+func printList(node: *ListNode, mod: int) {
+    while node != null {
+        if node.value % mod == 0 {
+            std.putint(node.value);
+            node = node.next;
+        }
+    }
+}
+
+func main() {
+    // List needs to be large enough to trigger collections.
+    let list = createList(1_000_000);
+
+    // Check the list's integrity.
+    printList(list);
+
+    // Free the list.
+    list = null;
+
+    // Allocate a new list to see if the old list gets collected.
+    list = createList(2_000_000);
+
+    // Check the list's integrity.
+    printList(list);
+}

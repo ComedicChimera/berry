@@ -380,6 +380,12 @@ struct HirStmt : public HirNode {
         struct {
             Symbol* symbol;
             HirExpr* init;
+
+            // Local variables which hold pointers may or may not be roots: the
+            // escape analyzer may "demote" a pointer holding local variable to
+            // a non-root because it determines that it never holds a pointer to
+            // heap memory.
+            bool is_gcroot;
         } ir_LocalVar;
         struct {
             Symbol* symbol;
@@ -429,6 +435,11 @@ struct HirDecl : public HirNode {
             Symbol* symbol;
             HirExpr* init;
             ConstValue* const_init;
+
+            // Global's aren't tagged with gcroot status because it is
+            // determined solely by type for global variables: any global
+            // variable to a pointer or a type containing a pointer is always a
+            // GC root.
         } ir_GlobalVar;
         struct {
             Symbol* symbol;

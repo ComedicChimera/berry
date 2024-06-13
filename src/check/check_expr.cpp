@@ -1,5 +1,40 @@
 #include "checker.hpp"
 
+// Regarding Heap Allocation and Escape Analysis
+// ---------------------------------------------
+// Berry's type checker is responsible for making the initial guess on where to
+// allocate values in memory.  In particular expressions such as new expressions
+// and array literals may or may not require heap memory.  Other expressions
+// such as function returns may require implicit allocation of memory for the
+// return parameter (how the backend returns non-trival types by value).  In all
+// these cases, the checker makes an *optimistic* estimate on where to place the
+// values in memory.
+//
+// There are three general rules:
+//   1. If an expression requires a variable amount of memory, it always
+//      allocates on the heap.
+//   2. If an expression performs an explicit allocation (producing a pointer or
+//      reference type) requires a fixed amount of memory, then if this
+//      expression occurs inside a function, it is assumed to allocate on the
+//      stack.  Otherwise, it allocates on the heap.
+//   2. If an expression may require an implicit allocation (always a fixed
+//      amount of memory), then it will be placed in stack memory if the
+//      expression is inside a function.  Otherwise, the expression occurs
+//      globally, and it allocates in global memory.
+//
+// Rule 2 *requires* that the escape analyzer go back over the code and update
+// any allocations which escape into the heap.  That is: the escape analyzer is
+// not just an optimization pass, but an critical part of the compiler.
+// 
+// This "optimistic" approach is more natural from the perspective of
+// implementing an escape analyzer and generally makes bugs in the analyzer
+// easier to detect.  Namely, if the analyzer forgets to mark something as heap
+// variable that should be, then the result is a seg fault which will show up
+// during testing.  By contrast, if we took a "conservative" approach and put
+// everything on the heap by default, then bugs in the analyzer would be much
+// more likely to manifest as memory leaks rather than seg faults which is less
+// ideal.
+
 static std::unordered_map<TokenKind, HirOpKind> binop_table {
     { TOK_PLUS, HIROP_ADD },
     { TOK_MINUS, HIROP_SUB },
@@ -181,8 +216,7 @@ HirExpr* Checker::checkExpr(AstNode* node, Type* infer_type) {
         hexpr->type = allocType(TYPE_PTR);
         hexpr->type->ty_Ptr.elem_type = elem_type;
         hexpr->ir_New.elem_type = elem_type;
-        // TODO: revise for heap allocation
-        hexpr->ir_New.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+        hexpr->ir_New.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_HEAP;
     } break;
     case AST_NEW_ARRAY: 
         hexpr = checkNewArray(node);
@@ -457,7 +491,6 @@ HirExpr* Checker::checkCall(AstNode* node) {
             hmcall->ir_CallMethod.self = hroot;
             hmcall->ir_CallMethod.method = method;
             hmcall->ir_CallMethod.args = hargs;
-            // TODO: heap allocation
             hmcall->ir_CallMethod.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
             return hmcall;
         }
@@ -479,7 +512,6 @@ normal_func:
     hcall->type = func_type->ty_Func.return_type;
     hcall->ir_Call.func = hcallee;
     hcall->ir_Call.args = hargs;
-    // TODO: heap allocation
     hcall->ir_Call.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
     return hcall;
 }
@@ -511,7 +543,6 @@ HirExpr* Checker::checkFactoryCall(const TextSpan& span, Type* type, std::span<A
     hfcall->type = factory_func->signature->ty_Func.return_type;
     hfcall->ir_CallFactory.func = factory_func;
     hfcall->ir_CallFactory.args = hargs;
-    // TODO: heap allocation
     hfcall->ir_CallFactory.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
     return hfcall;
 }
@@ -739,8 +770,6 @@ HirExpr* Checker::checkNewArray(AstNode* node) {
         }
     }
 
-    is_comptime_expr = false;
-
     auto* slice_type = allocType(TYPE_SLICE);
     slice_type->ty_Slice.elem_type = elem_type;
 
@@ -748,8 +777,14 @@ HirExpr* Checker::checkNewArray(AstNode* node) {
     hexpr->type = slice_type;
     hexpr->ir_NewArray.len = hlen;
     hexpr->ir_NewArray.const_len = const_len;
-    // TODO: revise for automatic allocation
-    hexpr->ir_NewArray.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+    
+    if (!is_comptime_expr || enclosing_return_type == nullptr) {
+        hexpr->ir_NewArray.alloc_mode = HIRMEM_HEAP;
+    } else {
+        hexpr->ir_NewArray.alloc_mode = HIRMEM_STACK;
+    }
+
+    is_comptime_expr = false;
     return hexpr;
 }
 
@@ -790,8 +825,7 @@ HirExpr* Checker::checkNewStruct(AstNode* node, Type* infer_type) {
     auto* hexpr = allocExpr(HIR_NEW_STRUCT, node->span);
     hexpr->type = ptr_type;
     hexpr->ir_StructLit.field_inits = arena.MoveVec(std::move(field_inits));
-    // TODO: heap allocation
-    hexpr->ir_StructLit.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+    hexpr->ir_StructLit.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_HEAP;
     return hexpr;
 }
 
@@ -831,8 +865,7 @@ HirExpr* Checker::checkArrayLit(AstNode* node, Type* infer_type) {
     auto* hexpr = allocExpr(HIR_ARRAY_LIT, node->span);
     hexpr->type = arr_type;
     hexpr->ir_ArrayLit.items = arena.MoveVec(std::move(items));
-    // TODO: heap allocation
-    hexpr->ir_ArrayLit.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_GLOBAL;
+    hexpr->ir_ArrayLit.alloc_mode = enclosing_return_type ? HIRMEM_STACK : HIRMEM_HEAP;
     return hexpr;
 }
 
