@@ -1,0 +1,35 @@
+import io.std;
+
+func allocPtrList(offset: int) []*int {
+    let x = new int[10];
+    for let i = 0; i < x._len; i++ {
+        x[i] = i + offset;
+    }
+
+    let px = new *int[10];
+    for let i = 0; i < x._len; x++ {
+        px[i] = &x[i];
+    }
+
+    return px;
+}
+
+func printPtrList(list: []*int) {
+    for let i = 0; i < list._len; i++ {
+        if i > 0 {
+            std.puts(", ");
+        }
+
+        std.putint(*list[i]);
+    }
+
+    std.putr('\n');
+}
+
+func main() {
+    let list1 = allocPtrList(1);
+    let list2 = allocPtrList(11);
+
+    printPtrList(list1);
+    printPtrList(list2);
+}

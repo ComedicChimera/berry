@@ -15,6 +15,7 @@ set(SRCS
     "loader.cpp"
     "linker.cpp"
     "target.cpp"
+    "escape.cpp"
        
     "syntax/token.cpp"
     "syntax/lexer.cpp" 
